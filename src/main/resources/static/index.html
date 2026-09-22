@@ -352,7 +352,7 @@ function litLabels(s){
 /* =====================================================================
    3. API, AUTENTICAÇÃO E MAPEAMENTO DE DADOS
    ===================================================================== */
-const API_BASE='http://localhost:8080/api';
+const API_BASE='/api'; // relativo: funciona local e em produção, sem precisar trocar nada
 const TOKEN_KEY='pascom-fatima-token';
 let authToken=null;
 try{ authToken=localStorage.getItem(TOKEN_KEY); }catch(e){}

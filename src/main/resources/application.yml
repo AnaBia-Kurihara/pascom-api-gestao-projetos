@@ -1,5 +1,5 @@
 server:
-  port: 8080
+  port: ${PORT:8080}
 
 spring:
   application:
@@ -31,4 +31,27 @@ api:
       # Chave usada para criptografar o access token do Instagram no banco.
       # Em produção, defina a variável de ambiente INSTAGRAM_TOKEN_KEY com um valor forte e secreto.
       chave: ${INSTAGRAM_TOKEN_KEY:pascom-fatima-chave-de-criptografia-dev-trocar-em-producao}
+
+---
+# Perfil de produção (ativado com SPRING_PROFILES_ACTIVE=prod): usa Postgres de verdade
+# em vez do arquivo H2 local, e desliga o console do H2.
+# PGHOST/PGPORT/PGDATABASE/PGUSER/PGPASSWORD são as variáveis que Railway (e a maioria dos
+# provedores) já injeta automaticamente quando você conecta um banco Postgres ao serviço.
+spring:
+  config:
+    activate:
+      on-profile: prod
+  datasource:
+    url: jdbc:postgresql://${PGHOST}:${PGPORT}/${PGDATABASE}
+    username: ${PGUSER}
+    password: ${PGPASSWORD}
+    driver-class-name: org.postgresql.Driver
+  h2:
+    console:
+      enabled: false
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: update
+    show-sql: false
 

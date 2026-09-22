@@ -43,7 +43,10 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/usuarios/cadastro", "/api/usuarios/login").permitAll()
                         .requestMatchers("/h2-console/**").permitAll()
-                        .anyRequest().authenticated()
+                        .requestMatchers("/api/**").authenticated()
+                        // front-end estático (index.html, css, js) — a autenticação de verdade
+                        // acontece nas chamadas de API feitas por ele, não no carregamento da página
+                        .anyRequest().permitAll()
                 )
                 .exceptionHandling(ex -> ex
                         // sem token ou token inválido/expirado

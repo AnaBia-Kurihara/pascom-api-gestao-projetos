@@ -6,7 +6,7 @@ Este arquivo fornece orientações ao Claude Code (claude.ai/code) ao trabalhar 
 
 API de Gestão e Controle de Projetos da Pascom Santuário N. Sra. de Fátima — uma API REST em Spring Boot 3.2 / Java 17 para gerenciar o fluxo de conteúdo de uma equipe de comunicação paroquial: ideias de conteúdo, um quadro de produção estilo Kanban ("cartões") e escala de voluntários para eventos.
 
-O repositório também guarda o front-end em [frontend/index.html](frontend/index.html) — um app single-file (HTML/CSS/JS puro, sem build) que consome essa API via `fetch()`. Como não usa `fetch` relativo a `file://`, ele precisa ser servido por um servidor HTTP simples (ex.: `python3 -m http.server 5500` dentro de `frontend/`), não aberto direto com duplo-clique.
+O repositório também guarda o front-end em [src/main/resources/static/index.html](src/main/resources/static/index.html) — um app single-file (HTML/CSS/JS puro, sem build), servido automaticamente pelo próprio Spring Boot na raiz (`/`). É por isso que fica dentro de `resources/static`: não é um projeto à parte, é a UI desse mesmo backend. As chamadas de API usam `API_BASE='/api'` (caminho relativo), então funcionam sem alteração tanto local quanto em produção — sobe o backend (`mvn spring-boot:run`) e acessa `http://localhost:8080/`, sem precisar de nenhum servidor separado pro front.
 
 ## Comandos
 
@@ -41,7 +41,7 @@ Estrutura em camadas padrão do Spring MVC sob `br.org.pascom`:
 - `repository/` — interfaces `JpaRepository` simples, sem lógica de query customizada além de queries derivadas estilo `findByEmail`.
 - `model/` — entidades JPA (Lombok `@Getter/@Setter/@Builder`), além de `model/enums/` para `Role`, `Etapa`, `Formato`, `SlotTipo`.
 - `dto/` — `record`s Java para requests/responses, com anotações de validação (`jakarta.validation`).
-- `config/` — `WebConfig` (CORS global em `/api/**`, atualmente `allowedOriginPatterns("*")`), `SecurityConfig`/`SecurityFilter` (autenticação stateless via JWT, ver abaixo) e `ApiExceptionHandler` (`@RestControllerAdvice` que traduz `IllegalStateException`/`IllegalArgumentException`/erros de validação/`AuthenticationException` em corpos JSON `400`/`401`).
+- `config/` — `WebConfig` (CORS global em `/api/**`, atualmente `allowedOriginPatterns("*")`), `SecurityConfig`/`SecurityFilter` (autenticação stateless via JWT, ver abaixo) e `ApiExceptionHandler` (`@RestControllerAdvice` que traduz `IllegalStateException`/`IllegalArgumentException`/erros de validação/`AuthenticationException` em corpos JSON `400`/`401`). Em `SecurityConfig`, só `/api/**` exige autenticação (exceto cadastro/login) — o front-end estático é sempre público, já que a autenticação de verdade acontece nas chamadas de API que ele faz, não no carregamento da página.
 
 ### Autenticação
 
@@ -68,7 +68,11 @@ A API usa **JWT stateless** via Spring Security. `POST /api/usuarios/login` aute
 
 ### Persistência
 
-Banco H2 baseado em arquivo em `./data/pascomdb` (ignorado pelo git) com `ddl-auto: update` — o schema evolui automaticamente a partir das entidades, sem scripts de migração (sem Flyway/Liquibase). `postgresql` é uma dependência runtime declarada mas não configurada atualmente em `application.yml` (quem roda de fato é o H2). O SQL é logado (`show-sql: true`).
+Por padrão (sem profile ativo, uso local/dev), banco H2 baseado em arquivo em `./data/pascomdb` (ignorado pelo git) com `ddl-auto: update` — o schema evolui automaticamente a partir das entidades, sem scripts de migração (sem Flyway/Liquibase). O SQL é logado (`show-sql: true`).
+
+### Deploy / produção
+
+Existe um profile `prod` em [application.yml](src/main/resources/application.yml) (ativado com a env var `SPRING_PROFILES_ACTIVE=prod`) que troca o H2 por Postgres de verdade, lendo `PGHOST`/`PGPORT`/`PGDATABASE`/`PGUSER`/`PGPASSWORD` — o padrão de variáveis que provedores como Railway já injetam automaticamente ao conectar um banco Postgres ao serviço — e desliga o console do H2. Em produção, defina também `JWT_SECRET` e `INSTAGRAM_TOKEN_KEY` com valores fortes (os defaults no `application.yml` são só pra dev local). `server.port` lê a env var `PORT` quando presente (padrão que a maioria dos PaaS usa), com fallback pra `8080`.
 
 ### Convenção de tratamento de erros
 
