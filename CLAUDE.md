@@ -6,6 +6,8 @@ Este arquivo fornece orientações ao Claude Code (claude.ai/code) ao trabalhar 
 
 API de Gestão e Controle de Projetos da Pascom Santuário N. Sra. de Fátima — uma API REST em Spring Boot 3.2 / Java 17 para gerenciar o fluxo de conteúdo de uma equipe de comunicação paroquial: ideias de conteúdo, um quadro de produção estilo Kanban ("cartões") e escala de voluntários para eventos.
 
+O repositório também guarda o front-end em [frontend/index.html](frontend/index.html) — um app single-file (HTML/CSS/JS puro, sem build) que consome essa API via `fetch()`. Como não usa `fetch` relativo a `file://`, ele precisa ser servido por um servidor HTTP simples (ex.: `python3 -m http.server 5500` dentro de `frontend/`), não aberto direto com duplo-clique.
+
 ## Comandos
 
 Não há wrapper do Maven versionado (`.mvn/` existe mas está vazio, sem script `mvnw`) — use um `mvn` instalado globalmente.
