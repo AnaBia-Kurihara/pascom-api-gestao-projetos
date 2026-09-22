@@ -28,8 +28,8 @@ public class EventoController {
     }
 
     @PostMapping
-    public ResponseEntity<EventoDTO> criar(@Valid @RequestBody EventoRequestDTO dto) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(eventoService.criar(dto));
+    public ResponseEntity<EventoDTO> criar(@Valid @RequestBody EventoRequestDTO dto, @AuthenticationPrincipal Usuario solicitante) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(eventoService.criar(dto, solicitante));
     }
 
     @PostMapping("/{eventoId}/slots/{slotId}/inscrever")

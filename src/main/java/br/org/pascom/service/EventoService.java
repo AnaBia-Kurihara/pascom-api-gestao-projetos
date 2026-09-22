@@ -6,6 +6,7 @@ import br.org.pascom.dto.SlotEscalaDTO;
 import br.org.pascom.model.Evento;
 import br.org.pascom.model.SlotEscala;
 import br.org.pascom.model.Usuario;
+import br.org.pascom.model.enums.Role;
 import br.org.pascom.repository.EventoRepository;
 import br.org.pascom.repository.SlotEscalaRepository;
 import org.springframework.stereotype.Service;
@@ -29,7 +30,11 @@ public class EventoService {
     }
 
     @Transactional
-    public EventoDTO criar(EventoRequestDTO dto) {
+    public EventoDTO criar(EventoRequestDTO dto, Usuario solicitante) {
+        if (solicitante.getRole() != Role.COORDENACAO) {
+            throw new IllegalStateException("Apenas a Coordenação pode criar eventos e marcar datas no calendário.");
+        }
+
         Evento evento = Evento.builder()
                 .titulo(dto.titulo())
                 .data(dto.data())
