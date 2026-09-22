@@ -2,10 +2,12 @@ package br.org.pascom.controller;
 
 import br.org.pascom.dto.EventoDTO;
 import br.org.pascom.dto.EventoRequestDTO;
+import br.org.pascom.model.Usuario;
 import br.org.pascom.service.EventoService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -31,8 +33,8 @@ public class EventoController {
     }
 
     @PostMapping("/{eventoId}/slots/{slotId}/inscrever")
-    public ResponseEntity<EventoDTO> inscrever(@PathVariable Long eventoId, @PathVariable Long slotId, @RequestParam Long voluntarioId) {
-        return ResponseEntity.ok(eventoService.inscreverVoluntario(eventoId, slotId, voluntarioId));
+    public ResponseEntity<EventoDTO> inscrever(@PathVariable Long eventoId, @PathVariable Long slotId, @AuthenticationPrincipal Usuario voluntario) {
+        return ResponseEntity.ok(eventoService.inscreverVoluntario(eventoId, slotId, voluntario));
     }
 
     @PostMapping("/{eventoId}/slots/{slotId}/desinscrever")

@@ -79,10 +79,8 @@ public class CartaoService {
     }
 
     @Transactional
-    public CartaoResponseDTO moverEtapa(Long cartaoId, Etapa novaEtapa, Long usuarioId) {
+    public CartaoResponseDTO moverEtapa(Long cartaoId, Etapa novaEtapa, Usuario usuario) {
         Cartao cartao = buscarPorId(cartaoId);
-        Usuario usuario = usuarioRepository.findById(usuarioId)
-                .orElseThrow(() -> new IllegalArgumentException("Usuário solicitante não encontrado."));
 
         if (novaEtapa == Etapa.AGENDADO || novaEtapa == Etapa.PUBLICADO) {
             if (usuario.getRole() == Role.VOLUNTARIO) {
@@ -98,10 +96,8 @@ public class CartaoService {
     }
 
     @Transactional
-    public ComentarioResponseDTO adicionarComentario(Long cartaoId, Long autorId, NovoComentarioDTO dados) {
+    public ComentarioResponseDTO adicionarComentario(Long cartaoId, Usuario autor, NovoComentarioDTO dados) {
         Cartao cartao = buscarPorId(cartaoId);
-        Usuario autor = usuarioRepository.findById(autorId)
-                .orElseThrow(() -> new IllegalArgumentException("Autor não encontrado."));
 
         Comentario comentario = Comentario.builder()
                 .texto(dados.texto())

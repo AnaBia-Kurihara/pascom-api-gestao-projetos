@@ -8,7 +8,6 @@ import br.org.pascom.model.SlotEscala;
 import br.org.pascom.model.Usuario;
 import br.org.pascom.repository.EventoRepository;
 import br.org.pascom.repository.SlotEscalaRepository;
-import br.org.pascom.repository.UsuarioRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,12 +18,10 @@ public class EventoService {
 
     private final EventoRepository eventoRepository;
     private final SlotEscalaRepository slotEscalaRepository;
-    private final UsuarioRepository usuarioRepository;
 
-    public EventoService(EventoRepository eventoRepository, SlotEscalaRepository slotEscalaRepository, UsuarioRepository usuarioRepository) {
+    public EventoService(EventoRepository eventoRepository, SlotEscalaRepository slotEscalaRepository) {
         this.eventoRepository = eventoRepository;
         this.slotEscalaRepository = slotEscalaRepository;
-        this.usuarioRepository = usuarioRepository;
     }
 
     public List<EventoDTO> listarTodos() {
@@ -54,15 +51,12 @@ public class EventoService {
     }
 
     @Transactional
-    public EventoDTO inscreverVoluntario(Long eventoId, Long slotId, Long voluntarioId) {
+    public EventoDTO inscreverVoluntario(Long eventoId, Long slotId, Usuario voluntario) {
         Evento evento = eventoRepository.findById(eventoId)
                 .orElseThrow(() -> new IllegalArgumentException("Evento não encontrado."));
 
-        Usuario voluntario = usuarioRepository.findById(voluntarioId)
-                .orElseThrow(() -> new IllegalArgumentException("Voluntário não encontrado."));
-
         boolean jaInscrito = evento.getSlots().stream()
-                .anyMatch(s -> s.getVoluntario() != null && s.getVoluntario().getId().equals(voluntarioId));
+                .anyMatch(s -> s.getVoluntario() != null && s.getVoluntario().getId().equals(voluntario.getId()));
 
         if (jaInscrito) {
             throw new IllegalStateException("Você já está escalado para este evento.");

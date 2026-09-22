@@ -1,13 +1,16 @@
 package br.org.pascom.controller;
 
 import br.org.pascom.dto.LoginDTO;
+import br.org.pascom.dto.LoginResponseDTO;
 import br.org.pascom.dto.UsuarioCadastroDTO;
 import br.org.pascom.dto.UsuarioResponseDTO;
+import br.org.pascom.model.Usuario;
 import br.org.pascom.model.enums.Role;
 import br.org.pascom.service.UsuarioService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -33,7 +36,7 @@ public class UsuarioController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<UsuarioResponseDTO> login(@Valid @RequestBody LoginDTO dados) {
+    public ResponseEntity<LoginResponseDTO> login(@Valid @RequestBody LoginDTO dados) {
         return ResponseEntity.ok(usuarioService.login(dados.email(), dados.senha()));
     }
 
@@ -41,7 +44,7 @@ public class UsuarioController {
     public ResponseEntity<UsuarioResponseDTO> alterarRole(
             @PathVariable Long id,
             @RequestParam Role novoRole,
-            @RequestParam Long solicitanteId) {
-        return ResponseEntity.ok(usuarioService.alterarRole(id, novoRole, solicitanteId));
+            @AuthenticationPrincipal Usuario solicitante) {
+        return ResponseEntity.ok(usuarioService.alterarRole(id, novoRole, solicitante));
     }
 }

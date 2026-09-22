@@ -22,3 +22,9 @@ spring:
       hibernate:
         format_sql: true
 
+api:
+  security:
+    token:
+      # Em produção, defina a variável de ambiente JWT_SECRET com um valor forte e secreto.
+      secret: ${JWT_SECRET:pascom-fatima-chave-secreta-de-desenvolvimento-trocar-em-producao}
+

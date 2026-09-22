@@ -3,10 +3,12 @@ package br.org.pascom.controller;
 import br.org.pascom.dto.CartaoResponseDTO;
 import br.org.pascom.dto.IdeiaRequestDTO;
 import br.org.pascom.dto.IdeiaResponseDTO;
+import br.org.pascom.model.Usuario;
 import br.org.pascom.service.IdeiaService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -27,13 +29,13 @@ public class IdeiaController {
     }
 
     @PostMapping
-    public ResponseEntity<IdeiaResponseDTO> criar(@Valid @RequestBody IdeiaRequestDTO dto, @RequestParam Long autorId) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(ideiaService.criar(dto, autorId));
+    public ResponseEntity<IdeiaResponseDTO> criar(@Valid @RequestBody IdeiaRequestDTO dto, @AuthenticationPrincipal Usuario autor) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(ideiaService.criar(dto, autor));
     }
 
     @PostMapping("/{id}/votar")
-    public ResponseEntity<IdeiaResponseDTO> alternarVoto(@PathVariable Long id, @RequestParam Long usuarioId) {
-        return ResponseEntity.ok(ideiaService.alternarVoto(id, usuarioId));
+    public ResponseEntity<IdeiaResponseDTO> alternarVoto(@PathVariable Long id, @AuthenticationPrincipal Usuario usuario) {
+        return ResponseEntity.ok(ideiaService.alternarVoto(id, usuario));
     }
 
     @PostMapping("/{id}/adotar")

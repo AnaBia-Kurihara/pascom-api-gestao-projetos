@@ -8,7 +8,6 @@ import br.org.pascom.model.Ideia;
 import br.org.pascom.model.Usuario;
 import br.org.pascom.model.enums.Formato;
 import br.org.pascom.repository.IdeiaRepository;
-import br.org.pascom.repository.UsuarioRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,12 +17,10 @@ import java.util.List;
 public class IdeiaService {
 
     private final IdeiaRepository ideiaRepository;
-    private final UsuarioRepository usuarioRepository;
     private final CartaoService cartaoService;
 
-    public IdeiaService(IdeiaRepository ideiaRepository, UsuarioRepository usuarioRepository, CartaoService cartaoService) {
+    public IdeiaService(IdeiaRepository ideiaRepository, CartaoService cartaoService) {
         this.ideiaRepository = ideiaRepository;
-        this.usuarioRepository = usuarioRepository;
         this.cartaoService = cartaoService;
     }
 
@@ -32,10 +29,7 @@ public class IdeiaService {
     }
 
     @Transactional
-    public IdeiaResponseDTO criar(IdeiaRequestDTO dto, Long autorId) {
-        Usuario autor = usuarioRepository.findById(autorId)
-                .orElseThrow(() -> new IllegalArgumentException("Usuário autor não encontrado."));
-
+    public IdeiaResponseDTO criar(IdeiaRequestDTO dto, Usuario autor) {
         Ideia ideia = Ideia.builder()
                 .titulo(dto.titulo())
                 .descricao(dto.descricao())
@@ -44,19 +38,16 @@ public class IdeiaService {
                 .adotada(false)
                 .build();
 
-        ideia.getVotantesIds().add(autorId); // O próprio autor já vota automaticamente
+        ideia.getVotantesIds().add(autor.getId()); // O próprio autor já vota automaticamente
         return IdeiaResponseDTO.from(ideiaRepository.save(ideia));
     }
 
     @Transactional
-    public IdeiaResponseDTO alternarVoto(Long ideiaId, Long usuarioId) {
+    public IdeiaResponseDTO alternarVoto(Long ideiaId, Usuario usuario) {
         Ideia ideia = ideiaRepository.findById(ideiaId)
                 .orElseThrow(() -> new IllegalArgumentException("Ideia não encontrada."));
 
-        if (!usuarioRepository.existsById(usuarioId)) {
-            throw new IllegalArgumentException("Usuário não encontrado.");
-        }
-
+        Long usuarioId = usuario.getId();
         if (ideia.getVotantesIds().contains(usuarioId)) {
             ideia.getVotantesIds().remove(usuarioId);
         } else {

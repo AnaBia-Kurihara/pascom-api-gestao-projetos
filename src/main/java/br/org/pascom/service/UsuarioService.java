@@ -1,11 +1,15 @@
 package br.org.pascom.service;
 
+import br.org.pascom.dto.LoginResponseDTO;
 import br.org.pascom.dto.UsuarioCadastroDTO;
 import br.org.pascom.dto.UsuarioResponseDTO;
 import br.org.pascom.model.Usuario;
 import br.org.pascom.model.enums.Role;
 import br.org.pascom.repository.UsuarioRepository;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -15,10 +19,16 @@ import java.util.List;
 public class UsuarioService {
 
     private final UsuarioRepository usuarioRepository;
-    private final BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
+    private final PasswordEncoder passwordEncoder;
+    private final AuthenticationManager authenticationManager;
+    private final TokenService tokenService;
 
-    public UsuarioService(UsuarioRepository usuarioRepository) {
+    public UsuarioService(UsuarioRepository usuarioRepository, PasswordEncoder passwordEncoder,
+                           AuthenticationManager authenticationManager, TokenService tokenService) {
         this.usuarioRepository = usuarioRepository;
+        this.passwordEncoder = passwordEncoder;
+        this.authenticationManager = authenticationManager;
+        this.tokenService = tokenService;
     }
 
     public List<UsuarioResponseDTO> listarTodos() {
@@ -34,7 +44,7 @@ public class UsuarioService {
         Usuario usuario = Usuario.builder()
                 .nome(dados.nome())
                 .email(dados.email())
-                .senha(encoder.encode(dados.senha()))
+                .senha(passwordEncoder.encode(dados.senha()))
                 .funcao(dados.funcao())
                 .disponibilidade(dados.disponibilidade())
                 .avatarHue(dados.avatarHue())
@@ -44,22 +54,17 @@ public class UsuarioService {
         return UsuarioResponseDTO.from(usuarioRepository.save(usuario));
     }
 
-    public UsuarioResponseDTO login(String email, String senha) {
-        Usuario usuario = usuarioRepository.findByEmail(email)
-                .orElseThrow(() -> new IllegalArgumentException("E-mail ou senha inválidos."));
+    public LoginResponseDTO login(String email, String senha) {
+        Authentication authentication = authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(email, senha));
 
-        if (!encoder.matches(senha, usuario.getSenha())) {
-            throw new IllegalArgumentException("E-mail ou senha inválidos.");
-        }
-
-        return UsuarioResponseDTO.from(usuario);
+        Usuario usuario = (Usuario) authentication.getPrincipal();
+        String token = tokenService.gerarToken(usuario);
+        return new LoginResponseDTO(token, UsuarioResponseDTO.from(usuario));
     }
 
     @Transactional
-    public UsuarioResponseDTO alterarRole(Long id, Role novoRole, Long solicitanteId) {
-        Usuario solicitante = usuarioRepository.findById(solicitanteId)
-                .orElseThrow(() -> new IllegalArgumentException("Usuário solicitante não encontrado."));
-
+    public UsuarioResponseDTO alterarRole(Long id, Role novoRole, Usuario solicitante) {
         if (solicitante.getRole() != Role.COORDENACAO) {
             throw new IllegalStateException("Só a coordenação pode alterar a função de alguém da equipe.");
         }

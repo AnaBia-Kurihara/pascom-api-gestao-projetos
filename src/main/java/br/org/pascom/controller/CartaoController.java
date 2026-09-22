@@ -4,11 +4,13 @@ import br.org.pascom.dto.CartaoRequestDTO;
 import br.org.pascom.dto.CartaoResponseDTO;
 import br.org.pascom.dto.ComentarioResponseDTO;
 import br.org.pascom.dto.NovoComentarioDTO;
+import br.org.pascom.model.Usuario;
 import br.org.pascom.model.enums.Etapa;
 import br.org.pascom.service.CartaoService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -47,16 +49,16 @@ public class CartaoController {
     public ResponseEntity<CartaoResponseDTO> moverEtapa(
             @PathVariable Long id,
             @RequestParam Etapa novaEtapa,
-            @RequestParam Long usuarioId) {
-        return ResponseEntity.ok(cartaoService.moverEtapa(id, novaEtapa, usuarioId));
+            @AuthenticationPrincipal Usuario usuario) {
+        return ResponseEntity.ok(cartaoService.moverEtapa(id, novaEtapa, usuario));
     }
 
     @PostMapping("/{id}/comentarios")
     public ResponseEntity<ComentarioResponseDTO> adicionarComentario(
             @PathVariable Long id,
-            @RequestParam Long autorId,
+            @AuthenticationPrincipal Usuario autor,
             @Valid @RequestBody NovoComentarioDTO payload) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(cartaoService.adicionarComentario(id, autorId, payload));
+        return ResponseEntity.status(HttpStatus.CREATED).body(cartaoService.adicionarComentario(id, autor, payload));
     }
 
     @DeleteMapping("/{id}")
