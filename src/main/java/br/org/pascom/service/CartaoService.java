@@ -9,7 +9,6 @@ import br.org.pascom.model.Checklist;
 import br.org.pascom.model.Comentario;
 import br.org.pascom.model.Usuario;
 import br.org.pascom.model.enums.Etapa;
-import br.org.pascom.model.enums.Role;
 import br.org.pascom.repository.CartaoRepository;
 import br.org.pascom.repository.UsuarioRepository;
 import org.springframework.stereotype.Service;
@@ -79,13 +78,10 @@ public class CartaoService {
     }
 
     @Transactional
-    public CartaoResponseDTO moverEtapa(Long cartaoId, Etapa novaEtapa, Usuario usuario) {
+    public CartaoResponseDTO moverEtapa(Long cartaoId, Etapa novaEtapa) {
         Cartao cartao = buscarPorId(cartaoId);
 
         if (novaEtapa == Etapa.AGENDADO || novaEtapa == Etapa.PUBLICADO) {
-            if (usuario.getRole() == Role.VOLUNTARIO) {
-                throw new IllegalStateException("Apenas a Coordenação ou o Assessor podem aprovar e agendar/publicar.");
-            }
             if (cartao.getChecklist() == null || !cartao.getChecklist().isCompleto()) {
                 throw new IllegalStateException("Não é possível avançar. O checklist de segurança precisa estar 100% completo.");
             }

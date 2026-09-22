@@ -48,9 +48,8 @@ public class CartaoController {
     @PatchMapping("/{id}/etapa")
     public ResponseEntity<CartaoResponseDTO> moverEtapa(
             @PathVariable Long id,
-            @RequestParam Etapa novaEtapa,
-            @AuthenticationPrincipal Usuario usuario) {
-        return ResponseEntity.ok(cartaoService.moverEtapa(id, novaEtapa, usuario));
+            @RequestParam Etapa novaEtapa) {
+        return ResponseEntity.ok(cartaoService.moverEtapa(id, novaEtapa));
     }
 
     @PostMapping("/{id}/comentarios")
