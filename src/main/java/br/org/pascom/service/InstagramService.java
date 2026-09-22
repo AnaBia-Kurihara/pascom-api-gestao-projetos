@@ -24,19 +24,21 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
- * Integração com a Instagram Graph API (conta Business/Creator).
+ * Integração com a Instagram Graph API, via "Instagram API with Instagram Login"
+ * (Business Login for Instagram — não exige Página do Facebook vinculada).
  *
- * ESTADO ATUAL: estrutura pronta (conexão, criptografia do token, coleta e histórico de
- * métricas), mas ainda não testada contra a API real — falta a autorização/App Review da
- * Meta para a conta do santuário. Assim que a conta estiver conectada (via
- * {@link #conectar}), basta chamar {@link #coletarMetricas} para validar a integração de
- * ponta a ponta; os nomes de métrica em {@link #METRICAS} podem precisar de ajuste conforme
- * o tipo de mídia (feed, reels ou carrossel) devolvido pela API nesse primeiro teste real.
+ * Validada de ponta a ponta contra a conta real do santuário: conexão, criptografia do
+ * token, e coleta de métricas de um post real (curtidas/alcance batendo com o valor real
+ * do Instagram). Os tokens desse fluxo começam com "IGAA" e só funcionam contra o host
+ * graph.instagram.com — graph.facebook.com devolve "Cannot parse access token" pra eles.
  */
 @Service
 public class InstagramService {
 
-    private static final String GRAPH_BASE_URL = "https://graph.facebook.com/v21.0";
+    // graph.facebook.com NÃO funciona para tokens gerados pelo fluxo "Instagram Login"
+    // (tokens que começam com "IGAA") — eles exigem graph.instagram.com. Confirmado em
+    // teste real: "Invalid OAuth access token - Cannot parse access token" com o host errado.
+    private static final String GRAPH_BASE_URL = "https://graph.instagram.com/v21.0";
     private static final String METRICAS = "likes,comments,saved,shares,reach";
 
     private final ContaInstagramRepository contaRepository;
