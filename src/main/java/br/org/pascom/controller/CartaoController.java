@@ -1,12 +1,15 @@
 package br.org.pascom.controller;
 
+import br.org.pascom.dto.CartaoInstagramDTO;
 import br.org.pascom.dto.CartaoRequestDTO;
 import br.org.pascom.dto.CartaoResponseDTO;
 import br.org.pascom.dto.ComentarioResponseDTO;
+import br.org.pascom.dto.MetricaPostagemDTO;
 import br.org.pascom.dto.NovoComentarioDTO;
 import br.org.pascom.model.Usuario;
 import br.org.pascom.model.enums.Etapa;
 import br.org.pascom.service.CartaoService;
+import br.org.pascom.service.InstagramService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -20,9 +23,11 @@ import java.util.List;
 public class CartaoController {
 
     private final CartaoService cartaoService;
+    private final InstagramService instagramService;
 
-    public CartaoController(CartaoService cartaoService) {
+    public CartaoController(CartaoService cartaoService, InstagramService instagramService) {
         this.cartaoService = cartaoService;
+        this.instagramService = instagramService;
     }
 
     @GetMapping
@@ -64,5 +69,20 @@ public class CartaoController {
     public ResponseEntity<Void> deletar(@PathVariable Long id) {
         cartaoService.deletar(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @PatchMapping("/{id}/instagram")
+    public ResponseEntity<CartaoResponseDTO> vincularInstagram(@PathVariable Long id, @Valid @RequestBody CartaoInstagramDTO dados) {
+        return ResponseEntity.ok(cartaoService.vincularInstagram(id, dados));
+    }
+
+    @PostMapping("/{id}/metricas/coletar")
+    public ResponseEntity<MetricaPostagemDTO> coletarMetricas(@PathVariable Long id) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(instagramService.coletarMetricas(id));
+    }
+
+    @GetMapping("/{id}/metricas")
+    public ResponseEntity<List<MetricaPostagemDTO>> historicoMetricas(@PathVariable Long id) {
+        return ResponseEntity.ok(instagramService.historico(id));
     }
 }

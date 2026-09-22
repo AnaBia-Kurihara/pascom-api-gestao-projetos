@@ -8,4 +8,5 @@ import java.util.List;
 public interface CartaoRepository extends JpaRepository<Cartao, Long> {
     List<Cartao> findByEtapa(Etapa etapa);
     List<Cartao> findByResponsavelId(Long usuarioId);
+    List<Cartao> findByEtapaAndInstagramMediaIdIsNotNull(Etapa etapa);
 }

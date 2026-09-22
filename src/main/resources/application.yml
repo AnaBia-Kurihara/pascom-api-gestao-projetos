@@ -27,4 +27,8 @@ api:
     token:
       # Em produção, defina a variável de ambiente JWT_SECRET com um valor forte e secreto.
       secret: ${JWT_SECRET:pascom-fatima-chave-secreta-de-desenvolvimento-trocar-em-producao}
+    instagram:
+      # Chave usada para criptografar o access token do Instagram no banco.
+      # Em produção, defina a variável de ambiente INSTAGRAM_TOKEN_KEY com um valor forte e secreto.
+      chave: ${INSTAGRAM_TOKEN_KEY:pascom-fatima-chave-de-criptografia-dev-trocar-em-producao}
 

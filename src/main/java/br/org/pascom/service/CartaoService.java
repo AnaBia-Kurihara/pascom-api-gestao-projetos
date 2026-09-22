@@ -1,5 +1,6 @@
 package br.org.pascom.service;
 
+import br.org.pascom.dto.CartaoInstagramDTO;
 import br.org.pascom.dto.CartaoRequestDTO;
 import br.org.pascom.dto.CartaoResponseDTO;
 import br.org.pascom.dto.ComentarioResponseDTO;
@@ -10,6 +11,7 @@ import br.org.pascom.model.Comentario;
 import br.org.pascom.model.Usuario;
 import br.org.pascom.model.enums.Etapa;
 import br.org.pascom.repository.CartaoRepository;
+import br.org.pascom.repository.ComentarioRepository;
 import br.org.pascom.repository.UsuarioRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,10 +24,13 @@ public class CartaoService {
 
     private final CartaoRepository cartaoRepository;
     private final UsuarioRepository usuarioRepository;
+    private final ComentarioRepository comentarioRepository;
 
-    public CartaoService(CartaoRepository cartaoRepository, UsuarioRepository usuarioRepository) {
+    public CartaoService(CartaoRepository cartaoRepository, UsuarioRepository usuarioRepository,
+                          ComentarioRepository comentarioRepository) {
         this.cartaoRepository = cartaoRepository;
         this.usuarioRepository = usuarioRepository;
+        this.comentarioRepository = comentarioRepository;
     }
 
     public List<CartaoResponseDTO> listarTodos() {
@@ -102,9 +107,18 @@ public class CartaoService {
                 .cartao(cartao)
                 .build();
 
-        cartao.getComentarios().add(comentario);
-        cartaoRepository.save(cartao);
+        // Salva o comentário diretamente (não via cascade do Cartao) para que o INSERT
+        // aconteça na hora e o ID gerado (IDENTITY) já volte preenchido na resposta.
+        comentarioRepository.save(comentario);
         return ComentarioResponseDTO.from(comentario);
+    }
+
+    @Transactional
+    public CartaoResponseDTO vincularInstagram(Long id, CartaoInstagramDTO dados) {
+        Cartao cartao = buscarPorId(id);
+        cartao.setInstagramMediaId(dados.instagramMediaId());
+        cartao.setInstagramPermalink(dados.instagramPermalink());
+        return CartaoResponseDTO.from(cartaoRepository.save(cartao));
     }
 
     @Transactional

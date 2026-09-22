@@ -51,7 +51,17 @@ A API usa **JWT stateless** via Spring Security. `POST /api/usuarios/login` aute
 - **Ideia**: uma ideia de conteúdo. Qualquer um pode criar e votar (alternar voto) em ideias. Uma ideia pode ser "adotada" (`adotada = true`), o que a converte 1:1 em um novo `Cartao` na etapa `IDEIA` via `IdeiaService.transformarEmCartao`.
 - **Cartao**: um cartão de produção que percorre o pipeline de `Etapa`: `IDEIA -> ROTEIRO -> GRAVACAO -> EDICAO -> REVISAO -> AGENDADO -> PUBLICADO`. Qualquer usuário autenticado pode criar cartões, avançar etapas e agendar/publicar — não há checagem de papel em `CartaoService.moverEtapa`. A única trava é de qualidade, não de permissão: avançar para `AGENDADO` ou `PUBLICADO` exige que o `Checklist` embutido no cartão (5 flags booleanas de segurança/revisão) esteja totalmente completo (`Checklist.isCompleto()`).
 - **Evento** / **SlotEscala**: um evento com uma lista de "slots" de voluntários (`SlotTipo`: `FOTO`, `VIDEO`, `STORIES_AO_VIVO`, `TRANSMISSAO`). Só `COORDENACAO` pode criar eventos/marcar datas no calendário (`EventoService.criar`); voluntários (qualquer papel) se auto-inscrevem em um slot específico (`EventoService.inscreverVoluntario`, bloqueado se já estiverem inscritos em qualquer slot daquele evento) ou se desinscrevem (`desinscreverVoluntario`).
-- **Comentario**: comentários em thread anexados a um `Cartao`, de autoria de um `Usuario`.
+- **Comentario**: comentários em thread anexados a um `Cartao`, de autoria de um `Usuario`. Sempre salvo via `ComentarioRepository` diretamente (não por cascade do `Cartao`), pra garantir que o `id` (IDENTITY) já volte preenchido na resposta.
+- **ContaInstagram** / **MetricaPostagem**: estrutura para a integração com a Instagram Graph API — ver seção própria abaixo.
+
+### Integração com Instagram
+
+Estrutura pronta em `InstagramService`/`InstagramController`, mas **ainda não autorizada pela Meta** (falta o dono da conta do santuário liberar o acesso) — não há token real em uso ainda. O fluxo:
+- `ContaInstagram` guarda a conexão (id fixo `1L`, uma linha só — é a conta única do santuário). O `accessToken` é sempre criptografado (`CriptografiaService`, AES-GCM com chave em `api.security.instagram.chave` / env var `INSTAGRAM_TOKEN_KEY`) antes de ir pro banco, e nunca é exposto pela API (`@JsonIgnore`).
+- `POST /api/instagram/conectar` / `DELETE /api/instagram/desconectar` — só `COORDENACAO` (é quem vai ter a autorização da conta). Hoje o token é colado manualmente (obtido no Meta for Developers); quando o fluxo OAuth completo for implementado, isso passa a vir automaticamente do callback.
+- `Cartao.instagramMediaId`/`instagramPermalink` — vincula manualmente um cartão publicado ao post real (`PATCH /api/cartoes/{id}/instagram`), já que o app não publica direto no Instagram (isso teria muito mais restrições de tipo de conteúdo/limite de posts).
+- `MetricaPostagem` é uma tabela de **histórico** (uma linha por coleta, não um valor fixo) — a Graph API só guarda métricas por 90 dias, então a projeção de crescimento de longo prazo depende desse histórico no nosso banco. `InstagramService.coletarMetricas` chama a Graph API de verdade (`GET /{media-id}/insights`) e grava uma nova linha; `coletarMetricasDiarias` (`@Scheduled`, 6h da manhã) faz isso automaticamente pra todo cartão `PUBLICADO` com `instagramMediaId` preenchido, sem interromper a coleta se um post isolado falhar.
+- A chamada HTTP já foi validada contra o servidor real da Meta (com token falso, retornou o erro esperado de token inválido) — ou seja, só falta um token de verdade pra funcionar de ponta a ponta. Os nomes de métrica em `InstagramService.METRICAS` podem precisar de ajuste dependendo do tipo de mídia (feed/reels/carrossel) no primeiro teste real.
 
 ### Persistência
 

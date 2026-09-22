@@ -48,6 +48,10 @@ public class Cartao {
     @Column(columnDefinition = "TEXT")
     private String roteiroNotas;
 
+    /** ID da mídia no Instagram (preenchido manualmente após publicar), usado para coletar métricas. */
+    private String instagramMediaId;
+    private String instagramPermalink;
+
     @Embedded
     private Checklist checklist;
 

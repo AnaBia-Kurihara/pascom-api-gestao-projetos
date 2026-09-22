@@ -18,6 +18,8 @@ public record CartaoResponseDTO(
         LocalDate prazoEntrega,
         LocalDate dataPublicacao,
         String roteiroNotas,
+        String instagramMediaId,
+        String instagramPermalink,
         Checklist checklist,
         List<ComentarioResponseDTO> comentarios
 ) {
@@ -26,6 +28,7 @@ public record CartaoResponseDTO(
                 c.getId(), c.getTitulo(), c.getFormato(), c.getTema(), c.getEtapa(),
                 UsuarioResponseDTO.resumo(c.getResponsavel()),
                 c.getPrazoEntrega(), c.getDataPublicacao(), c.getRoteiroNotas(),
+                c.getInstagramMediaId(), c.getInstagramPermalink(),
                 c.getChecklist(),
                 c.getComentarios().stream().map(ComentarioResponseDTO::from).toList()
         );
