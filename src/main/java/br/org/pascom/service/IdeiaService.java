@@ -62,6 +62,10 @@ public class IdeiaService {
         Ideia ideia = ideiaRepository.findById(ideiaId)
                 .orElseThrow(() -> new IllegalArgumentException("Ideia não encontrada."));
 
+        if (Boolean.TRUE.equals(ideia.getAdotada())) {
+            throw new IllegalStateException("Esta ideia já foi adotada e virou um cartão.");
+        }
+
         ideia.setAdotada(true);
         ideiaRepository.save(ideia);
 

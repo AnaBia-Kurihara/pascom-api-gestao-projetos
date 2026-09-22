@@ -60,15 +60,23 @@ public class EventoService {
         Evento evento = eventoRepository.findById(eventoId)
                 .orElseThrow(() -> new IllegalArgumentException("Evento não encontrado."));
 
+        SlotEscala slot = slotEscalaRepository.findById(slotId)
+                .orElseThrow(() -> new IllegalArgumentException("Slot de escala não encontrado."));
+
+        if (!slot.getEvento().getId().equals(eventoId)) {
+            throw new IllegalArgumentException("Esse slot não pertence a este evento.");
+        }
+
+        if (slot.getVoluntario() != null) {
+            throw new IllegalStateException("Esse horário já foi preenchido por outro voluntário.");
+        }
+
         boolean jaInscrito = evento.getSlots().stream()
                 .anyMatch(s -> s.getVoluntario() != null && s.getVoluntario().getId().equals(voluntario.getId()));
 
         if (jaInscrito) {
             throw new IllegalStateException("Você já está escalado para este evento.");
         }
-
-        SlotEscala slot = slotEscalaRepository.findById(slotId)
-                .orElseThrow(() -> new IllegalArgumentException("Slot de escala não encontrado."));
 
         slot.setVoluntario(voluntario);
         slotEscalaRepository.save(slot);
@@ -78,8 +86,16 @@ public class EventoService {
 
     @Transactional
     public EventoDTO desinscreverVoluntario(Long eventoId, Long slotId) {
+        if (!eventoRepository.existsById(eventoId)) {
+            throw new IllegalArgumentException("Evento não encontrado.");
+        }
+
         SlotEscala slot = slotEscalaRepository.findById(slotId)
                 .orElseThrow(() -> new IllegalArgumentException("Slot de escala não encontrado."));
+
+        if (!slot.getEvento().getId().equals(eventoId)) {
+            throw new IllegalArgumentException("Esse slot não pertence a este evento.");
+        }
 
         slot.setVoluntario(null);
         slotEscalaRepository.save(slot);
