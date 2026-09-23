@@ -1,5 +1,6 @@
 package br.org.pascom.model;
 
+import br.org.pascom.model.enums.Setor;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import lombok.*;
@@ -29,6 +30,10 @@ public class Ideia {
 
     @Column(nullable = false)
     private String tema;
+
+    /** Setor dono desta ideia (Redes Sociais, Jovens, Datashow, Transmissões/Vídeos). */
+    @Enumerated(EnumType.STRING)
+    private Setor setor;
 
     @ManyToOne(optional = false)
     @JoinColumn(name = "autor_id")

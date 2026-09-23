@@ -4,6 +4,7 @@ import br.org.pascom.model.Cartao;
 import br.org.pascom.model.Checklist;
 import br.org.pascom.model.enums.Etapa;
 import br.org.pascom.model.enums.Formato;
+import br.org.pascom.model.enums.Setor;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -21,7 +22,8 @@ public record CartaoResponseDTO(
         String instagramMediaId,
         String instagramPermalink,
         Checklist checklist,
-        List<ComentarioResponseDTO> comentarios
+        List<ComentarioResponseDTO> comentarios,
+        Setor setor
 ) {
     public static CartaoResponseDTO from(Cartao c) {
         return new CartaoResponseDTO(
@@ -30,7 +32,8 @@ public record CartaoResponseDTO(
                 c.getPrazoEntrega(), c.getDataPublicacao(), c.getRoteiroNotas(),
                 c.getInstagramMediaId(), c.getInstagramPermalink(),
                 c.getChecklist(),
-                c.getComentarios().stream().map(ComentarioResponseDTO::from).toList()
+                c.getComentarios().stream().map(ComentarioResponseDTO::from).toList(),
+                c.getSetor()
         );
     }
 }

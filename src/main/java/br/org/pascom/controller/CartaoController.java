@@ -8,6 +8,7 @@ import br.org.pascom.dto.MetricaPostagemDTO;
 import br.org.pascom.dto.NovoComentarioDTO;
 import br.org.pascom.model.Usuario;
 import br.org.pascom.model.enums.Etapa;
+import br.org.pascom.model.enums.Setor;
 import br.org.pascom.service.CartaoService;
 import br.org.pascom.service.InstagramService;
 import jakarta.validation.Valid;
@@ -31,8 +32,8 @@ public class CartaoController {
     }
 
     @GetMapping
-    public ResponseEntity<List<CartaoResponseDTO>> listarTodos() {
-        return ResponseEntity.ok(cartaoService.listarTodos());
+    public ResponseEntity<List<CartaoResponseDTO>> listarTodos(@RequestParam(required = false) Setor setor) {
+        return ResponseEntity.ok(setor != null ? cartaoService.listarPorSetor(setor) : cartaoService.listarTodos());
     }
 
     @GetMapping("/{id}")

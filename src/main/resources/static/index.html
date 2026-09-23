@@ -64,6 +64,23 @@ p{margin:0}
 .nav button[aria-current="page"]{background:rgba(255,255,255,.12);color:#fff}
 .nav button[aria-current="page"]::before{content:"";position:absolute;left:-12px;top:8px;bottom:8px;width:4px;border-radius:0 3px 3px 0;background:var(--gold)}
 .nav svg{width:20px;height:20px;flex:none;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.setor-switch{position:relative;margin:2px 0 16px}
+.setor-btn{width:100%;display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);border-radius:11px;padding:9px 10px;color:#fff;text-align:left}
+.setor-btn:hover{background:rgba(255,255,255,.1)}
+.setor-btn .ico{width:30px;height:30px;border-radius:8px;background:var(--gold);display:flex;align-items:center;justify-content:center;flex:none;color:#1B1400}
+.setor-btn .ico svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.setor-btn .tx{flex:1;min-width:0}
+.setor-btn .tx small{display:block;font-size:10.5px;color:rgba(255,255,255,.55);text-transform:uppercase;letter-spacing:.04em}
+.setor-btn .tx b{display:block;font-size:13.5px;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.setor-btn .chev{width:14px;height:14px;stroke:rgba(255,255,255,.6);fill:none;stroke-width:2;flex:none;transition:transform .15s}
+.setor-btn.open .chev{transform:rotate(180deg)}
+.setor-menu{position:absolute;top:calc(100% + 6px);left:0;right:0;background:var(--panel);border:1px solid var(--line);border-radius:11px;box-shadow:0 16px 36px rgba(0,0,0,.35);padding:6px;z-index:30}
+.setor-menu button{width:100%;display:flex;align-items:center;gap:9px;text-align:left;padding:8px 9px;border-radius:8px;background:none;border:0;color:var(--ink);font-size:13px}
+.setor-menu button:hover{background:var(--tint)}
+.setor-menu button.active{background:var(--tint);font-weight:600}
+.setor-menu .ico{width:24px;height:24px;border-radius:7px;background:var(--tint);display:flex;align-items:center;justify-content:center;flex:none;color:var(--ink2)}
+.setor-menu .ico svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.setor-menu .check{margin-left:auto;width:14px;height:14px;stroke:var(--brand);fill:none;stroke-width:2.4;flex:none}
 .side-foot{margin-top:auto;padding:14px 8px 0;font-size:12px;line-height:1.4;color:var(--side-ink)}
 .side-foot button{margin-top:8px;background:none;border:1px solid rgba(255,255,255,.25);color:#fff;border-radius:8px;padding:6px 10px;font-size:12px}
 .main{overflow-y:auto;min-width:0}
@@ -293,7 +310,7 @@ p{margin:0}
 @media (max-width:860px){
   .app{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) auto}
   .side{order:2;flex-direction:row;padding:6px 4px;gap:0;overflow:visible;border-top:1px solid rgba(255,255,255,.1)}
-  .brand,.side-foot{display:none}
+  .brand,.side-foot,.setor-switch{display:none}
   .nav{flex-direction:row;width:100%;gap:0}
   .nav button{flex-direction:column;gap:2px;padding:6px 2px;font-size:10.5px;justify-content:center;align-items:center;text-align:center;min-width:0}
   .nav button[aria-current="page"]::before{left:20%;right:20%;top:0;bottom:auto;width:auto;height:3px;border-radius:0 0 3px 3px}
@@ -364,6 +381,7 @@ const SETORES=[
 ];
 const ROLE_NAME={coordenador_geral:'Coordenador(a) Geral',coordenador:'Coordenador(a)',voluntario:'Voluntário(a)'};
 const SETOR_NAME={redes_sociais:'Redes sociais',jovens:'Jovens',datashow:'Datashow',transmissoes_videos:'Transmissões/Vídeos'};
+const SETOR_ICON={redes_sociais:'share',jovens:'flame',datashow:'monitor',transmissoes_videos:'live'};
 // Datas fixas do calendário (exemplo: ajuste com a programação real do santuário)
 const LIT={'05-13':'N. Sra. de Fátima','09-21':'São Mateus','09-27':'São Vicente de Paulo','09-29':'Santos Arcanjos','09-30':'São Jerônimo','10-01':'Santa Teresinha','10-02':'Santos Anjos da Guarda','10-04':'São Francisco de Assis','10-07':'N. Sra. do Rosário','10-12':'N. Sra. Aparecida','10-15':'Santa Teresa d’Ávila','10-28':'São Judas Tadeu','11-01':'Todos os Santos','11-02':'Finados','12-08':'Imaculada Conceição','12-13':'Santa Luzia','12-25':'Natal'};
 const LIT_ABS={'2026-11-22':'Cristo Rei','2026-11-29':'1º domingo do Advento'};
@@ -489,20 +507,23 @@ function cartaoFromApi(c){
     stage:(c.etapa||'ideia').toLowerCase(), owner:c.responsavel?String(c.responsavel.id):null,
     due:c.prazoEntrega||'', pub:c.dataPublicacao||'', notes:c.roteiroNotas||'',
     checks:checksFromApi(c.checklist), comments:(c.comentarios||[]).map(comentarioFromApi),
-    instagramMediaId:c.instagramMediaId||null, instagramPermalink:c.instagramPermalink||null
+    instagramMediaId:c.instagramMediaId||null, instagramPermalink:c.instagramPermalink||null,
+    setor:c.setor?SETOR_FROM_API[c.setor]:null
   };
 }
 function cartaoToApi(data){
   return {
     titulo:data.title, formato:(data.fmt||'reels').toUpperCase(), tema:data.theme,
     responsavelId:data.owner?Number(data.owner):null, prazoEntrega:data.due||null,
-    dataPublicacao:data.pub||null, roteiroNotas:data.notes||null, checklist:checksToApi(data.checks)
+    dataPublicacao:data.pub||null, roteiroNotas:data.notes||null, checklist:checksToApi(data.checks),
+    setor:(data.setor||currentSetor).toUpperCase()
   };
 }
 function ideiaFromApi(i){
   return {
     id:String(i.id), title:i.titulo, desc:i.descricao||'', theme:i.tema,
-    by:String(i.autorId), adopted:!!i.adotada, voters:(i.votantesIds||[]).map(String)
+    by:String(i.autorId), adopted:!!i.adotada, voters:(i.votantesIds||[]).map(String),
+    setor:i.setor?SETOR_FROM_API[i.setor]:null
   };
 }
 function eventoFromApi(e){
@@ -523,6 +544,8 @@ async function carregarTudo(meId){
     events:eventos.map(eventoFromApi),
     me:String(meId)
   };
+  const m=me();
+  currentSetor=(m&&m.setor)?m.setor:'redes_sociais';
 }
 
 async function doLogin(){
@@ -623,11 +646,15 @@ let filters={q:'',owner:'all'};
 const now=new Date();
 let cal={y:now.getFullYear(),m:now.getMonth()};
 let modalId=null, modalPreset=null;
+let currentSetor='redes_sociais';
+let setorMenuOpen=false;
 
 const mem=id=>MEMBERS.find(m=>m.id===id);
 const me=()=>mem(state.me);
 const isApprover=()=>{const m=me();return !!m&&(m.role==='coordenador_geral'||m.role==='coordenador');};
 const card=id=>state.cards.find(c=>c.id===id);
+const visibleCards=()=>state.cards.filter(c=>c.setor===currentSetor);
+const visibleIdeas=()=>state.ideas.filter(i=>i.setor===currentSetor);
 const stageName=id=>STAGES.find(s=>s.id===id).name;
 const stageIdx=id=>STAGES.findIndex(s=>s.id===id);
 const isLate=c=>c.due&&diff(c.due)<0&&c.stage!=='agendado'&&c.stage!=='publicado';
@@ -674,7 +701,12 @@ const ICONS={
   cam:'<path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13.5" r="3.5"/>',
   users:'<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6M16 4.5a3.5 3.5 0 0 1 0 7M18 14.5c2 .7 3.5 2.6 3.5 5.5"/>',
   folder:'<path d="M3 6a1 1 0 0 1 1-1h5l2 2h9a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6z"/>',
-  spark:'<path d="M12 3l1.8 5.6L19 10l-5.2 1.4L12 17l-1.8-5.6L5 10l5.2-1.4L12 3z"/><path d="M19 15l.8 2.3L22 18l-2.2.7L19 21l-.8-2.3L16 18l2.2-.7L19 15z"/>'
+  spark:'<path d="M12 3l1.8 5.6L19 10l-5.2 1.4L12 17l-1.8-5.6L5 10l5.2-1.4L12 3z"/><path d="M19 15l.8 2.3L22 18l-2.2.7L19 21l-.8-2.3L16 18l2.2-.7L19 15z"/>',
+  share:'<circle cx="6" cy="12" r="2.4"/><circle cx="18" cy="6" r="2.4"/><circle cx="18" cy="18" r="2.4"/><path d="M8.2 10.7l7.6-4.3M8.2 13.3l7.6 4.3"/>',
+  flame:'<path d="M12 3c.7 2.6-2.6 3.6-2.6 6.3a2.6 2.6 0 0 0 5.2 0c0-.8-.6-1.5-.6-1.5 1.6.9 2.6 2.6 2.6 4.4a4.6 4.6 0 0 1-9.2 0c0-3.5 2.6-5.3 2.6-6.9 0-.9.4-1.6 2-2.3z"/>',
+  monitor:'<rect x="3" y="4.5" width="18" height="12" rx="2"/><path d="M8 20h8M12 16.5v3.5"/>',
+  live:'<circle cx="12" cy="12" r="3"/><path d="M7.5 7.5a6.5 6.5 0 0 0 0 9M16.5 7.5a6.5 6.5 0 0 1 0 9M4.5 4.5a11 11 0 0 0 0 15M19.5 4.5a11 11 0 0 1 0 15"/>',
+  chev:'<path d="M6 9l6 6 6-6"/>'
 };
 
 /* =====================================================================
@@ -693,18 +725,19 @@ const VIEWS={
 
 /* ---------- Painel ---------- */
 function viewPainel(){
+  const cards=visibleCards();
   const d13=next13(), n=diff(d13);
-  const planned=state.cards.filter(c=>c.pub===d13).length;
-  const prod=state.cards.filter(c=>['roteiro','gravacao','edicao'].indexOf(c.stage)>-1).length;
-  const rev=state.cards.filter(c=>c.stage==='revisao').length;
-  const ag=state.cards.filter(c=>c.stage==='agendado').length;
-  const late=state.cards.filter(isLate).length;
-  const up=state.cards.filter(c=>c.pub&&c.pub>=TODAY&&c.stage!=='publicado').sort((a,b)=>a.pub.localeCompare(b.pub)).slice(0,6);
-  const mine=state.cards.filter(c=>c.owner===state.me&&c.stage!=='publicado').sort((a,b)=>(a.due||'9').localeCompare(b.due||'9'));
+  const planned=cards.filter(c=>c.pub===d13).length;
+  const prod=cards.filter(c=>['roteiro','gravacao','edicao'].indexOf(c.stage)>-1).length;
+  const rev=cards.filter(c=>c.stage==='revisao').length;
+  const ag=cards.filter(c=>c.stage==='agendado').length;
+  const late=cards.filter(isLate).length;
+  const up=cards.filter(c=>c.pub&&c.pub>=TODAY&&c.stage!=='publicado').sort((a,b)=>a.pub.localeCompare(b.pub)).slice(0,6);
+  const mine=cards.filter(c=>c.owner===state.me&&c.stage!=='publicado').sort((a,b)=>(a.due||'9').localeCompare(b.due||'9'));
   const head=n===0?'Hoje é dia 13, dia de Fátima.':'O próximo dia 13 chega em '+n+(n===1?' dia.':' dias.');
   const sub=planned?planned+(planned>1?' conteúdos planejados':' conteúdo planejado')+' para essa data.':'Ainda não há conteúdo planejado para essa data.';
-  const loads=MEMBERS.filter(m=>m.role!=='coordenador_geral').map(m=>{
-    const k=state.cards.filter(c=>c.owner===m.id&&c.stage!=='publicado').length;
+  const loads=MEMBERS.filter(m=>m.role!=='coordenador_geral'&&m.setor===currentSetor).map(m=>{
+    const k=cards.filter(c=>c.owner===m.id&&c.stage!=='publicado').length;
     return '<div class="load"><span>'+esc(m.nome)+'</span><div class="bar"><i class="'+(k>=4?'hi':'')+'" style="width:'+Math.min(100,k*25)+'%"></i></div><b>'+k+'</b></div>';
   }).join('');
   return ''+
@@ -734,8 +767,9 @@ function viewQuadro(){
 function boardHtml(){
   const q=filters.q.trim().toLowerCase();
   const ok=c=>(!q||c.title.toLowerCase().indexOf(q)>-1)&&(filters.owner==='all'||(filters.owner==='none'?!c.owner:c.owner===filters.owner));
+  const cards=visibleCards();
   return '<div class="board">'+STAGES.map(s=>{
-    const list=state.cards.filter(c=>c.stage===s.id&&ok(c)).sort((a,b)=>(a.due||'9').localeCompare(b.due||'9'));
+    const list=cards.filter(c=>c.stage===s.id&&ok(c)).sort((a,b)=>(a.due||'9').localeCompare(b.due||'9'));
     return '<section class="kcol" aria-label="'+s.name+'"><div class="kcol-h"><h3>'+s.name+'<span class="cnt">'+list.length+'</span></h3><button data-action="newIn" data-stage="'+s.id+'" aria-label="Novo cartão em '+s.name+'" title="Novo cartão">+</button></div>'+
       '<div class="kbody" data-stage="'+s.id+'">'+(list.length?list.map(kcard).join(''):'<div class="empty" style="padding:10px;font-size:13px">Solte um cartão aqui</div>')+'</div></section>';
   }).join('')+'</div>';
@@ -764,7 +798,7 @@ function viewCalendario(){
   const first=new Date(y,m,1), start=first.getDay(), dim=new Date(y,m+1,0).getDate();
   const title=cap(first.toLocaleDateString('pt-BR',{month:'long',year:'numeric'}));
   const byDate={},evDate={};
-  state.cards.forEach(c=>{if(c.pub)(byDate[c.pub]=byDate[c.pub]||[]).push(c);});
+  visibleCards().forEach(c=>{if(c.pub)(byDate[c.pub]=byDate[c.pub]||[]).push(c);});
   state.events.forEach(e=>{(evDate[e.date]=evDate[e.date]||[]).push(e);});
   let cells='',list='';
   ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'].forEach(d=>{cells+='<div class="dow">'+d+'</div>';});
@@ -789,7 +823,7 @@ function viewCalendario(){
 
 /* ---------- Ideias ---------- */
 function viewIdeias(){
-  const list=state.ideas.slice().sort((a,b)=>(a.adopted-b.adopted)||(b.voters.length-a.voters.length));
+  const list=visibleIdeas().sort((a,b)=>(a.adopted-b.adopted)||(b.voters.length-a.voters.length));
   return '<div class="form-inline">'+
     '<label class="fld"><span>Título da ideia</span><input id="i-title" placeholder="Ex.: Série sobre os santos jovens"></label>'+
     '<label class="fld"><span>Descrição curta</span><input id="i-desc" placeholder="Como seria o conteúdo?"></label>'+
@@ -887,7 +921,7 @@ async function sendChatMessage(texto){
   chatLoading=true;
   render(); scrollChatToBottom();
   try{
-    const dto=await api('/agente/mensagem',{method:'POST',body:JSON.stringify({mensagem:texto,historico:historico})});
+    const dto=await api('/agente/mensagem',{method:'POST',body:JSON.stringify({mensagem:texto,historico:historico,setor:currentSetor.toUpperCase()})});
     chatLog.push({papel:'agente',texto:dto.resposta,acoes:dto.acoes||[]});
   }catch(e){
     chatLog.push({papel:'agente',texto:'Deu ruim aqui: '+(e.message||'não consegui responder agora.'),acoes:[]});
@@ -987,16 +1021,35 @@ async function addComment(cartaoId,texto){
 /* =====================================================================
    8. RENDERIZAÇÃO GERAL
    ===================================================================== */
+function setorSwitchHtml(){
+  return '<div class="setor-switch">'+
+    '<button type="button" class="setor-btn'+(setorMenuOpen?' open':'')+'" data-action="toggleSetorMenu">'+
+      '<span class="ico"><svg viewBox="0 0 24 24" aria-hidden="true">'+ICONS[SETOR_ICON[currentSetor]]+'</svg></span>'+
+      '<span class="tx"><small>Espaço</small><b>'+esc(SETOR_NAME[currentSetor])+'</b></span>'+
+      '<svg class="chev" viewBox="0 0 24 24" aria-hidden="true">'+ICONS.chev+'</svg>'+
+    '</button>'+
+    (setorMenuOpen?('<div class="setor-menu">'+SETORES.map(s=>
+      '<button type="button" data-action="setSetor" data-setor="'+s.id+'"'+(s.id===currentSetor?' class="active"':'')+'>'+
+        '<span class="ico"><svg viewBox="0 0 24 24" aria-hidden="true">'+ICONS[SETOR_ICON[s.id]]+'</svg></span>'+
+        '<span>'+esc(s.nome)+'</span>'+
+        (s.id===currentSetor?'<svg class="check" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12l5 5L20 6"/></svg>':'')+
+      '</button>'
+    ).join('')+'</div>'):'')+
+  '</div>';
+}
 function renderSide(){
   const m=me();
   $('#side').innerHTML=
     '<div class="brand"><svg width="38" height="38" viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="18.5" fill="none" stroke="#E2BA5C" stroke-width="1.5"/><path d="M20 6L23.4 16.6 34 20 23.4 23.4 20 34 16.6 23.4 6 20 16.6 16.6Z" fill="#E2BA5C"/></svg><div><b>Pascom Fátima</b><small>Santuário Nossa Senhora de Fátima, Santo Amaro</small></div></div>'+
+    setorSwitchHtml()+
     '<div class="nav">'+Object.keys(VIEWS).map(k=>'<button data-action="nav" data-view="'+k+'"'+(k===view?' aria-current="page"':'')+'><svg viewBox="0 0 24 24" aria-hidden="true">'+ICONS[VIEWS[k].icon]+'</svg><span>'+VIEWS[k].label+'</span></button>').join('')+'</div>'+
     '<div class="side-foot">Conectado como <b>'+esc(m?m.nome:'')+'</b>'+(m?' ('+ROLE_NAME[m.role]+')':'')+'<br><button data-action="logout">Sair</button></div>';
 }
+const SETOR_SCOPED_VIEWS=['painel','quadro','calendario','ideias'];
 function renderTop(){
   const v=VIEWS[view];
-  $('#top').innerHTML='<div><h1>'+esc(v.title())+'</h1><p>'+esc(v.sub())+'</p></div>'+
+  const badge=SETOR_SCOPED_VIEWS.indexOf(view)>-1?' <span class="pill" style="vertical-align:middle;font-weight:600">'+esc(SETOR_NAME[currentSetor])+'</span>':'';
+  $('#top').innerHTML='<div><h1>'+esc(v.title())+badge+'</h1><p>'+esc(v.sub())+'</p></div>'+
     '<div class="top-actions"><button class="btn primary" data-action="new">+ Novo cartão</button></div>';
 }
 function render(){
@@ -1121,7 +1174,7 @@ async function adoptIdeia(id){
 async function addIdea(){
   const ti=$('#i-title').value.trim(); if(!ti){toast('Escreva o título da ideia.','warn');return;}
   try{
-    const dto=await api('/ideias',{method:'POST',body:JSON.stringify({titulo:ti,descricao:$('#i-desc').value.trim()||null,tema:$('#i-theme').value})});
+    const dto=await api('/ideias',{method:'POST',body:JSON.stringify({titulo:ti,descricao:$('#i-desc').value.trim()||null,tema:$('#i-theme').value,setor:currentSetor.toUpperCase()})});
     state.ideas.push(ideiaFromApi(dto));
     render(); toast('Ideia enviada. Agora a equipe pode votar.');
   }catch(e){ toast(e.message,'warn'); }
@@ -1149,10 +1202,13 @@ async function leaveSlot(evId,slotId){
    ===================================================================== */
 document.addEventListener('click',e=>{
   if(e.target.id==='overlay'){closeModal();return;}
+  if(setorMenuOpen&&!e.target.closest('.setor-switch')){setorMenuOpen=false;renderSide();}
   const t=e.target.closest('[data-action]'); if(!t) return;
   const a=t.dataset.action, id=t.dataset.id;
   switch(a){
     case 'nav': view=t.dataset.view; render(); if(view==='assistente'&&chatLog.length) scrollChatToBottom(); else $('.main').scrollTop=0; break;
+    case 'toggleSetorMenu': setorMenuOpen=!setorMenuOpen; renderSide(); break;
+    case 'setSetor': currentSetor=t.dataset.setor; setorMenuOpen=false; render(); $('.main').scrollTop=0; break;
     case 'chatEnviar': {
       const inp=$('#chat-input'); if(!inp) break;
       const texto=inp.value; inp.value='';

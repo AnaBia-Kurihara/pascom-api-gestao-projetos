@@ -2,6 +2,7 @@ package br.org.pascom.model;
 
 import br.org.pascom.model.enums.Etapa;
 import br.org.pascom.model.enums.Formato;
+import br.org.pascom.model.enums.Setor;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import lombok.*;
@@ -37,6 +38,10 @@ public class Cartao {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private Etapa etapa;
+
+    /** Setor dono deste cartão (Redes Sociais, Jovens, Datashow, Transmissões/Vídeos). */
+    @Enumerated(EnumType.STRING)
+    private Setor setor;
 
     @ManyToOne
     @JoinColumn(name = "responsavel_id")

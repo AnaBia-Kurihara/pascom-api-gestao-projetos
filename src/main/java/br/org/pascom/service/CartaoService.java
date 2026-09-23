@@ -10,6 +10,7 @@ import br.org.pascom.model.Checklist;
 import br.org.pascom.model.Comentario;
 import br.org.pascom.model.Usuario;
 import br.org.pascom.model.enums.Etapa;
+import br.org.pascom.model.enums.Setor;
 import br.org.pascom.repository.CartaoRepository;
 import br.org.pascom.repository.ComentarioRepository;
 import br.org.pascom.repository.UsuarioRepository;
@@ -35,6 +36,10 @@ public class CartaoService {
 
     public List<CartaoResponseDTO> listarTodos() {
         return cartaoRepository.findAll().stream().map(CartaoResponseDTO::from).toList();
+    }
+
+    public List<CartaoResponseDTO> listarPorSetor(Setor setor) {
+        return cartaoRepository.findBySetor(setor).stream().map(CartaoResponseDTO::from).toList();
     }
 
     public Cartao buscarPorId(Long id) {
@@ -72,6 +77,7 @@ public class CartaoService {
         cartao.setPrazoEntrega(dados.prazoEntrega());
         cartao.setDataPublicacao(dados.dataPublicacao());
         cartao.setRoteiroNotas(dados.roteiroNotas());
+        cartao.setSetor(dados.setor());
 
         if (dados.responsavelId() != null) {
             Usuario responsavel = usuarioRepository.findById(dados.responsavelId())

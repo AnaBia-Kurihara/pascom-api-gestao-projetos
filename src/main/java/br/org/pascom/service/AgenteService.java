@@ -8,6 +8,7 @@ import br.org.pascom.dto.EventoRequestDTO;
 import br.org.pascom.dto.IdeiaRequestDTO;
 import br.org.pascom.dto.IdeiaResponseDTO;
 import br.org.pascom.model.Usuario;
+import br.org.pascom.model.enums.Setor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
@@ -53,6 +54,8 @@ public class AgenteService {
             throw new IllegalStateException("O assistente ainda não foi configurado. Fale com quem administra o sistema.");
         }
 
+        Setor setorAtual = dados.setor() != null ? dados.setor() : Setor.REDES_SOCIAIS;
+
         List<Map<String, Object>> contents = new ArrayList<>();
         if (dados.historico() != null) {
             for (AgenteTurnoDTO turno : dados.historico()) {
@@ -68,7 +71,7 @@ public class AgenteService {
         String textoFinal = null;
 
         for (int rodada = 0; rodada < MAX_RODADAS_FERRAMENTA && textoFinal == null; rodada++) {
-            Map<String, Object> resposta = chamarGemini(contents, solicitante);
+            Map<String, Object> resposta = chamarGemini(contents, solicitante, setorAtual);
             Map<String, Object> chamada = extrairFunctionCall(resposta);
 
             if (chamada == null) {
@@ -82,7 +85,7 @@ public class AgenteService {
 
             contents.add(Map.of("role", "model", "parts", List.of(Map.of("functionCall", chamada))));
 
-            Map<String, Object> resultado = executarFerramenta(nome, args, solicitante, acoes);
+            Map<String, Object> resultado = executarFerramenta(nome, args, solicitante, setorAtual, acoes);
 
             contents.add(Map.of("role", "user", "parts", List.of(Map.of(
                     "functionResponse", Map.of("name", nome, "response", resultado)
@@ -98,9 +101,9 @@ public class AgenteService {
         return new AgenteRespostaDTO(textoFinal, acoes);
     }
 
-    private Map<String, Object> chamarGemini(List<Map<String, Object>> contents, Usuario solicitante) {
+    private Map<String, Object> chamarGemini(List<Map<String, Object>> contents, Usuario solicitante, Setor setorAtual) {
         Map<String, Object> corpo = new HashMap<>();
-        corpo.put("system_instruction", Map.of("parts", List.of(Map.of("text", promptSistema(solicitante)))));
+        corpo.put("system_instruction", Map.of("parts", List.of(Map.of("text", promptSistema(solicitante, setorAtual)))));
         corpo.put("contents", contents);
         corpo.put("tools", List.of(Map.of("functionDeclarations", ferramentas())));
 
@@ -153,13 +156,13 @@ public class AgenteService {
         }
     }
 
-    private Map<String, Object> executarFerramenta(String nome, Map<String, Object> args, Usuario solicitante, List<String> acoes) {
+    private Map<String, Object> executarFerramenta(String nome, Map<String, Object> args, Usuario solicitante, Setor setorAtual, List<String> acoes) {
         try {
             return switch (nome) {
                 case "criar_evento" -> criarEvento(args, solicitante, acoes);
-                case "criar_ideia" -> criarIdeia(args, solicitante, acoes);
+                case "criar_ideia" -> criarIdeia(args, solicitante, setorAtual, acoes);
                 case "listar_eventos" -> listarEventos();
-                case "listar_ideias" -> listarIdeias();
+                case "listar_ideias" -> listarIdeias(setorAtual);
                 default -> Map.of("erro", "Ferramenta desconhecida: " + nome);
             };
         } catch (IllegalStateException | IllegalArgumentException e) {
@@ -182,12 +185,12 @@ public class AgenteService {
         return Map.of("sucesso", true, "eventoId", criado.id());
     }
 
-    private Map<String, Object> criarIdeia(Map<String, Object> args, Usuario solicitante, List<String> acoes) {
+    private Map<String, Object> criarIdeia(Map<String, Object> args, Usuario solicitante, Setor setorAtual, List<String> acoes) {
         String titulo = String.valueOf(args.get("titulo"));
         String tema = String.valueOf(args.getOrDefault("tema", "Geral"));
         String descricao = args.get("descricao") != null ? String.valueOf(args.get("descricao")) : null;
 
-        IdeiaRequestDTO req = new IdeiaRequestDTO(titulo, descricao, tema);
+        IdeiaRequestDTO req = new IdeiaRequestDTO(titulo, descricao, tema, setorAtual);
         ideiaService.criar(req, solicitante);
         acoes.add("Ideia adicionada ao banco de ideias: \"" + titulo + "\"");
         return Map.of("sucesso", true);
@@ -204,28 +207,31 @@ public class AgenteService {
         return Map.of("eventos", resumo);
     }
 
-    private Map<String, Object> listarIdeias() {
-        List<String> resumo = ideiaService.listarTodas().stream()
+    private Map<String, Object> listarIdeias(Setor setorAtual) {
+        List<String> resumo = ideiaService.listarPorSetor(setorAtual).stream()
                 .map(i -> i.titulo() + " (tema: " + i.tema() + (Boolean.TRUE.equals(i.adotada()) ? ", já virou cartão" : "") + ")")
                 .limit(50)
                 .toList();
         return Map.of("ideias", resumo);
     }
 
-    private String promptSistema(Usuario solicitante) {
+    private String promptSistema(Usuario solicitante, Setor setorAtual) {
         return "Você é o assistente de IA da equipe da Pascom Fátima (comunicação do Santuário Nossa Senhora de Fátima, "
                 + "Santo Amaro). Hoje é " + LocalDate.now() + ". Fale português do Brasil, direto e simpático, sem enrolação. "
-                + "Quem está te chamando é " + solicitante.getNome() + " (papel: " + solicitante.getRole() + "). "
-                + "Você pode criar eventos no calendário (ferramenta criar_evento) — mas só o Coordenador Geral tem essa "
-                + "permissão; se a ferramenta devolver um erro de permissão, explique isso com gentileza e não insista. "
-                + "Você pode sugerir e salvar ideias de conteúdo (criar_ideia) — isso qualquer pessoa pode fazer. Antes de "
-                + "criar várias coisas de uma vez (ex.: várias datas de santos do mês), use listar_eventos pra conferir o que "
-                + "já existe e não duplicar. Quando o pedido for algo como 'adicione os santos desse mês no calendário', use "
-                + "seu próprio conhecimento do calendário litúrgico católico pra escolher as datas mais conhecidas (não "
-                + "precisa ser exaustivo com santos obscuros) e crie um evento por data, com horário e local razoáveis "
-                + "quando não especificados (ex.: 19:00, 'Igreja Matriz'). Se pedirem uma ideia de vídeo/post e você não "
-                + "tiver certeza se deve salvar, pode sugerir em texto e perguntar se quer que salve no banco de ideias. "
-                + "Seja concisa nas respostas finais, resumindo o que foi feito.";
+                + "Quem está te chamando é " + solicitante.getNome() + " (papel: " + solicitante.getRole() + "), e a conversa "
+                + "está acontecendo dentro do espaço do setor " + setorAtual + " — toda ideia que você salvar (criar_ideia) "
+                + "entra automaticamente nesse setor, não precisa perguntar qual setor usar. "
+                + "Você pode criar eventos no calendário (ferramenta criar_evento) — eventos são compartilhados entre todos "
+                + "os setores, mas só o Coordenador Geral tem permissão de criar; se a ferramenta devolver um erro de "
+                + "permissão, explique isso com gentileza e não insista. Você pode sugerir e salvar ideias de conteúdo "
+                + "(criar_ideia) — isso qualquer pessoa pode fazer. Antes de criar várias coisas de uma vez (ex.: várias "
+                + "datas de santos do mês), use listar_eventos pra conferir o que já existe e não duplicar. Quando o pedido "
+                + "for algo como 'adicione os santos desse mês no calendário', use seu próprio conhecimento do calendário "
+                + "litúrgico católico pra escolher as datas mais conhecidas (não precisa ser exaustivo com santos obscuros) "
+                + "e crie um evento por data, com horário e local razoáveis quando não especificados (ex.: 19:00, 'Igreja "
+                + "Matriz'). Se pedirem uma ideia de vídeo/post e você não tiver certeza se deve salvar, pode sugerir em "
+                + "texto e perguntar se quer que salve no banco de ideias. Seja concisa nas respostas finais, resumindo o "
+                + "que foi feito.";
     }
 
     private List<Map<String, Object>> ferramentas() {

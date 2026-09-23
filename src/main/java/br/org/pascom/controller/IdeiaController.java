@@ -4,6 +4,7 @@ import br.org.pascom.dto.CartaoResponseDTO;
 import br.org.pascom.dto.IdeiaRequestDTO;
 import br.org.pascom.dto.IdeiaResponseDTO;
 import br.org.pascom.model.Usuario;
+import br.org.pascom.model.enums.Setor;
 import br.org.pascom.service.IdeiaService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -24,8 +25,8 @@ public class IdeiaController {
     }
 
     @GetMapping
-    public ResponseEntity<List<IdeiaResponseDTO>> listarTodas() {
-        return ResponseEntity.ok(ideiaService.listarTodas());
+    public ResponseEntity<List<IdeiaResponseDTO>> listarTodas(@RequestParam(required = false) Setor setor) {
+        return ResponseEntity.ok(setor != null ? ideiaService.listarPorSetor(setor) : ideiaService.listarTodas());
     }
 
     @PostMapping

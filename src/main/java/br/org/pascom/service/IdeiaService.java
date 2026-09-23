@@ -7,6 +7,7 @@ import br.org.pascom.dto.IdeiaResponseDTO;
 import br.org.pascom.model.Ideia;
 import br.org.pascom.model.Usuario;
 import br.org.pascom.model.enums.Formato;
+import br.org.pascom.model.enums.Setor;
 import br.org.pascom.repository.IdeiaRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,12 +29,17 @@ public class IdeiaService {
         return ideiaRepository.findAll().stream().map(IdeiaResponseDTO::from).toList();
     }
 
+    public List<IdeiaResponseDTO> listarPorSetor(Setor setor) {
+        return ideiaRepository.findBySetor(setor).stream().map(IdeiaResponseDTO::from).toList();
+    }
+
     @Transactional
     public IdeiaResponseDTO criar(IdeiaRequestDTO dto, Usuario autor) {
         Ideia ideia = Ideia.builder()
                 .titulo(dto.titulo())
                 .descricao(dto.descricao())
                 .tema(dto.tema())
+                .setor(dto.setor())
                 .autor(autor)
                 .adotada(false)
                 .build();
@@ -77,7 +83,8 @@ public class IdeiaService {
                 null,
                 null,
                 ideia.getDescricao(),
-                null
+                null,
+                ideia.getSetor()
         );
 
         return cartaoService.criar(cartaoReq);

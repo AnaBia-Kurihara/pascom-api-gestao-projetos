@@ -2,6 +2,7 @@ package br.org.pascom.dto;
 
 import br.org.pascom.model.Checklist;
 import br.org.pascom.model.enums.Formato;
+import br.org.pascom.model.enums.Setor;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
@@ -15,5 +16,6 @@ public record CartaoRequestDTO(
         LocalDate prazoEntrega,
         LocalDate dataPublicacao,
         String roteiroNotas,
-        Checklist checklist
+        Checklist checklist,
+        @NotNull(message = "O setor é obrigatório") Setor setor
 ) {}
