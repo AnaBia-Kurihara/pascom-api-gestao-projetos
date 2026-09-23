@@ -41,6 +41,10 @@ public class UsuarioService {
             throw new IllegalStateException("Já existe uma conta com este e-mail.");
         }
 
+        if (dados.role() != Role.COORDENADOR_GERAL && dados.setor() == null) {
+            throw new IllegalArgumentException("Selecione o setor.");
+        }
+
         Usuario usuario = Usuario.builder()
                 .nome(dados.nome())
                 .email(dados.email())
@@ -48,7 +52,9 @@ public class UsuarioService {
                 .funcao(dados.funcao())
                 .disponibilidade(dados.disponibilidade())
                 .avatarHue(dados.avatarHue())
-                .role(usuarioRepository.count() == 0 ? Role.COORDENACAO : Role.VOLUNTARIO)
+                .role(dados.role())
+                // Coordenador geral não pertence a um setor específico, coordena todos.
+                .setor(dados.role() == Role.COORDENADOR_GERAL ? null : dados.setor())
                 .build();
 
         return UsuarioResponseDTO.from(usuarioRepository.save(usuario));
@@ -65,8 +71,8 @@ public class UsuarioService {
 
     @Transactional
     public UsuarioResponseDTO alterarRole(Long id, Role novoRole, Usuario solicitante) {
-        if (solicitante.getRole() != Role.COORDENACAO) {
-            throw new IllegalStateException("Só a coordenação pode alterar a função de alguém da equipe.");
+        if (solicitante.getRole() != Role.COORDENADOR_GERAL) {
+            throw new IllegalStateException("Só o Coordenador Geral pode alterar a função de alguém da equipe.");
         }
 
         Usuario usuario = usuarioRepository.findById(id)

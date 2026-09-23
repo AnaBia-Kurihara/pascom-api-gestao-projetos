@@ -179,6 +179,7 @@ p{margin:0}
 /* ---------- Ideias, escalas, equipe, materiais ---------- */
 .form-inline{display:grid;grid-template-columns:1.2fr 2fr 1fr auto;gap:10px;align-items:end;margin-bottom:20px}
 .fld{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--ink2)}
+.fld[hidden]{display:none}
 .fld input,.fld select,.fld textarea{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 10px;color:var(--ink);font-size:15px}
 .fld textarea{resize:vertical}
 .idea{display:grid;grid-template-columns:64px 1fr auto;gap:14px;align-items:center;padding:14px 0;border-bottom:1px solid var(--line)}
@@ -304,13 +305,25 @@ const FORMATS={reels:'Reels',carrossel:'Carrossel',stories:'Stories',foto:'Post 
 const THEMES=['Liturgia','Formação','Eventos','Santuário','Juventude','Santos'];
 const CHECKS=[
   {id:'texto',short:'texto revisado',label:'Texto e ortografia revisados',hint:''},
-  {id:'doutrina',short:'conferência doutrinária',label:'Conteúdo doutrinário conferido',hint:'Só coordenação ou assessor marcam.',approverOnly:true},
+  {id:'doutrina',short:'conferência doutrinária',label:'Conteúdo doutrinário conferido',hint:'Só coordenadores marcam.',approverOnly:true},
   {id:'imagem',short:'autorização de imagem',label:'Autorização de uso de imagem',hint:'Obrigatória se aparecerem pessoas, principalmente menores.'},
   {id:'musica',short:'música/imagens livres',label:'Música e imagens livres de direitos autorais',hint:''},
   {id:'legenda',short:'legenda e horário',label:'Legenda, hashtags e horário definidos',hint:''}
 ];
 let MEMBERS=[];
-const ROLE_NAME={coord:'Coordenação',assessor:'Assessor',equipe:'Equipe'};
+const ROLES=[
+  {id:'voluntario',nome:'Voluntário(a)'},
+  {id:'coordenador',nome:'Coordenador(a) de setor'},
+  {id:'coordenador_geral',nome:'Coordenador(a) geral da Pastoral'}
+];
+const SETORES=[
+  {id:'redes_sociais',nome:'Redes sociais'},
+  {id:'jovens',nome:'Jovens'},
+  {id:'datashow',nome:'Datashow'},
+  {id:'transmissoes_videos',nome:'Transmissões/Vídeos'}
+];
+const ROLE_NAME={coordenador_geral:'Coordenador(a) Geral',coordenador:'Coordenador(a)',voluntario:'Voluntário(a)'};
+const SETOR_NAME={redes_sociais:'Redes sociais',jovens:'Jovens',datashow:'Datashow',transmissoes_videos:'Transmissões/Vídeos'};
 // Datas fixas do calendário (exemplo: ajuste com a programação real do santuário)
 const LIT={'05-13':'N. Sra. de Fátima','09-21':'São Mateus','09-27':'São Vicente de Paulo','09-29':'Santos Arcanjos','09-30':'São Jerônimo','10-01':'Santa Teresinha','10-02':'Santos Anjos da Guarda','10-04':'São Francisco de Assis','10-07':'N. Sra. do Rosário','10-12':'N. Sra. Aparecida','10-15':'Santa Teresa d’Ávila','10-28':'São Judas Tadeu','11-01':'Todos os Santos','11-02':'Finados','12-08':'Imaculada Conceição','12-13':'Santa Luzia','12-25':'Natal'};
 const LIT_ABS={'2026-11-22':'Cristo Rei','2026-11-29':'1º domingo do Advento'};
@@ -396,10 +409,12 @@ function decodeJwt(token){
   }catch(e){ return null; }
 }
 
-const ROLE_FROM_API={COORDENACAO:'coord',ASSESSOR:'assessor',VOLUNTARIO:'equipe'};
+const ROLE_FROM_API={COORDENADOR_GERAL:'coordenador_geral',COORDENADOR:'coordenador',VOLUNTARIO:'voluntario'};
+const SETOR_FROM_API={REDES_SOCIAIS:'redes_sociais',JOVENS:'jovens',DATASHOW:'datashow',TRANSMISSOES_VIDEOS:'transmissoes_videos'};
 function memberFromApi(u){
   return {
-    id:String(u.id), nome:u.nome, funcao:u.funcao||'', role:ROLE_FROM_API[u.role]||'equipe',
+    id:String(u.id), nome:u.nome, funcao:u.funcao||'', role:ROLE_FROM_API[u.role]||'voluntario',
+    setor:u.setor?SETOR_FROM_API[u.setor]:null,
     disp:u.disponibilidade||'Não informado', h:(u.avatarHue!=null?u.avatarHue:(Number(u.id)*53)%360),
     email:u.email
   };
@@ -479,10 +494,17 @@ async function doLogin(){
 async function doCadastro(){
   const nome=$('#au-nome').value.trim(), email=$('#au-email').value.trim(), senha=$('#au-senha').value;
   const funcao=$('#au-funcao').value.trim();
+  const role=$('#au-role').value;
+  const setor=$('#au-setor').value;
   if(!nome||!email||!senha){ authError='Preencha nome, e-mail e senha.'; renderAuth(); return; }
   if(senha.length<6){ authError='A senha precisa ter pelo menos 6 caracteres.'; renderAuth(); return; }
+  if(role!=='coordenador_geral'&&!setor){ authError='Selecione o setor.'; renderAuth(); return; }
   try{
-    await api('/usuarios/cadastro',{method:'POST',body:JSON.stringify({nome:nome,email:email,senha:senha,funcao:funcao||null})});
+    await api('/usuarios/cadastro',{method:'POST',body:JSON.stringify({
+      nome:nome, email:email, senha:senha, funcao:funcao||null,
+      role:role.toUpperCase(),
+      setor: role==='coordenador_geral' ? null : setor.toUpperCase()
+    })});
     authMode='login'; authError='Conta criada! Agora é só entrar.'; renderAuth();
   }catch(e){ authError=e.message||'Não foi possível criar a conta.'; renderAuth(); }
 }
@@ -504,7 +526,7 @@ let modalId=null, modalPreset=null;
 
 const mem=id=>MEMBERS.find(m=>m.id===id);
 const me=()=>mem(state.me);
-const isApprover=()=>{const m=me();return !!m&&(m.role==='coord'||m.role==='assessor');};
+const isApprover=()=>{const m=me();return !!m&&(m.role==='coordenador_geral'||m.role==='coordenador');};
 const card=id=>state.cards.find(c=>c.id===id);
 const stageName=id=>STAGES.find(s=>s.id===id).name;
 const stageIdx=id=>STAGES.findIndex(s=>s.id===id);
@@ -579,7 +601,7 @@ function viewPainel(){
   const mine=state.cards.filter(c=>c.owner===state.me&&c.stage!=='publicado').sort((a,b)=>(a.due||'9').localeCompare(b.due||'9'));
   const head=n===0?'Hoje é dia 13, dia de Fátima.':'O próximo dia 13 chega em '+n+(n===1?' dia.':' dias.');
   const sub=planned?planned+(planned>1?' conteúdos planejados':' conteúdo planejado')+' para essa data.':'Ainda não há conteúdo planejado para essa data.';
-  const loads=MEMBERS.filter(m=>m.role!=='assessor').map(m=>{
+  const loads=MEMBERS.filter(m=>m.role!=='coordenador_geral').map(m=>{
     const k=state.cards.filter(c=>c.owner===m.id&&c.stage!=='publicado').length;
     return '<div class="load"><span>'+esc(m.nome)+'</span><div class="bar"><i class="'+(k>=4?'hi':'')+'" style="width:'+Math.min(100,k*25)+'%"></i></div><b>'+k+'</b></div>';
   }).join('');
@@ -702,10 +724,11 @@ function viewEscalas(){
 function viewEquipe(){
   return '<div class="team">'+MEMBERS.map(m=>{
     const cs=state.cards.filter(c=>c.owner===m.id&&c.stage!=='publicado');
-    return '<div class="mem">'+avatar(m.id,true)+'<div><h3>'+esc(m.nome)+'</h3><div class="fn">'+esc(m.funcao||'—')+'</div><div class="note" style="margin-top:2px">'+ROLE_NAME[m.role]+', disponível: '+esc((m.disp||'').toLowerCase())+'</div>'+
+    const papel=ROLE_NAME[m.role]+(m.setor?' · '+SETOR_NAME[m.setor]:'');
+    return '<div class="mem">'+avatar(m.id,true)+'<div><h3>'+esc(m.nome)+'</h3><div class="fn">'+esc(m.funcao||'—')+'</div><div class="note" style="margin-top:2px">'+papel+', disponível: '+esc((m.disp||'').toLowerCase())+'</div>'+
       (cs.length?'<ul>'+cs.map(c=>'<li>'+esc(c.title)+'</li>').join('')+'</ul>':'<p class="note">Sem cartões em andamento.</p>')+'</div></div>';
   }).join('')+'</div>'+
-  '<p class="note" style="margin-top:22px">Qualquer pessoa da equipe pode criar e avançar cartões; o checklist de segurança é o que trava o agendamento e a publicação. Só a Coordenação cria eventos e altera a função de outra pessoa.</p>';
+  '<p class="note" style="margin-top:22px">Qualquer pessoa da equipe pode criar e avançar cartões; o checklist de segurança é o que trava o agendamento e a publicação. Só o Coordenador Geral cria eventos e altera a função de outra pessoa.</p>';
 }
 
 /* ---------- Materiais ---------- */
@@ -848,6 +871,8 @@ function cadastroHtml(){
     '<label class="fld"><span>Nome</span><input id="au-nome" type="text" autocomplete="name"></label>'+
     '<label class="fld" style="margin-top:10px"><span>E-mail</span><input id="au-email" type="email" autocomplete="username"></label>'+
     '<label class="fld" style="margin-top:10px"><span>Senha (mínimo 6 caracteres)</span><input id="au-senha" type="password" autocomplete="new-password"></label>'+
+    '<label class="fld" style="margin-top:10px"><span>Você é...</span><select id="au-role">'+ROLES.map(r=>'<option value="'+r.id+'">'+r.nome+'</option>').join('')+'</select></label>'+
+    '<label class="fld" id="au-setor-wrap" style="margin-top:10px"><span>Setor</span><select id="au-setor">'+SETORES.map(s=>'<option value="'+s.id+'">'+s.nome+'</option>').join('')+'</select></label>'+
     '<label class="fld" style="margin-top:10px"><span>Função (opcional)</span><input id="au-funcao" type="text" placeholder="Ex.: Edição de vídeo"></label>'+
     '<button class="btn primary" style="width:100%;margin-top:18px" data-action="doCadastro">Criar conta</button>'+
     '<p class="note" style="margin-top:16px;text-align:center">Já tem conta? <button type="button" class="link-btn" data-action="toLogin">Entrar</button></p>'+
@@ -966,6 +991,10 @@ document.addEventListener('click',e=>{
 });
 document.addEventListener('change',e=>{
   if(e.target.id==='fo'){filters.owner=e.target.value;refreshBoard();}
+  if(e.target.id==='au-role'){
+    const wrap=$('#au-setor-wrap');
+    if(wrap) wrap.hidden=(e.target.value==='coordenador_geral');
+  }
 });
 document.addEventListener('input',e=>{if(e.target.id==='q'){filters.q=e.target.value;refreshBoard();}});
 document.addEventListener('keydown',e=>{

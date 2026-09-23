@@ -1,6 +1,7 @@
 package br.org.pascom.model;
 
 import br.org.pascom.model.enums.Role;
+import br.org.pascom.model.enums.Setor;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Email;
@@ -45,6 +46,10 @@ public class Usuario implements UserDetails {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private Role role;
+
+    /** Nulo para COORDENADOR_GERAL (coordena tudo); obrigatório para COORDENADOR e VOLUNTARIO. */
+    @Enumerated(EnumType.STRING)
+    private Setor setor;
 
     private String funcao;
     private String disponibilidade;

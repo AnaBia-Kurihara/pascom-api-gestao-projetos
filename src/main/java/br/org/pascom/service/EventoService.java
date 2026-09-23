@@ -31,8 +31,8 @@ public class EventoService {
 
     @Transactional
     public EventoDTO criar(EventoRequestDTO dto, Usuario solicitante) {
-        if (solicitante.getRole() != Role.COORDENACAO) {
-            throw new IllegalStateException("Apenas a Coordenação pode criar eventos e marcar datas no calendário.");
+        if (solicitante.getRole() != Role.COORDENADOR_GERAL) {
+            throw new IllegalStateException("Apenas o Coordenador Geral pode criar eventos e marcar datas no calendário.");
         }
 
         Evento evento = Evento.builder()

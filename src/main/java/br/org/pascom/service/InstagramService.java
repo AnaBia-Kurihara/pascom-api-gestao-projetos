@@ -158,8 +158,8 @@ public class InstagramService {
     }
 
     private void exigirCoordenacao(Usuario usuario) {
-        if (usuario.getRole() != Role.COORDENACAO) {
-            throw new IllegalStateException("Apenas a Coordenação pode gerenciar a conexão com o Instagram.");
+        if (usuario.getRole() != Role.COORDENADOR_GERAL) {
+            throw new IllegalStateException("Apenas o Coordenador Geral pode gerenciar a conexão com o Instagram.");
         }
     }
 
