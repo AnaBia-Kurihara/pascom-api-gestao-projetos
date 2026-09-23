@@ -22,19 +22,12 @@ spring:
       hibernate:
         format_sql: true
 
-  mail:
-    host: ${MAIL_HOST:smtp.gmail.com}
-    port: ${MAIL_PORT:587}
-    username: ${MAIL_USERNAME:}
-    password: ${MAIL_PASSWORD:}
-    properties:
-      mail:
-        smtp:
-          auth: true
-          starttls:
-            enable: true
-
 api:
+  resend:
+    # E-mail transacional via API HTTPS (não SMTP — o Railway bloqueia as portas de SMTP de saída).
+    # Chave gerada em resend.com; "from" precisa ser um remetente autorizado na conta Resend.
+    chave: ${RESEND_API_KEY:}
+    remetente: ${RESEND_FROM:onboarding@resend.dev}
   security:
     token:
       # Em produção, defina a variável de ambiente JWT_SECRET com um valor forte e secreto.
