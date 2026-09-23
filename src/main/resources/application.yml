@@ -39,6 +39,9 @@ api:
     google:
       # ID do cliente OAuth do Google (não é secreto — o mesmo valor também fica hardcoded no front-end).
       client-id: ${GOOGLE_CLIENT_ID:}
+  gemini:
+    # Chave da API do Gemini (aistudio.google.com/apikey) — "cérebro" do assistente de IA da equipe.
+    chave: ${GEMINI_API_KEY:}
 
 app:
   # URL pública onde o front-end está servido — usada para montar o link de redefinição de senha no e-mail.
