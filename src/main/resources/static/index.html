@@ -369,8 +369,10 @@ const API_BASE='/api'; // relativo: funciona local e em produção, sem precisar
 const TOKEN_KEY='pascom-fatima-token';
 let authToken=null;
 try{ authToken=localStorage.getItem(TOKEN_KEY); }catch(e){}
-let authMode='login'; // 'login' | 'cadastro'
+let authMode='login'; // 'login' | 'cadastro' | 'esqueci' | 'redefinir'
 let authError='';
+let authOk='';
+let resetToken=null;
 
 async function api(path, options){
   options=options||{};
@@ -512,6 +514,25 @@ function logout(){
   authToken=null; try{localStorage.removeItem(TOKEN_KEY);}catch(e){}
   state={cards:[],ideas:[],events:[],me:null};
   authMode='login'; authError=''; renderAuth();
+}
+async function doEsqueciSenha(){
+  const email=$('#au-email').value.trim();
+  if(!email){ authError='Digite seu e-mail.'; authOk=''; renderAuth(); return; }
+  try{
+    await api('/usuarios/esqueci-senha',{method:'POST',body:JSON.stringify({email:email})});
+    authMode='login'; authError=''; authOk='Se esse e-mail tiver uma conta, enviamos um link pra redefinir a senha. Confira sua caixa de entrada (e o spam).';
+    renderAuth();
+  }catch(e){ authError=e.message||'Não foi possível enviar o e-mail.'; authOk=''; renderAuth(); }
+}
+async function doRedefinirSenha(){
+  const senha=$('#au-senha-nova').value, confirma=$('#au-senha-confirma').value;
+  if(!senha||senha.length<6){ authError='A senha precisa ter pelo menos 6 caracteres.'; authOk=''; renderAuth(); return; }
+  if(senha!==confirma){ authError='As senhas não são iguais.'; authOk=''; renderAuth(); return; }
+  try{
+    await api('/usuarios/redefinir-senha',{method:'POST',body:JSON.stringify({token:resetToken,novaSenha:senha})});
+    resetToken=null; authMode='login'; authError=''; authOk='Senha alterada! Agora é só entrar com a senha nova.';
+    renderAuth();
+  }catch(e){ authError=e.message||'Não foi possível redefinir a senha.'; authOk=''; renderAuth(); }
 }
 
 /* =====================================================================
@@ -841,7 +862,7 @@ function renderTop(){
     '<div class="top-actions"><button class="btn primary" data-action="new">+ Novo cartão</button></div>';
 }
 function render(){
-  if(!authToken){
+  if(!authToken||authMode==='redefinir'){
     $('#app').hidden=true;
     renderAuth();
     return;
@@ -857,11 +878,31 @@ function render(){
 function loginHtml(){
   return '<div class="authwrap"><div class="authbox">'+
     '<h2>Pascom Fátima</h2><p class="note" style="margin:4px 0 20px">Entrar na conta da equipe</p>'+
+    (authOk?'<p class="note" style="margin-bottom:14px;color:#2a7d46">'+esc(authOk)+'</p>':'')+
     (authError?'<p class="late" style="margin-bottom:14px">'+esc(authError)+'</p>':'')+
     '<label class="fld"><span>E-mail</span><input id="au-email" type="email" autocomplete="username"></label>'+
     '<label class="fld" style="margin-top:10px"><span>Senha</span><input id="au-senha" type="password" autocomplete="current-password"></label>'+
-    '<button class="btn primary" style="width:100%;margin-top:18px" data-action="doLogin">Entrar</button>'+
+    '<p class="note" style="margin-top:8px;text-align:right"><button type="button" class="link-btn" data-action="toEsqueciSenha">Esqueceu a senha?</button></p>'+
+    '<button class="btn primary" style="width:100%;margin-top:10px" data-action="doLogin">Entrar</button>'+
     '<p class="note" style="margin-top:16px;text-align:center">Ainda não tem conta? <button type="button" class="link-btn" data-action="toCadastro">Criar conta</button></p>'+
+    '</div></div>';
+}
+function esqueciSenhaHtml(){
+  return '<div class="authwrap"><div class="authbox">'+
+    '<h2>Esqueceu a senha?</h2><p class="note" style="margin:4px 0 20px">Digite seu e-mail que a gente manda um link pra redefinir</p>'+
+    (authError?'<p class="late" style="margin-bottom:14px">'+esc(authError)+'</p>':'')+
+    '<label class="fld"><span>E-mail</span><input id="au-email" type="email" autocomplete="username"></label>'+
+    '<button class="btn primary" style="width:100%;margin-top:18px" data-action="doEsqueciSenha">Enviar link</button>'+
+    '<p class="note" style="margin-top:16px;text-align:center"><button type="button" class="link-btn" data-action="toLogin">Voltar pro login</button></p>'+
+    '</div></div>';
+}
+function redefinirSenhaHtml(){
+  return '<div class="authwrap"><div class="authbox">'+
+    '<h2>Nova senha</h2><p class="note" style="margin:4px 0 20px">Escolha uma nova senha pra sua conta</p>'+
+    (authError?'<p class="late" style="margin-bottom:14px">'+esc(authError)+'</p>':'')+
+    '<label class="fld"><span>Nova senha (mínimo 6 caracteres)</span><input id="au-senha-nova" type="password" autocomplete="new-password"></label>'+
+    '<label class="fld" style="margin-top:10px"><span>Confirmar nova senha</span><input id="au-senha-confirma" type="password" autocomplete="new-password"></label>'+
+    '<button class="btn primary" style="width:100%;margin-top:18px" data-action="doRedefinirSenha">Salvar nova senha</button>'+
     '</div></div>';
 }
 function cadastroHtml(){
@@ -882,8 +923,11 @@ function renderAuth(){
   $('#app').hidden=true;
   const el=$('#authScreen');
   el.hidden=false;
-  el.innerHTML=authMode==='cadastro'?cadastroHtml():loginHtml();
-  setTimeout(()=>{const f=$('#au-email');if(f)f.focus();},30);
+  el.innerHTML = authMode==='cadastro' ? cadastroHtml()
+    : authMode==='esqueci' ? esqueciSenhaHtml()
+    : authMode==='redefinir' ? redefinirSenhaHtml()
+    : loginHtml();
+  setTimeout(()=>{const f=$('#au-email')||$('#au-senha-nova');if(f)f.focus();},30);
 }
 let toastTimer=null;
 function toast(msg,type){
@@ -984,8 +1028,11 @@ document.addEventListener('click',e=>{
     case 'pasta': toast('Na versão real, esta pasta abriria o Google Drive da Pascom.'); break;
     case 'doLogin': doLogin(); break;
     case 'doCadastro': doCadastro(); break;
-    case 'toCadastro': authMode='cadastro'; authError=''; renderAuth(); break;
-    case 'toLogin': authMode='login'; authError=''; renderAuth(); break;
+    case 'doEsqueciSenha': doEsqueciSenha(); break;
+    case 'doRedefinirSenha': doRedefinirSenha(); break;
+    case 'toCadastro': authMode='cadastro'; authError=''; authOk=''; renderAuth(); break;
+    case 'toLogin': authMode='login'; authError=''; authOk=''; renderAuth(); break;
+    case 'toEsqueciSenha': authMode='esqueci'; authError=''; authOk=''; renderAuth(); break;
     case 'logout': logout(); break;
   }
 });
@@ -1003,7 +1050,13 @@ document.addEventListener('keydown',e=>{
     const idAtt=e.target.id;
     if(idAtt==='au-email'||idAtt==='au-senha'||idAtt==='au-nome'||idAtt==='au-funcao'){
       e.preventDefault();
-      if(authMode==='cadastro') doCadastro(); else doLogin();
+      if(authMode==='cadastro') doCadastro();
+      else if(authMode==='esqueci') doEsqueciSenha();
+      else doLogin();
+    }
+    if(idAtt==='au-senha-nova'||idAtt==='au-senha-confirma'){
+      e.preventDefault();
+      doRedefinirSenha();
     }
   }
 });
@@ -1019,6 +1072,16 @@ document.addEventListener('drop',e=>{const b=e.target.closest&&e.target.closest(
    10. INICIALIZAÇÃO
    ===================================================================== */
 async function init(){
+  try{
+    const params=new URLSearchParams(window.location.search);
+    const tk=params.get('resetToken');
+    if(tk){
+      resetToken=tk; authMode='redefinir'; authError=''; authOk='';
+      history.replaceState(null,'',window.location.pathname);
+      render();
+      return;
+    }
+  }catch(e){}
   if(authToken){
     const claims=decodeJwt(authToken);
     if(claims&&claims.exp&&claims.exp*1000>Date.now()&&claims.id){

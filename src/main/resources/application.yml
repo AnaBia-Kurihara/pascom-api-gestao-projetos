@@ -22,6 +22,18 @@ spring:
       hibernate:
         format_sql: true
 
+  mail:
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
 api:
   security:
     token:
@@ -31,6 +43,10 @@ api:
       # Chave usada para criptografar o access token do Instagram no banco.
       # Em produção, defina a variável de ambiente INSTAGRAM_TOKEN_KEY com um valor forte e secreto.
       chave: ${INSTAGRAM_TOKEN_KEY:pascom-fatima-chave-de-criptografia-dev-trocar-em-producao}
+
+app:
+  # URL pública onde o front-end está servido — usada para montar o link de redefinição de senha no e-mail.
+  base-url: ${APP_BASE_URL:http://localhost:8080}
 
 ---
 # Perfil de produção (ativado com SPRING_PROFILES_ACTIVE=prod): usa Postgres de verdade

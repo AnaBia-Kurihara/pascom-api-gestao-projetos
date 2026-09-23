@@ -12,6 +12,7 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 
@@ -54,6 +55,13 @@ public class Usuario implements UserDetails {
     private String funcao;
     private String disponibilidade;
     private Integer avatarHue;
+
+    @Column(unique = true)
+    @JsonIgnore
+    private String resetSenhaToken;
+
+    @JsonIgnore
+    private LocalDateTime resetSenhaExpiraEm;
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {

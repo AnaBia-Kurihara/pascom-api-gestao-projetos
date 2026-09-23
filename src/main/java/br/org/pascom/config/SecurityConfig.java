@@ -41,7 +41,8 @@ public class SecurityConfig {
                 // necessário para o console do H2 renderizar dentro de um <frame>
                 .headers(headers -> headers.frameOptions(frame -> frame.disable()))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/usuarios/cadastro", "/api/usuarios/login").permitAll()
+                        .requestMatchers("/api/usuarios/cadastro", "/api/usuarios/login",
+                                "/api/usuarios/esqueci-senha", "/api/usuarios/redefinir-senha").permitAll()
                         .requestMatchers("/h2-console/**").permitAll()
                         .requestMatchers("/api/**").authenticated()
                         // front-end estático (index.html, css, js) — a autenticação de verdade

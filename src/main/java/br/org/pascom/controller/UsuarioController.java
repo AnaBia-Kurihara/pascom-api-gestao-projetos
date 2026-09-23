@@ -1,7 +1,9 @@
 package br.org.pascom.controller;
 
+import br.org.pascom.dto.EsqueciSenhaDTO;
 import br.org.pascom.dto.LoginDTO;
 import br.org.pascom.dto.LoginResponseDTO;
+import br.org.pascom.dto.RedefinirSenhaDTO;
 import br.org.pascom.dto.UsuarioCadastroDTO;
 import br.org.pascom.dto.UsuarioResponseDTO;
 import br.org.pascom.model.Usuario;
@@ -46,5 +48,17 @@ public class UsuarioController {
             @RequestParam Role novoRole,
             @AuthenticationPrincipal Usuario solicitante) {
         return ResponseEntity.ok(usuarioService.alterarRole(id, novoRole, solicitante));
+    }
+
+    @PostMapping("/esqueci-senha")
+    public ResponseEntity<Void> esqueciSenha(@Valid @RequestBody EsqueciSenhaDTO dados) {
+        usuarioService.esqueciSenha(dados.email());
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/redefinir-senha")
+    public ResponseEntity<Void> redefinirSenha(@Valid @RequestBody RedefinirSenhaDTO dados) {
+        usuarioService.redefinirSenha(dados.token(), dados.novaSenha());
+        return ResponseEntity.ok().build();
     }
 }

@@ -13,7 +13,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 public class UsuarioService {
@@ -22,13 +24,16 @@ public class UsuarioService {
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     private final TokenService tokenService;
+    private final EmailService emailService;
 
     public UsuarioService(UsuarioRepository usuarioRepository, PasswordEncoder passwordEncoder,
-                           AuthenticationManager authenticationManager, TokenService tokenService) {
+                           AuthenticationManager authenticationManager, TokenService tokenService,
+                           EmailService emailService) {
         this.usuarioRepository = usuarioRepository;
         this.passwordEncoder = passwordEncoder;
         this.authenticationManager = authenticationManager;
         this.tokenService = tokenService;
+        this.emailService = emailService;
     }
 
     public List<UsuarioResponseDTO> listarTodos() {
@@ -84,5 +89,31 @@ public class UsuarioService {
 
         usuario.setRole(novoRole);
         return UsuarioResponseDTO.from(usuarioRepository.save(usuario));
+    }
+
+    @Transactional
+    public void esqueciSenha(String email) {
+        // Não revela se o e-mail existe ou não — sempre "sucesso" do ponto de vista de quem pediu.
+        usuarioRepository.findByEmail(email).ifPresent(usuario -> {
+            usuario.setResetSenhaToken(UUID.randomUUID().toString());
+            usuario.setResetSenhaExpiraEm(LocalDateTime.now().plusHours(1));
+            usuarioRepository.save(usuario);
+            emailService.enviarLinkRedefinicaoSenha(usuario.getEmail(), usuario.getResetSenhaToken());
+        });
+    }
+
+    @Transactional
+    public void redefinirSenha(String token, String novaSenha) {
+        Usuario usuario = usuarioRepository.findByResetSenhaToken(token)
+                .orElseThrow(() -> new IllegalStateException("Link de redefinição inválido ou já usado."));
+
+        if (usuario.getResetSenhaExpiraEm() == null || usuario.getResetSenhaExpiraEm().isBefore(LocalDateTime.now())) {
+            throw new IllegalStateException("Esse link expirou. Peça um novo e-mail de redefinição.");
+        }
+
+        usuario.setSenha(passwordEncoder.encode(novaSenha));
+        usuario.setResetSenhaToken(null);
+        usuario.setResetSenhaExpiraEm(null);
+        usuarioRepository.save(usuario);
     }
 }
