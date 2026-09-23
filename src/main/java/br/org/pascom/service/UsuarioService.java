@@ -41,6 +41,10 @@ public class UsuarioService {
             throw new IllegalStateException("Já existe uma conta com este e-mail.");
         }
 
+        if (dados.role() == Role.COORDENADOR_GERAL && usuarioRepository.existsByRole(Role.COORDENADOR_GERAL)) {
+            throw new IllegalStateException("Já existe um Coordenador Geral cadastrado. Fale com essa pessoa pra acessar o sistema.");
+        }
+
         if (dados.role() != Role.COORDENADOR_GERAL && dados.setor() == null) {
             throw new IllegalArgumentException("Selecione o setor.");
         }
