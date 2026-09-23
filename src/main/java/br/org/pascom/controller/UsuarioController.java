@@ -1,6 +1,8 @@
 package br.org.pascom.controller;
 
 import br.org.pascom.dto.EsqueciSenhaDTO;
+import br.org.pascom.dto.GoogleAuthDTO;
+import br.org.pascom.dto.GoogleAuthResponseDTO;
 import br.org.pascom.dto.LoginDTO;
 import br.org.pascom.dto.LoginResponseDTO;
 import br.org.pascom.dto.RedefinirSenhaDTO;
@@ -60,5 +62,10 @@ public class UsuarioController {
     public ResponseEntity<Void> redefinirSenha(@Valid @RequestBody RedefinirSenhaDTO dados) {
         usuarioService.redefinirSenha(dados.token(), dados.novaSenha());
         return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/google")
+    public ResponseEntity<GoogleAuthResponseDTO> google(@Valid @RequestBody GoogleAuthDTO dados) {
+        return ResponseEntity.ok(usuarioService.autenticarComGoogle(dados));
     }
 }

@@ -1,5 +1,7 @@
 package br.org.pascom.service;
 
+import br.org.pascom.dto.GoogleAuthDTO;
+import br.org.pascom.dto.GoogleAuthResponseDTO;
 import br.org.pascom.dto.LoginResponseDTO;
 import br.org.pascom.dto.UsuarioCadastroDTO;
 import br.org.pascom.dto.UsuarioResponseDTO;
@@ -25,15 +27,17 @@ public class UsuarioService {
     private final AuthenticationManager authenticationManager;
     private final TokenService tokenService;
     private final EmailService emailService;
+    private final GoogleTokenService googleTokenService;
 
     public UsuarioService(UsuarioRepository usuarioRepository, PasswordEncoder passwordEncoder,
                            AuthenticationManager authenticationManager, TokenService tokenService,
-                           EmailService emailService) {
+                           EmailService emailService, GoogleTokenService googleTokenService) {
         this.usuarioRepository = usuarioRepository;
         this.passwordEncoder = passwordEncoder;
         this.authenticationManager = authenticationManager;
         this.tokenService = tokenService;
         this.emailService = emailService;
+        this.googleTokenService = googleTokenService;
     }
 
     public List<UsuarioResponseDTO> listarTodos() {
@@ -115,5 +119,44 @@ public class UsuarioService {
         usuario.setResetSenhaToken(null);
         usuario.setResetSenhaExpiraEm(null);
         usuarioRepository.save(usuario);
+    }
+
+    @Transactional
+    public GoogleAuthResponseDTO autenticarComGoogle(GoogleAuthDTO dados) {
+        GoogleTokenService.GoogleClaims claims = googleTokenService.verificar(dados.idToken());
+
+        var existente = usuarioRepository.findByEmail(claims.email());
+        if (existente.isPresent()) {
+            return new GoogleAuthResponseDTO(false, null, null, loginResponse(existente.get()));
+        }
+
+        if (dados.role() == null) {
+            // Conta nova: o front ainda precisa perguntar papel + setor antes de criar de verdade.
+            return new GoogleAuthResponseDTO(true, claims.nome(), claims.email(), null);
+        }
+
+        if (dados.role() == Role.COORDENADOR_GERAL && usuarioRepository.existsByRole(Role.COORDENADOR_GERAL)) {
+            throw new IllegalStateException("Já existe um Coordenador Geral cadastrado. Fale com essa pessoa pra acessar o sistema.");
+        }
+        if (dados.role() != Role.COORDENADOR_GERAL && dados.setor() == null) {
+            throw new IllegalArgumentException("Selecione o setor.");
+        }
+
+        Usuario usuario = Usuario.builder()
+                .nome(claims.nome())
+                .email(claims.email())
+                // Contas via Google não usam senha própria — gera uma aleatória só pra satisfazer a coluna.
+                .senha(passwordEncoder.encode(UUID.randomUUID().toString()))
+                .funcao(dados.funcao())
+                .role(dados.role())
+                .setor(dados.role() == Role.COORDENADOR_GERAL ? null : dados.setor())
+                .build();
+
+        usuario = usuarioRepository.save(usuario);
+        return new GoogleAuthResponseDTO(false, null, null, loginResponse(usuario));
+    }
+
+    private LoginResponseDTO loginResponse(Usuario usuario) {
+        return new LoginResponseDTO(tokenService.gerarToken(usuario), UsuarioResponseDTO.from(usuario));
     }
 }

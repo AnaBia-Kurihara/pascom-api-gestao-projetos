@@ -272,6 +272,7 @@ p{margin:0}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
 <div class="app" id="app" hidden>
@@ -369,10 +370,12 @@ const API_BASE='/api'; // relativo: funciona local e em produção, sem precisar
 const TOKEN_KEY='pascom-fatima-token';
 let authToken=null;
 try{ authToken=localStorage.getItem(TOKEN_KEY); }catch(e){}
-let authMode='login'; // 'login' | 'cadastro' | 'esqueci' | 'redefinir'
+let authMode='login'; // 'login' | 'cadastro' | 'esqueci' | 'redefinir' | 'completarGoogle'
 let authError='';
 let authOk='';
 let resetToken=null;
+const GOOGLE_CLIENT_ID='1022872652102-0lanmvkscnhajde1du4i4tq36sfnq92m.apps.googleusercontent.com'; // ID do cliente OAuth (não é secreto)
+let pendingGoogle=null; // {idToken, nome, email} enquanto espera escolher papel/setor
 
 async function api(path, options){
   options=options||{};
@@ -523,6 +526,43 @@ async function doEsqueciSenha(){
     authMode='login'; authError=''; authOk='Se esse e-mail tiver uma conta, enviamos um link pra redefinir a senha. Confira sua caixa de entrada (e o spam).';
     renderAuth();
   }catch(e){ authError=e.message||'Não foi possível enviar o e-mail.'; authOk=''; renderAuth(); }
+}
+async function entrarComResultadoGoogle(login){
+  authToken=login.token; try{localStorage.setItem(TOKEN_KEY,authToken);}catch(e){}
+  await carregarTudo(login.usuario.id);
+  view='painel'; authError=''; authOk=''; pendingGoogle=null; render();
+}
+async function onGoogleCredential(resp){
+  try{
+    const dto=await api('/usuarios/google',{method:'POST',body:JSON.stringify({idToken:resp.credential})});
+    if(dto.precisaCompletarCadastro){
+      pendingGoogle={idToken:resp.credential,nome:dto.nome,email:dto.email};
+      authMode='completarGoogle'; authError=''; authOk=''; renderAuth();
+    }else{
+      await entrarComResultadoGoogle(dto.login);
+    }
+  }catch(e){ authError=e.message||'Não foi possível entrar com o Google.'; renderAuth(); }
+}
+async function doCompletarGoogle(){
+  if(!pendingGoogle){ authMode='login'; renderAuth(); return; }
+  const role=$('#au-role').value, setor=$('#au-setor').value;
+  if(role!=='coordenador_geral'&&!setor){ authError='Selecione o setor.'; renderAuth(); return; }
+  try{
+    const dto=await api('/usuarios/google',{method:'POST',body:JSON.stringify({
+      idToken:pendingGoogle.idToken, role:role.toUpperCase(),
+      setor: role==='coordenador_geral' ? null : setor.toUpperCase(),
+      funcao: $('#au-funcao').value.trim()||null
+    })});
+    await entrarComResultadoGoogle(dto.login);
+  }catch(e){ authError=e.message||'Não foi possível concluir o cadastro.'; renderAuth(); }
+}
+function renderGoogleButton(containerId){
+  try{
+    if(!window.google||!google.accounts||!google.accounts.id) return;
+    google.accounts.id.initialize({client_id:GOOGLE_CLIENT_ID, callback:onGoogleCredential});
+    const el=document.getElementById(containerId);
+    if(el) google.accounts.id.renderButton(el,{theme:'outline',size:'large',width:320,text:'continue_with',locale:'pt-BR'});
+  }catch(e){}
 }
 async function doRedefinirSenha(){
   const senha=$('#au-senha-nova').value, confirma=$('#au-senha-confirma').value;
@@ -884,6 +924,8 @@ function loginHtml(){
     '<label class="fld" style="margin-top:10px"><span>Senha</span><input id="au-senha" type="password" autocomplete="current-password"></label>'+
     '<p class="note" style="margin-top:8px;text-align:right"><button type="button" class="link-btn" data-action="toEsqueciSenha">Esqueceu a senha?</button></p>'+
     '<button class="btn primary" style="width:100%;margin-top:10px" data-action="doLogin">Entrar</button>'+
+    '<div style="display:flex;align-items:center;gap:10px;margin:16px 0"><hr style="flex:1;border:none;border-top:1px solid #ddd"><span class="note">ou</span><hr style="flex:1;border:none;border-top:1px solid #ddd"></div>'+
+    '<div id="google-btn-login" style="display:flex;justify-content:center"></div>'+
     '<p class="note" style="margin-top:16px;text-align:center">Ainda não tem conta? <button type="button" class="link-btn" data-action="toCadastro">Criar conta</button></p>'+
     '</div></div>';
 }
@@ -916,7 +958,23 @@ function cadastroHtml(){
     '<label class="fld" id="au-setor-wrap" style="margin-top:10px"><span>Setor</span><select id="au-setor">'+SETORES.map(s=>'<option value="'+s.id+'">'+s.nome+'</option>').join('')+'</select></label>'+
     '<label class="fld" style="margin-top:10px"><span>Função (opcional)</span><input id="au-funcao" type="text" placeholder="Ex.: Edição de vídeo"></label>'+
     '<button class="btn primary" style="width:100%;margin-top:18px" data-action="doCadastro">Criar conta</button>'+
+    '<div style="display:flex;align-items:center;gap:10px;margin:16px 0"><hr style="flex:1;border:none;border-top:1px solid #ddd"><span class="note">ou</span><hr style="flex:1;border:none;border-top:1px solid #ddd"></div>'+
+    '<div id="google-btn-cadastro" style="display:flex;justify-content:center"></div>'+
     '<p class="note" style="margin-top:16px;text-align:center">Já tem conta? <button type="button" class="link-btn" data-action="toLogin">Entrar</button></p>'+
+    '</div></div>';
+}
+function completarGoogleHtml(){
+  const g=pendingGoogle||{nome:'',email:''};
+  return '<div class="authwrap"><div class="authbox">'+
+    '<h2>Quase lá</h2><p class="note" style="margin:4px 0 20px">Confirme sua função pra concluir o cadastro com Google</p>'+
+    (authError?'<p class="late" style="margin-bottom:14px">'+esc(authError)+'</p>':'')+
+    '<label class="fld"><span>Nome</span><input type="text" value="'+esc(g.nome)+'" disabled></label>'+
+    '<label class="fld" style="margin-top:10px"><span>E-mail</span><input type="text" value="'+esc(g.email)+'" disabled></label>'+
+    '<label class="fld" style="margin-top:10px"><span>Você é...</span><select id="au-role">'+ROLES.map(r=>'<option value="'+r.id+'">'+r.nome+'</option>').join('')+'</select></label>'+
+    '<label class="fld" id="au-setor-wrap" style="margin-top:10px"><span>Setor</span><select id="au-setor">'+SETORES.map(s=>'<option value="'+s.id+'">'+s.nome+'</option>').join('')+'</select></label>'+
+    '<label class="fld" style="margin-top:10px"><span>Função (opcional)</span><input id="au-funcao" type="text" placeholder="Ex.: Edição de vídeo"></label>'+
+    '<button class="btn primary" style="width:100%;margin-top:18px" data-action="doCompletarGoogle">Concluir cadastro</button>'+
+    '<p class="note" style="margin-top:16px;text-align:center"><button type="button" class="link-btn" data-action="toLogin">Cancelar</button></p>'+
     '</div></div>';
 }
 function renderAuth(){
@@ -926,7 +984,10 @@ function renderAuth(){
   el.innerHTML = authMode==='cadastro' ? cadastroHtml()
     : authMode==='esqueci' ? esqueciSenhaHtml()
     : authMode==='redefinir' ? redefinirSenhaHtml()
+    : authMode==='completarGoogle' ? completarGoogleHtml()
     : loginHtml();
+  if(authMode==='login') renderGoogleButton('google-btn-login');
+  if(authMode==='cadastro') renderGoogleButton('google-btn-cadastro');
   setTimeout(()=>{const f=$('#au-email')||$('#au-senha-nova');if(f)f.focus();},30);
 }
 let toastTimer=null;
@@ -1030,8 +1091,9 @@ document.addEventListener('click',e=>{
     case 'doCadastro': doCadastro(); break;
     case 'doEsqueciSenha': doEsqueciSenha(); break;
     case 'doRedefinirSenha': doRedefinirSenha(); break;
-    case 'toCadastro': authMode='cadastro'; authError=''; authOk=''; renderAuth(); break;
-    case 'toLogin': authMode='login'; authError=''; authOk=''; renderAuth(); break;
+    case 'doCompletarGoogle': doCompletarGoogle(); break;
+    case 'toCadastro': authMode='cadastro'; authError=''; authOk=''; pendingGoogle=null; renderAuth(); break;
+    case 'toLogin': authMode='login'; authError=''; authOk=''; pendingGoogle=null; renderAuth(); break;
     case 'toEsqueciSenha': authMode='esqueci'; authError=''; authOk=''; renderAuth(); break;
     case 'logout': logout(); break;
   }
@@ -1052,6 +1114,7 @@ document.addEventListener('keydown',e=>{
       e.preventDefault();
       if(authMode==='cadastro') doCadastro();
       else if(authMode==='esqueci') doEsqueciSenha();
+      else if(authMode==='completarGoogle') doCompletarGoogle();
       else doLogin();
     }
     if(idAtt==='au-senha-nova'||idAtt==='au-senha-confirma'){
