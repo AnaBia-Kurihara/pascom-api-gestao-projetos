@@ -863,6 +863,23 @@ function missaCard(m){
 }
 let transmissaoCache=null;
 let transmissaoLoading=false;
+let transmissaoAba='quadro';
+const ROTEIRO_MISSA=[
+  ['Abertura','O comentarista anuncia as intenções da missa, aniversariantes e o celebrante (padre) no início da celebração.'],
+  ['Procissão de entrada','Coroinha, marianinha, ministros, acólitos e o padre fazem reverência ao altar.'],
+  ['Ato Penitencial, Glória e Oração do Dia',''],
+  ['Liturgia da Palavra','1ª Leitura, Salmo Responsorial, 2ª Leitura e Evangelho.'],
+  ['Homilia',''],
+  ['Creio até o Rito da Comunhão','Creio, Preces da Assembleia, Ofertório, Prefácio, Santo, Oração Eucarística, Pai Nosso e Cordeiro de Deus. A partir daqui as câmeras devem coletar apenas cenas do altar.'],
+  ['Comunhão e encerramento','Comunhão, Ação de Graças, Ave Maria, avisos/parabéns e Oração Final.']
+];
+const PASSO_A_PASSO_LIVE=[
+  ['Abrir o YouTube Studio','No Chrome, acesse studio.youtube.com → Transmitir ao vivo → Gerenciar, e confira se a transmissão da missa do dia certo está agendada.'],
+  ['Conferir a latência','Nas configurações da transmissão agendada, deixe a Latência do stream em "Ultrabaixa".'],
+  ['Abrir o Prism Live Studio','Abra o aplicativo e clique em "Go Live".'],
+  ['Conferir os dados da live','Confirme transmissão, título, privacidade (Público), categoria e latência (Ultrabaixa), "Não é feito para crianças", e clique em "Começar Live".'],
+  ['Início automático','Quando a imagem do Prism aparecer no YouTube Studio, a transmissão está pronta e no ar.']
+];
 async function carregarTransmissoes(){
   transmissaoLoading=true; render();
   try{ transmissaoCache=(await api('/transmissoes')).map(transmissaoFromApi); }
@@ -870,9 +887,26 @@ async function carregarTransmissoes(){
   transmissaoLoading=false; render();
 }
 function viewTransmissaoQuadro(){
-  if(transmissaoCache===null) return '<div class="empty">'+(transmissaoLoading?'Carregando...':'Sem dados ainda.')+'</div>';
-  return '<div class="filters" style="margin-bottom:12px"><button class="btn" data-action="gerarTransmissoesMes">Gerar domingos do mês</button><span class="tip">Cria (sem duplicar) a transmissão da Missa das 10h pra cada domingo. Missas solenes e a Benção do Santíssimo (quintas, ~19h30) você adiciona pelo "+".</span></div>'+
+  const tabs='<div class="dash-tabs">'+
+    '<button type="button" class="dash-tab'+(transmissaoAba==='quadro'?' active':'')+'" data-action="transmissaoAba" data-aba="quadro">Quadro</button>'+
+    '<button type="button" class="dash-tab'+(transmissaoAba==='guia'?' active':'')+'" data-action="transmissaoAba" data-aba="guia">Guia</button>'+
+  '</div>';
+  if(transmissaoAba==='guia') return tabs+transmissaoGuiaHtml();
+  if(transmissaoCache===null) return tabs+'<div class="empty">'+(transmissaoLoading?'Carregando...':'Sem dados ainda.')+'</div>';
+  return tabs+'<div class="filters" style="margin-bottom:12px"><button class="btn" data-action="gerarTransmissoesMes">Gerar domingos do mês</button><span class="tip">Cria (sem duplicar) a transmissão da Missa das 10h pra cada domingo. Missas solenes e a Benção do Santíssimo (quintas, ~19h30) você adiciona pelo "+".</span></div>'+
     '<div id="boardArea">'+transmissaoBoardHtml()+'</div>';
+}
+function transmissaoGuiaHtml(){
+  return '<p class="tip" style="margin-bottom:14px">Consulta rápida pra quem está operando a transmissão — roteiro de câmeras por momento da missa e o passo a passo pra ir ao vivo.</p>'+
+    '<div class="two">'+
+      '<div class="tpl"><h4 style="font-size:17px">Roteiro de câmeras por momento da missa</h4><ol class="checklist">'+
+        ROTEIRO_MISSA.map(p=>'<li><b>'+esc(p[0])+'.</b> '+esc(p[1])+'</li>').join('')+
+      '</ol></div>'+
+      '<div class="tpl"><h4 style="font-size:17px">Passo a passo pra ir ao vivo</h4><ol class="checklist">'+
+        PASSO_A_PASSO_LIVE.map(p=>'<li><b>'+esc(p[0])+'.</b> '+esc(p[1])+'</li>').join('')+
+      '</ol></div>'+
+    '</div>'+
+    '<p class="note" style="margin-top:16px">Equipamento: mixer Blackmagic Atem Mini Pro (troca de câmeras), transmitido pelo Prism Live Studio pro YouTube Studio.</p>';
 }
 function transmissaoBoardHtml(){
   const lista=transmissaoCache||[];
@@ -1750,6 +1784,7 @@ document.addEventListener('click',e=>{
       else{t.dataset.sure='1';t.textContent='Confirmar exclusão';}
       break;
     case 'gerarTransmissoesMes': gerarTransmissoesMes(); break;
+    case 'transmissaoAba': transmissaoAba=t.dataset.aba; render(); break;
     case 'transmissaoPrev': {const tr=transmissaoCache.find(x=>x.id===id);moveTransmissao(id,TRANSMISSAO_STAGES[transmissaoStageIdx(tr.etapa)-1].id);break;}
     case 'transmissaoNext': {const tr=transmissaoCache.find(x=>x.id===id);moveTransmissao(id,TRANSMISSAO_STAGES[transmissaoStageIdx(tr.etapa)+1].id);break;}
     case 'comment': {
