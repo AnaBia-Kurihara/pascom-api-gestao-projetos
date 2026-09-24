@@ -4,6 +4,7 @@ import br.org.pascom.model.Cartao;
 import br.org.pascom.model.enums.Etapa;
 import br.org.pascom.model.enums.Setor;
 import org.springframework.data.jpa.repository.JpaRepository;
+import java.time.LocalDate;
 import java.util.List;
 
 public interface CartaoRepository extends JpaRepository<Cartao, Long> {
@@ -11,4 +12,5 @@ public interface CartaoRepository extends JpaRepository<Cartao, Long> {
     List<Cartao> findByResponsavelId(Long usuarioId);
     List<Cartao> findByEtapaAndInstagramMediaIdIsNotNull(Etapa etapa);
     List<Cartao> findBySetor(Setor setor);
+    List<Cartao> findBySetorAndEtapaAndDataPublicacaoBetween(Setor setor, Etapa etapa, LocalDate inicio, LocalDate fim);
 }

@@ -1,6 +1,9 @@
 package br.org.pascom.service;
 
+import br.org.pascom.dto.DashboardPostDTO;
+import br.org.pascom.dto.DashboardResumoDTO;
 import br.org.pascom.dto.InstagramConectarDTO;
+import br.org.pascom.dto.InstagramPostDTO;
 import br.org.pascom.dto.InstagramStatusDTO;
 import br.org.pascom.dto.MetricaPostagemDTO;
 import br.org.pascom.model.Cartao;
@@ -8,7 +11,7 @@ import br.org.pascom.model.ContaInstagram;
 import br.org.pascom.model.MetricaPostagem;
 import br.org.pascom.model.Usuario;
 import br.org.pascom.model.enums.Etapa;
-import br.org.pascom.model.enums.Role;
+import br.org.pascom.model.enums.Setor;
 import br.org.pascom.repository.CartaoRepository;
 import br.org.pascom.repository.ContaInstagramRepository;
 import br.org.pascom.repository.MetricaPostagemRepository;
@@ -18,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -132,6 +136,91 @@ public class InstagramService {
         }
     }
 
+    /** Lista os posts recentes da conta conectada, pra facilitar escolher qual vincular a um cartão. */
+    public List<InstagramPostDTO> listarPostsRecentes() {
+        ContaInstagram conta = contaRepository.findById(ContaInstagram.ID_UNICO)
+                .orElseThrow(() -> new IllegalStateException("A conta do Instagram ainda não foi conectada."));
+        String token = criptografiaService.decriptar(conta.getAccessTokenCriptografado());
+
+        try {
+            MediaResponse resposta = restClient.get()
+                    .uri(GRAPH_BASE_URL + "/{userId}/media?fields=id,caption,media_type,permalink,timestamp,like_count,comments_count&limit=25&access_token={token}",
+                            conta.getInstagramUserId(), token)
+                    .retrieve()
+                    .body(MediaResponse.class);
+
+            if (resposta == null || resposta.data() == null) {
+                return List.of();
+            }
+            return resposta.data().stream()
+                    .map(m -> new InstagramPostDTO(m.id(), m.permalink(), m.caption(), m.timestamp(), m.media_type(), m.like_count(), m.comments_count()))
+                    .toList();
+        } catch (RestClientException e) {
+            throw new IllegalStateException("Não foi possível buscar os posts no Instagram: " + e.getMessage());
+        }
+    }
+
+    /** Resumo agregado (semanal/mensal/anual) de publicações + engajamento de um setor, pro dashboard. */
+    public DashboardResumoDTO obterDashboard(Setor setor, String periodo) {
+        LocalDate fim = LocalDate.now();
+        LocalDate inicio = switch (periodo == null ? "SEMANAL" : periodo.toUpperCase()) {
+            case "MENSAL" -> fim.minusDays(29);
+            case "ANUAL" -> fim.minusDays(364);
+            default -> fim.minusDays(6);
+        };
+        String periodoNormalizado = switch (periodo == null ? "SEMANAL" : periodo.toUpperCase()) {
+            case "MENSAL" -> "MENSAL";
+            case "ANUAL" -> "ANUAL";
+            default -> "SEMANAL";
+        };
+
+        List<Cartao> publicados = cartaoRepository.findBySetorAndEtapaAndDataPublicacaoBetween(setor, Etapa.PUBLICADO, inicio, fim);
+
+        long totalCurtidas = 0, totalComentarios = 0, totalSalvamentos = 0, totalCompartilhamentos = 0, totalAlcance = 0;
+        int totalVinculados = 0;
+        List<DashboardPostDTO> posts = new java.util.ArrayList<>();
+
+        for (Cartao cartao : publicados) {
+            boolean vinculado = cartao.getInstagramMediaId() != null && !cartao.getInstagramMediaId().isBlank();
+            MetricaPostagem ultima = vinculado
+                    ? metricaRepository.findFirstByCartaoIdOrderByColetadoEmDesc(cartao.getId()).orElse(null)
+                    : null;
+
+            if (vinculado) totalVinculados++;
+            if (ultima != null) {
+                totalCurtidas += nz(ultima.getCurtidas());
+                totalComentarios += nz(ultima.getComentarios());
+                totalSalvamentos += nz(ultima.getSalvamentos());
+                totalCompartilhamentos += nz(ultima.getCompartilhamentos());
+                totalAlcance += nz(ultima.getAlcance());
+            }
+
+            posts.add(new DashboardPostDTO(
+                    cartao.getId(), cartao.getTitulo(), cartao.getFormato(), cartao.getDataPublicacao(),
+                    cartao.getInstagramPermalink(), vinculado,
+                    ultima != null ? ultima.getCurtidas() : null,
+                    ultima != null ? ultima.getComentarios() : null,
+                    ultima != null ? ultima.getSalvamentos() : null,
+                    ultima != null ? ultima.getCompartilhamentos() : null,
+                    ultima != null ? ultima.getAlcance() : null,
+                    ultima != null ? ultima.getColetadoEm() : null
+            ));
+        }
+
+        posts.sort((a, b) -> {
+            if (a.dataPublicacao() == null) return 1;
+            if (b.dataPublicacao() == null) return -1;
+            return b.dataPublicacao().compareTo(a.dataPublicacao());
+        });
+
+        return new DashboardResumoDTO(periodoNormalizado, inicio, fim, publicados.size(), totalVinculados,
+                totalCurtidas, totalComentarios, totalSalvamentos, totalCompartilhamentos, totalAlcance, posts);
+    }
+
+    private static int nz(Integer valor) {
+        return valor != null ? valor : 0;
+    }
+
     private Map<String, Integer> buscarInsights(String mediaId, String token) {
         try {
             InsightsResponse resposta = restClient.get()
@@ -166,4 +255,8 @@ public class InstagramService {
     private record InsightsResponse(List<InsightItem> data) {}
     private record InsightItem(String name, List<InsightValue> values) {}
     private record InsightValue(Integer value) {}
+
+    private record MediaResponse(List<MediaItem> data) {}
+    private record MediaItem(String id, String caption, String media_type, String permalink, String timestamp,
+                              Integer like_count, Integer comments_count) {}
 }

@@ -261,6 +261,21 @@ p{margin:0}
 .toast.show{opacity:1;transform:translate(-50%,0)}
 .toast.warn{background:var(--gold);color:#1B1400}
 
+/* ---------- Dashboard ---------- */
+.dash-tabs{display:flex;gap:6px;margin-bottom:14px}
+.dash-tab{background:var(--panel);border:1px solid var(--line);border-radius:99px;padding:8px 18px;font-size:13.5px;font-weight:500;color:var(--ink2)}
+.dash-tab:hover{border-color:var(--ink3)}
+.dash-tab.active{background:var(--brand);color:var(--brand-ink);border-color:transparent}
+.dash-post-h{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.dash-stats{display:flex;gap:12px;flex-wrap:wrap;font-size:12.5px;color:var(--ink2);margin-top:4px}
+
+/* ---------- Instagram (vincular post) ---------- */
+.ig-list{display:flex;flex-direction:column;gap:6px;max-height:260px;overflow-y:auto;margin-top:6px}
+.ig-post{display:flex;flex-direction:column;gap:2px;text-align:left;background:var(--tint);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+.ig-post:hover{border-color:var(--brand)}
+.ig-cap{font-size:13px;color:var(--ink)}
+.ig-meta{font-size:11.5px;color:var(--ink3)}
+
 /* ---------- Assistente (chat) ---------- */
 .chat-wrap{display:flex;flex-direction:column;max-width:760px;margin:0 auto;min-height:calc(100vh - 220px)}
 .chat-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:14px;padding:40px 10px}
@@ -706,7 +721,8 @@ const ICONS={
   flame:'<path d="M12 3c.7 2.6-2.6 3.6-2.6 6.3a2.6 2.6 0 0 0 5.2 0c0-.8-.6-1.5-.6-1.5 1.6.9 2.6 2.6 2.6 4.4a4.6 4.6 0 0 1-9.2 0c0-3.5 2.6-5.3 2.6-6.9 0-.9.4-1.6 2-2.3z"/>',
   monitor:'<rect x="3" y="4.5" width="18" height="12" rx="2"/><path d="M8 20h8M12 16.5v3.5"/>',
   live:'<circle cx="12" cy="12" r="3"/><path d="M7.5 7.5a6.5 6.5 0 0 0 0 9M16.5 7.5a6.5 6.5 0 0 1 0 9M4.5 4.5a11 11 0 0 0 0 15M19.5 4.5a11 11 0 0 1 0 15"/>',
-  chev:'<path d="M6 9l6 6 6-6"/>'
+  chev:'<path d="M6 9l6 6 6-6"/>',
+  chart:'<path d="M4 20V10M11 20V4M18 20v-7"/><path d="M3 20h18"/>'
 };
 
 /* =====================================================================
@@ -716,6 +732,7 @@ const VIEWS={
   painel:{label:'Painel',icon:'dash',title:()=>'Paz e bem, '+greetName(),sub:()=>cap(fmtLong(TODAY)),render:viewPainel},
   quadro:{label:'Produção',icon:'board',title:()=>'Quadro de produção',sub:()=>'Cada vídeo ou post é um cartão que avança da ideia até a publicação.',render:viewQuadro},
   calendario:{label:'Calendário',icon:'cal',title:()=>'Calendário editorial',sub:()=>'O que vai ao ar, junto com os santos do dia e os eventos do santuário.',render:viewCalendario},
+  dashboard:{label:'Dashboard',icon:'chart',title:()=>'Dashboard',sub:()=>'Andamento e engajamento das publicações — semana, mês e ano.',render:viewDashboard},
   ideias:{label:'Ideias',icon:'bulb',title:()=>'Banco de ideias',sub:()=>'Qualquer pessoa da equipe sugere. As mais votadas viram cartões.',render:viewIdeias},
   escalas:{label:'Escalas',icon:'cam',title:()=>'Escalas de cobertura',sub:()=>'Quem vai fotografar, filmar e transmitir cada celebração.',render:viewEscalas},
   equipe:{label:'Equipe',icon:'users',title:()=>'Equipe',sub:()=>'Funções, disponibilidade e carga de trabalho de cada pessoa.',render:viewEquipe},
@@ -819,6 +836,59 @@ function viewCalendario(){
     '<div class="cal-wrap"><div class="cal">'+cells+'</div></div>'+
     '<div class="cal-list">'+(list||'<div class="empty">Nada neste mês.</div>')+'</div>'+
     '<p class="note">Clique em um dia para planejar um conteúdo nessa data. Datas litúrgicas são exemplos e podem ser ajustadas à programação do santuário.</p>';
+}
+
+/* ---------- Dashboard ---------- */
+let dashboardCache={}; // chave "setor_periodo" -> DashboardResumoDTO já carregado
+let dashboardPeriodo='SEMANAL';
+let dashboardLoading=false;
+const DASH_PERIODOS=[['SEMANAL','Semana'],['MENSAL','Mês'],['ANUAL','Ano']];
+function dashboardKey(){ return currentSetor+'_'+dashboardPeriodo; }
+async function carregarDashboard(){
+  dashboardLoading=true; render();
+  try{
+    const dto=await api('/instagram/dashboard?setor='+currentSetor.toUpperCase()+'&periodo='+dashboardPeriodo);
+    dashboardCache[dashboardKey()]=dto;
+  }catch(e){ toast(e.message,'warn'); }
+  dashboardLoading=false; render();
+}
+function dashboardStatHtml(dados){
+  const stats=[
+    ['Publicados',dados.totalPublicados],
+    ['Vinculados ao Instagram',dados.totalVinculadosInstagram],
+    ['Curtidas',dados.totalCurtidas],
+    ['Comentários',dados.totalComentarios],
+    ['Salvamentos',dados.totalSalvamentos],
+    ['Compartilhamentos',dados.totalCompartilhamentos],
+    ['Alcance',dados.totalAlcance]
+  ];
+  return '<div class="strip">'+stats.map(s=>'<div><b>'+s[1]+'</b><span>'+s[0]+'</span></div>').join('')+'</div>';
+}
+function dashboardPostHtml(p,maxCurtidas){
+  const pct=p.curtidas?Math.max(4,Math.round((p.curtidas/maxCurtidas)*100)):0;
+  const stats=p.vinculadoInstagram
+    ? '<div class="bar" style="margin:8px 0"><i style="width:'+pct+'%"></i></div>'+
+      '<div class="dash-stats"><span>'+(p.curtidas??'—')+' curtidas</span><span>'+(p.comentarios??'—')+' comentários</span><span>'+(p.salvamentos??'—')+' salvamentos</span><span>'+(p.compartilhamentos??'—')+' compart.</span><span>'+(p.alcance??'—')+' alcance</span></div>'+
+      (p.metricasColetadasEm?'<p class="note" style="margin-top:2px">Coletado em '+esc(p.metricasColetadasEm.slice(0,10))+'</p>':'<p class="note" style="margin-top:2px">Ainda sem métricas coletadas.</p>')
+    : '<p class="note" style="margin-top:4px">Ainda não vinculado a uma publicação do Instagram — abra o cartão pra vincular.</p>';
+  return '<button type="button" class="row" style="display:block;text-align:left" data-action="open" data-id="'+p.cartaoId+'">'+
+    '<div class="dash-post-h"><b>'+esc(p.titulo)+'</b>'+fmtChip({fmt:(p.formato||'reels').toLowerCase()})+'<span class="note">'+(p.dataPublicacao||'')+'</span></div>'+
+    stats+'</button>';
+}
+function viewDashboard(){
+  const tabs='<div class="dash-tabs">'+DASH_PERIODOS.map(t=>
+    '<button type="button" class="dash-tab'+(dashboardPeriodo===t[0]?' active':'')+'" data-action="dashPeriodo" data-periodo="'+t[0]+'">'+t[1]+'</button>'
+  ).join('')+'</div>';
+  const dados=dashboardCache[dashboardKey()];
+  if(!dados){
+    return tabs+'<div class="empty" style="margin-top:16px">'+(dashboardLoading?'Carregando...':'Sem dados ainda.')+'</div>';
+  }
+  const maxCurtidas=Math.max(1,...dados.posts.map(p=>p.curtidas||0));
+  const lista=dados.posts.length
+    ? '<div class="rows">'+dados.posts.map(p=>dashboardPostHtml(p,maxCurtidas)).join('')+'</div>'
+    : '<div class="empty">Nenhum cartão publicado nesse período, nesse setor.</div>';
+  return tabs+dashboardStatHtml(dados)+
+    '<section class="panel" style="margin-top:18px"><h2>Publicações do período</h2>'+lista+'</section>';
 }
 
 /* ---------- Ideias ---------- */
@@ -937,12 +1007,39 @@ function chatAutoGrow(el){
 /* =====================================================================
    7. MODAL DO CARTÃO
    ===================================================================== */
+let igPicker=null; // {loading:bool, posts:[]} enquanto o seletor de posts do Instagram está aberto no modal
 function openCard(id,preset){
-  modalId=id||null; modalPreset=preset||{};
+  modalId=id||null; modalPreset=preset||{}; igPicker=null;
   const c=id?card(id):Object.assign({id:null,title:'',fmt:'reels',theme:'Formação',stage:'ideia',owner:null,due:'',pub:'',notes:'',checks:{},comments:[]},preset||{});
   const o=$('#overlay');
   o.innerHTML=cardModal(c); o.hidden=false;
   setTimeout(()=>{const f=$('#f-title'); if(f&&!id) f.focus();},30);
+}
+function reabrirModal(){
+  if(!modalId) return;
+  const c=card(modalId); if(!c) return;
+  $('#overlay').innerHTML=cardModal(c);
+}
+function instagramSecaoHtml(c){
+  if(!c.id||c.stage!=='publicado') return '';
+  let corpo;
+  if(c.instagramMediaId){
+    corpo='<p class="note">Vinculado a <a href="'+esc(c.instagramPermalink||'#')+'" target="_blank" rel="noopener">esta publicação</a>.</p>'+
+      '<button type="button" class="btn small" data-action="coletarMetricas">Atualizar métricas agora</button> '+
+      '<span class="note">Veja os números agregados na aba Dashboard.</span>';
+  }else if(igPicker&&igPicker.loading){
+    corpo='<p class="note">Buscando publicações recentes...</p>';
+  }else if(igPicker&&!igPicker.loading){
+    corpo=(igPicker.posts.length?'<div class="ig-list">'+igPicker.posts.map(p=>
+      '<button type="button" class="ig-post" data-action="vincularIg" data-id="'+esc(p.id)+'" data-permalink="'+esc(p.permalink||'')+'">'+
+        '<span class="ig-cap">'+esc((p.legenda||'(sem legenda)').slice(0,70))+'</span>'+
+        '<span class="ig-meta">'+esc((p.timestamp||'').slice(0,10))+' · '+(p.curtidas!=null?p.curtidas+' curtidas':'')+'</span>'+
+      '</button>').join('')+'</div>':'<p class="note">Nenhuma publicação encontrada na conta do Instagram.</p>')+
+      '<button type="button" class="btn small" style="margin-top:8px" data-action="fecharIgPicker">Cancelar</button>';
+  }else{
+    corpo='<button type="button" class="btn small" data-action="abrirIgPicker">Vincular a uma publicação do Instagram</button>';
+  }
+  return '<div><h4 style="font-size:16px;margin-bottom:4px">Instagram</h4>'+corpo+'</div>';
 }
 function commentsHtml(c){
   if(!c.id) return '<p class="note">Salve o cartão para começar a comentar.</p>';
@@ -968,6 +1065,7 @@ function cardModal(c){
         CHECKS.map(k=>{const dis=k.approverOnly&&!isApprover();return '<label class="chk"><input type="checkbox" name="chk" value="'+k.id+'"'+(c.checks[k.id]?' checked':'')+(dis?' disabled':'')+'><span>'+k.label+(k.hint?'<small>'+esc(k.hint)+'</small>':'')+'</span></label>';}).join('')+
       '</fieldset>'+
       '<div><h4 style="font-size:16px;margin-bottom:4px">Revisão e comentários</h4><div id="comments">'+commentsHtml(c)+'</div></div>'+
+      instagramSecaoHtml(c)+
     '</div>'+
     '<div class="m-foot">'+(c.id?'<button class="btn danger" data-action="del">Excluir cartão</button>':'')+'<span class="sp"></span><button class="btn" data-action="close">Cancelar</button><button class="btn primary" data-action="save">Salvar cartão</button></div></div>';
 }
@@ -999,6 +1097,34 @@ async function saveModal(){
       state.cards.push(novo);
     }
     closeModal(); render(); toast('Cartão salvo.');
+  }catch(e){ toast(e.message,'warn'); }
+}
+async function abrirIgPicker(){
+  igPicker={loading:true,posts:[]};
+  reabrirModal();
+  try{
+    const posts=await api('/instagram/posts');
+    igPicker={loading:false,posts:posts};
+  }catch(e){
+    igPicker=null;
+    toast(e.message,'warn');
+  }
+  reabrirModal();
+}
+function fecharIgPicker(){ igPicker=null; reabrirModal(); }
+async function vincularIg(mediaId,permalink){
+  try{
+    const dto=await api('/cartoes/'+modalId+'/instagram',{method:'PATCH',body:JSON.stringify({instagramMediaId:mediaId,instagramPermalink:permalink||null})});
+    Object.assign(card(modalId),cartaoFromApi(dto));
+    igPicker=null;
+    reabrirModal();
+    toast('Publicação vinculada!');
+  }catch(e){ toast(e.message,'warn'); }
+}
+async function coletarMetricas(){
+  try{
+    await api('/cartoes/'+modalId+'/metricas/coletar',{method:'POST'});
+    toast('Métricas atualizadas! Confira no Dashboard.');
   }catch(e){ toast(e.message,'warn'); }
 }
 async function delCartao(id){
@@ -1045,7 +1171,7 @@ function renderSide(){
     '<div class="nav">'+Object.keys(VIEWS).map(k=>'<button data-action="nav" data-view="'+k+'"'+(k===view?' aria-current="page"':'')+'><svg viewBox="0 0 24 24" aria-hidden="true">'+ICONS[VIEWS[k].icon]+'</svg><span>'+VIEWS[k].label+'</span></button>').join('')+'</div>'+
     '<div class="side-foot">Conectado como <b>'+esc(m?m.nome:'')+'</b>'+(m?' ('+ROLE_NAME[m.role]+')':'')+'<br><button data-action="logout">Sair</button></div>';
 }
-const SETOR_SCOPED_VIEWS=['painel','quadro','calendario','ideias'];
+const SETOR_SCOPED_VIEWS=['painel','quadro','calendario','ideias','dashboard'];
 function renderTop(){
   const v=VIEWS[view];
   const badge=SETOR_SCOPED_VIEWS.indexOf(view)>-1?' <span class="pill" style="vertical-align:middle;font-weight:600">'+esc(SETOR_NAME[currentSetor])+'</span>':'';
@@ -1206,15 +1332,20 @@ document.addEventListener('click',e=>{
   const t=e.target.closest('[data-action]'); if(!t) return;
   const a=t.dataset.action, id=t.dataset.id;
   switch(a){
-    case 'nav': view=t.dataset.view; render(); if(view==='assistente'&&chatLog.length) scrollChatToBottom(); else $('.main').scrollTop=0; break;
+    case 'nav': view=t.dataset.view; render(); if(view==='assistente'&&chatLog.length) scrollChatToBottom(); else $('.main').scrollTop=0; if(view==='dashboard'&&!dashboardCache[dashboardKey()]) carregarDashboard(); break;
+    case 'dashPeriodo': dashboardPeriodo=t.dataset.periodo; render(); if(!dashboardCache[dashboardKey()]) carregarDashboard(); break;
     case 'toggleSetorMenu': setorMenuOpen=!setorMenuOpen; renderSide(); break;
-    case 'setSetor': currentSetor=t.dataset.setor; setorMenuOpen=false; render(); $('.main').scrollTop=0; break;
+    case 'setSetor': currentSetor=t.dataset.setor; setorMenuOpen=false; render(); $('.main').scrollTop=0; if(view==='dashboard'&&!dashboardCache[dashboardKey()]) carregarDashboard(); break;
     case 'chatEnviar': {
       const inp=$('#chat-input'); if(!inp) break;
       const texto=inp.value; inp.value='';
       sendChatMessage(texto);
       break;}
     case 'chatSugestao': sendChatMessage(t.dataset.texto); break;
+    case 'abrirIgPicker': abrirIgPicker(); break;
+    case 'fecharIgPicker': fecharIgPicker(); break;
+    case 'vincularIg': vincularIg(t.dataset.id,t.dataset.permalink); break;
+    case 'coletarMetricas': coletarMetricas(); break;
     case 'open': openCard(id); break;
     case 'new': openCard(null,{}); break;
     case 'newOn': openCard(null,{pub:t.dataset.date}); break;
