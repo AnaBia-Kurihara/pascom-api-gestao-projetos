@@ -375,6 +375,14 @@ const DATASHOW_STAGES=[
 ];
 const ETAPA_DATASHOW_FROM_API={AGUARDANDO_MUSICAS:'aguardando_musicas',CONFERINDO_MOMENTOS:'conferindo_momentos',MONTADO:'montado',PASSADO:'passado'};
 const datashowStageIdx=id=>DATASHOW_STAGES.findIndex(s=>s.id===id);
+const TRANSMISSAO_STAGES=[
+  {id:'planejando',name:'Planejando'},
+  {id:'capa_e_link_prontos',name:'Capa e link prontos'},
+  {id:'transmitido',name:'Transmitido'}
+];
+const ETAPA_TRANSMISSAO_FROM_API={PLANEJANDO:'planejando',CAPA_E_LINK_PRONTOS:'capa_e_link_prontos',TRANSMITIDO:'transmitido'};
+const transmissaoStageIdx=id=>TRANSMISSAO_STAGES.findIndex(s=>s.id===id);
+const TIPO_TRANSMISSAO_NOME={MISSA_DOMINICAL:'Missa dominical',MISSA_SOLENE:'Missa solene',BENCAO_SANTISSIMO:'Benção do Santíssimo',OUTRA:'Outra'};
 const THEMES=['Liturgia','Formação','Eventos','Santuário','Juventude','Santos'];
 const CHECKS=[
   {id:'texto',short:'texto revisado',label:'Texto e ortografia revisados',hint:''},
@@ -565,6 +573,21 @@ function missaToApi(data){
     responsavelPassarId:data.passar?Number(data.passar):null
   };
 }
+function transmissaoFromApi(t){
+  return {
+    id:String(t.id), data:t.data||'', horario:(t.horario||'').slice(0,5), titulo:t.titulo||'',
+    tipo:t.tipo||'MISSA_DOMINICAL', etapa:ETAPA_TRANSMISSAO_FROM_API[t.etapa]||'planejando',
+    tema:t.temaLiturgico||'', link:t.link||'', capa:t.capaLink||'',
+    responsavel:t.responsavel?String(t.responsavel.id):null
+  };
+}
+function transmissaoToApi(data){
+  return {
+    data:data.data||null, horario:data.horario||null, titulo:data.titulo||'Missa das 10h', tipo:data.tipo||'MISSA_DOMINICAL',
+    temaLiturgico:data.tema||null, link:data.link||null, capaLink:data.capa||null,
+    responsavelId:data.responsavel?Number(data.responsavel):null
+  };
+}
 
 async function carregarTudo(meId){
   const [usuarios, cartoes, ideias, eventos]=await Promise.all([
@@ -750,7 +773,7 @@ const ICONS={
    ===================================================================== */
 const VIEWS={
   painel:{label:'Painel',icon:'dash',title:()=>'Paz e bem, '+greetName(),sub:()=>cap(fmtLong(TODAY)),render:viewPainel},
-  quadro:{label:'Produção',icon:'board',title:()=>currentSetor==='datashow'?'Missas do Datashow':'Quadro de produção',sub:()=>currentSetor==='datashow'?'Da espera das músicas até a missa ser passada na celebração.':'Cada vídeo ou post é um cartão que avança da ideia até a publicação.',render:viewQuadro},
+  quadro:{label:'Produção',icon:'board',title:()=>currentSetor==='datashow'?'Missas do Datashow':currentSetor==='transmissoes_videos'?'Transmissões':'Quadro de produção',sub:()=>currentSetor==='datashow'?'Da espera das músicas até a missa ser passada na celebração.':currentSetor==='transmissoes_videos'?'Capa e link personalizados com a liturgia do dia, pra cada transmissão.':'Cada vídeo ou post é um cartão que avança da ideia até a publicação.',render:viewQuadro},
   calendario:{label:'Calendário',icon:'cal',title:()=>'Calendário editorial',sub:()=>'O que vai ao ar, junto com os santos do dia e os eventos do santuário.',render:viewCalendario},
   dashboard:{label:'Dashboard',icon:'chart',title:()=>'Dashboard',sub:()=>'Andamento e engajamento das publicações — semana, mês e ano.',render:viewDashboard},
   ideias:{label:'Ideias',icon:'bulb',title:()=>'Banco de ideias',sub:()=>'Qualquer pessoa da equipe sugere. As mais votadas viram cartões.',render:viewIdeias},
@@ -805,6 +828,7 @@ async function carregarDatashow(){
 }
 function viewQuadro(){
   if(currentSetor==='datashow') return viewDatashowQuadro();
+  if(currentSetor==='transmissoes_videos') return viewTransmissaoQuadro();
   const owners='<option value="all">Todas as pessoas</option><option value="none">Sem responsável</option>'+MEMBERS.map(m=>'<option value="'+m.id+'"'+(filters.owner===m.id?' selected':'')+'>'+esc(m.nome)+'</option>').join('');
   return '<div class="filters"><input id="q" type="search" placeholder="Buscar cartão" value="'+esc(filters.q)+'" aria-label="Buscar cartão"><select id="fo" aria-label="Filtrar por pessoa">'+owners.replace('value="'+filters.owner+'"','value="'+filters.owner+'" selected')+'</select>'+
     '<span class="tip">Arraste os cartões entre as colunas ou use as setas. Para agendar é preciso ter o checklist completo.</span></div>'+
@@ -835,6 +859,40 @@ function missaCard(m){
     '<div class="kc-meta" style="margin-top:2px"><span class="note">Passa:</span>'+(passarMem?avatar(m.passar)+esc(passarMem.nome):'<span class="muted">ninguém ainda</span>')+'</div>'+
     (m.musicas?'<p class="note" style="margin-top:6px">Lista de músicas já recebida.</p>':'<p class="note" style="margin-top:6px">Aguardando lista de músicas.</p>')+
     '<div class="kc-mv" style="margin-top:8px"><button data-action="datashowPrev" data-id="'+m.id+'" '+(i===0?'disabled':'')+' aria-label="Voltar etapa">◀</button><button data-action="datashowNext" data-id="'+m.id+'" '+(i===DATASHOW_STAGES.length-1?'disabled':'')+' aria-label="Avançar etapa">▶</button></div>'+
+  '</article>';
+}
+let transmissaoCache=null;
+let transmissaoLoading=false;
+async function carregarTransmissoes(){
+  transmissaoLoading=true; render();
+  try{ transmissaoCache=(await api('/transmissoes')).map(transmissaoFromApi); }
+  catch(e){ transmissaoCache=[]; toast(e.message,'warn'); }
+  transmissaoLoading=false; render();
+}
+function viewTransmissaoQuadro(){
+  if(transmissaoCache===null) return '<div class="empty">'+(transmissaoLoading?'Carregando...':'Sem dados ainda.')+'</div>';
+  return '<div class="filters" style="margin-bottom:12px"><button class="btn" data-action="gerarTransmissoesMes">Gerar domingos do mês</button><span class="tip">Cria (sem duplicar) a transmissão da Missa das 10h pra cada domingo. Missas solenes e a Benção do Santíssimo (quintas, ~19h30) você adiciona pelo "+".</span></div>'+
+    '<div id="boardArea">'+transmissaoBoardHtml()+'</div>';
+}
+function transmissaoBoardHtml(){
+  const lista=transmissaoCache||[];
+  return '<div class="board">'+TRANSMISSAO_STAGES.map(s=>{
+    const list=lista.filter(t=>t.etapa===s.id).sort((a,b)=>(a.data||'9').localeCompare(b.data||'9'));
+    return '<section class="kcol" aria-label="'+s.name+'"><div class="kcol-h"><h3>'+s.name+'<span class="cnt">'+list.length+'</span></h3><button data-action="newTransmissao" aria-label="Nova transmissão" title="Nova transmissão">+</button></div>'+
+      '<div class="kbody">'+(list.length?list.map(transmissaoCard).join(''):'<div class="empty" style="padding:10px;font-size:13px">Nada aqui</div>')+'</div></section>';
+  }).join('')+'</div>';
+}
+function transmissaoCard(t){
+  const i=transmissaoStageIdx(t.etapa);
+  const respMem=t.responsavel?mem(t.responsavel):null;
+  const dataFmt=t.data?fmtShort(t.data):'sem data';
+  return '<article class="kcard" data-id="'+t.id+'" data-action="openTransmissao">'+
+    '<div class="kc-top"><span class="pill">'+esc(dataFmt)+(t.horario?' · '+esc(t.horario):'')+'</span><span class="pill">'+TIPO_TRANSMISSAO_NOME[t.tipo]+'</span></div>'+
+    '<h4>'+esc(t.titulo||'Transmissão')+'</h4>'+
+    (t.tema?'<p class="note">Tema: '+esc(t.tema)+'</p>':'<p class="note muted">Tema litúrgico ainda não definido.</p>')+
+    '<div class="kc-meta"><span class="note">Responsável:</span>'+(respMem?avatar(t.responsavel)+esc(respMem.nome):'<span class="muted">ninguém ainda</span>')+'</div>'+
+    '<div class="kc-meta" style="margin-top:2px">'+(t.link?'<span title="Link pronto">Link ok</span>':'<span class="muted">Sem link</span>')+'<span class="sp"></span>'+(t.capa?'<span title="Capa pronta">Capa ok</span>':'<span class="muted">Sem capa</span>')+'</div>'+
+    '<div class="kc-mv" style="margin-top:8px"><button data-action="transmissaoPrev" data-id="'+t.id+'" '+(i===0?'disabled':'')+' aria-label="Voltar etapa">◀</button><button data-action="transmissaoNext" data-id="'+t.id+'" '+(i===TRANSMISSAO_STAGES.length-1?'disabled':'')+' aria-label="Avançar etapa">▶</button></div>'+
   '</article>';
 }
 function boardHtml(){
@@ -1327,6 +1385,82 @@ async function moveDatashow(id,to){
     render(); toast('Etapa atualizada.');
   }catch(e){ toast(e.message,'warn'); }
 }
+function transmissaoModal(t){
+  const sel=(id,arr,val)=>'<select id="'+id+'">'+arr.map(a=>'<option value="'+a[0]+'"'+(a[0]===val?' selected':'')+'>'+esc(a[1])+'</option>').join('')+'</select>';
+  return '<div class="modal" role="dialog" aria-modal="true" aria-label="Transmissão">'+
+    '<div class="m-head"><h3>'+(t.id?'Editar transmissão':'Nova transmissão')+'</h3><button class="x" data-action="close" aria-label="Fechar">×</button></div>'+
+    '<div class="m-body">'+
+      '<div class="fgrid">'+
+        '<label class="fld"><span>Tipo</span>'+sel('tm-tipo',Object.keys(TIPO_TRANSMISSAO_NOME).map(k=>[k,TIPO_TRANSMISSAO_NOME[k]]),t.tipo)+'</label>'+
+        '<label class="fld"><span>Título</span><input id="tm-titulo" value="'+esc(t.titulo)+'" placeholder="Ex.: Missa das 10h"></label>'+
+        '<label class="fld"><span>Data</span><input id="tm-data" type="date" value="'+esc(t.data)+'"></label>'+
+        '<label class="fld"><span>Horário</span><input id="tm-horario" type="time" value="'+esc(t.horario)+'"></label>'+
+        '<label class="fld"><span>Etapa</span>'+sel('tm-etapa',TRANSMISSAO_STAGES.map(s=>[s.id,s.name]),t.etapa)+'</label>'+
+        '<label class="fld"><span>Responsável</span>'+sel('tm-resp',[['','Sem responsável']].concat(MEMBERS.map(m=>[m.id,m.nome])),t.responsavel||'')+'</label>'+
+      '</div>'+
+      '<label class="fld"><span>Tema litúrgico do dia</span><input id="tm-tema" value="'+esc(t.tema)+'" placeholder="Ex.: 28º Domingo do Tempo Comum"></label>'+
+      '<label class="fld" style="margin-top:10px"><span>Link da transmissão</span><input id="tm-link" value="'+esc(t.link)+'" placeholder="https://..."></label>'+
+      '<label class="fld" style="margin-top:10px"><span>Capa (link do Canva/Drive)</span><input id="tm-capa" value="'+esc(t.capa)+'" placeholder="https://..."></label>'+
+    '</div>'+
+    '<div class="m-foot">'+(t.id?'<button class="btn danger" data-action="delTransmissao">Excluir</button>':'')+'<span class="sp"></span><button class="btn" data-action="close">Cancelar</button><button class="btn primary" data-action="saveTransmissao">Salvar</button></div></div>';
+}
+function openTransmissao(id){
+  modalId=id||null;
+  const t=id?transmissaoCache.find(x=>x.id===id):{id:null,data:'',horario:'10:00',titulo:'Missa das 10h',tipo:'MISSA_DOMINICAL',etapa:'planejando',tema:'',link:'',capa:'',responsavel:null};
+  const o=$('#overlay'); o.innerHTML=transmissaoModal(t); o.hidden=false;
+}
+async function saveTransmissao(){
+  const data={
+    tipo:$('#tm-tipo').value, titulo:$('#tm-titulo').value.trim(), data:$('#tm-data').value, horario:$('#tm-horario').value,
+    tema:$('#tm-tema').value.trim(), link:$('#tm-link').value.trim(), capa:$('#tm-capa').value.trim(),
+    responsavel:$('#tm-resp').value||null
+  };
+  const etapaEscolhida=$('#tm-etapa').value;
+  if(!data.data||!data.titulo){toast('Preencha pelo menos o título e a data.','warn');return;}
+  try{
+    let atualizado;
+    if(modalId){
+      const dto=await api('/transmissoes/'+modalId,{method:'PUT',body:JSON.stringify(transmissaoToApi(data))});
+      atualizado=transmissaoFromApi(dto);
+      if(etapaEscolhida!==atualizado.etapa){
+        const dto2=await api('/transmissoes/'+modalId+'/etapa?novaEtapa='+etapaEscolhida.toUpperCase(),{method:'PATCH'});
+        atualizado=transmissaoFromApi(dto2);
+      }
+      Object.assign(transmissaoCache.find(x=>x.id===modalId),atualizado);
+    }else{
+      const dto=await api('/transmissoes',{method:'POST',body:JSON.stringify(transmissaoToApi(data))});
+      atualizado=transmissaoFromApi(dto);
+      if(etapaEscolhida!==atualizado.etapa){
+        const dto2=await api('/transmissoes/'+atualizado.id+'/etapa?novaEtapa='+etapaEscolhida.toUpperCase(),{method:'PATCH'});
+        atualizado=transmissaoFromApi(dto2);
+      }
+      transmissaoCache.push(atualizado);
+    }
+    closeModal(); render(); toast('Transmissão salva.');
+  }catch(e){ toast(e.message,'warn'); }
+}
+async function delTransmissao(){
+  try{
+    await api('/transmissoes/'+modalId,{method:'DELETE'});
+    transmissaoCache=transmissaoCache.filter(x=>x.id!==modalId);
+    closeModal(); render(); toast('Transmissão excluída.');
+  }catch(e){ toast(e.message,'warn'); }
+}
+async function moveTransmissao(id,to){
+  try{
+    const dto=await api('/transmissoes/'+id+'/etapa?novaEtapa='+to.toUpperCase(),{method:'PATCH'});
+    Object.assign(transmissaoCache.find(x=>x.id===id),transmissaoFromApi(dto));
+    render(); toast('Etapa atualizada.');
+  }catch(e){ toast(e.message,'warn'); }
+}
+async function gerarTransmissoesMes(){
+  try{
+    const r=await api('/transmissoes/gerar-mes',{method:'POST'});
+    toast(r.transmissoesCriadas>0?r.transmissoesCriadas+' transmissão(ões) de domingo criada(s)!':'Já estava tudo criado esse mês.');
+    transmissaoCache=(await api('/transmissoes')).map(transmissaoFromApi);
+    render();
+  }catch(e){ toast(e.message,'warn'); }
+}
 
 async function saveModal(){
   const checks={}; $$('input[name=chk]').forEach(i=>{checks[i.value]=i.checked;});
@@ -1404,9 +1538,10 @@ const SETOR_SCOPED_VIEWS=['painel','quadro','calendario','ideias'];
 function renderTop(){
   const v=VIEWS[view];
   const badge=SETOR_SCOPED_VIEWS.indexOf(view)>-1?' <span class="pill" style="vertical-align:middle;font-weight:600">'+esc(SETOR_NAME[currentSetor])+'</span>':'';
-  const isDatashow=currentSetor==='datashow';
-  const novoBtn=isDatashow
+  const novoBtn=currentSetor==='datashow'
     ? '<button class="btn primary" data-action="newDatashow">+ Nova missa</button>'
+    : currentSetor==='transmissoes_videos'
+    ? '<button class="btn primary" data-action="newTransmissao">+ Nova transmissão</button>'
     : '<button class="btn primary" data-action="new">+ Novo cartão</button>';
   $('#top').innerHTML='<div><h1>'+esc(v.title())+badge+'</h1><p>'+esc(v.sub())+'</p></div>'+
     '<div class="top-actions">'+novoBtn+'</div>';
@@ -1565,14 +1700,14 @@ document.addEventListener('click',e=>{
   const t=e.target.closest('[data-action]'); if(!t) return;
   const a=t.dataset.action, id=t.dataset.id;
   switch(a){
-    case 'nav': view=t.dataset.view; render(); if(view==='assistente'&&chatLog.length) scrollChatToBottom(); else $('.main').scrollTop=0; if(view==='dashboard'){ if(!dashboardCache[dashboardPeriodo]) carregarDashboard(); if(metasCache===null) carregarMetas(); } if(view==='quadro'&&currentSetor==='datashow'&&datashowCache===null) carregarDatashow(); break;
+    case 'nav': view=t.dataset.view; render(); if(view==='assistente'&&chatLog.length) scrollChatToBottom(); else $('.main').scrollTop=0; if(view==='dashboard'){ if(!dashboardCache[dashboardPeriodo]) carregarDashboard(); if(metasCache===null) carregarMetas(); } if(view==='quadro'&&currentSetor==='datashow'&&datashowCache===null) carregarDatashow(); if(view==='quadro'&&currentSetor==='transmissoes_videos'&&transmissaoCache===null) carregarTransmissoes(); break;
     case 'dashPeriodo': dashboardPeriodo=t.dataset.periodo; render(); if(!dashboardCache[dashboardPeriodo]) carregarDashboard(); break;
     case 'sincronizarInstagram': sincronizarInstagram(); break;
     case 'toggleMetaForm': metaFormOpen=!metaFormOpen; render(); break;
     case 'salvarMeta': salvarMeta(); break;
     case 'excluirMeta': excluirMeta(t.dataset.id); break;
     case 'toggleSetorMenu': setorMenuOpen=!setorMenuOpen; renderSide(); break;
-    case 'setSetor': currentSetor=t.dataset.setor; setorMenuOpen=false; render(); $('.main').scrollTop=0; if(view==='quadro'&&currentSetor==='datashow'&&datashowCache===null) carregarDatashow(); break;
+    case 'setSetor': currentSetor=t.dataset.setor; setorMenuOpen=false; render(); $('.main').scrollTop=0; if(view==='quadro'&&currentSetor==='datashow'&&datashowCache===null) carregarDatashow(); if(view==='quadro'&&currentSetor==='transmissoes_videos'&&transmissaoCache===null) carregarTransmissoes(); break;
     case 'chatEnviar': {
       const inp=$('#chat-input'); if(!inp) break;
       const texto=inp.value; inp.value='';
@@ -1607,6 +1742,16 @@ document.addEventListener('click',e=>{
       break;
     case 'datashowPrev': {const m=datashowCache.find(x=>x.id===id);moveDatashow(id,DATASHOW_STAGES[datashowStageIdx(m.etapa)-1].id);break;}
     case 'datashowNext': {const m=datashowCache.find(x=>x.id===id);moveDatashow(id,DATASHOW_STAGES[datashowStageIdx(m.etapa)+1].id);break;}
+    case 'openTransmissao': openTransmissao(id); break;
+    case 'newTransmissao': openTransmissao(null); break;
+    case 'saveTransmissao': saveTransmissao(); break;
+    case 'delTransmissao':
+      if(t.dataset.sure){ delTransmissao(); }
+      else{t.dataset.sure='1';t.textContent='Confirmar exclusão';}
+      break;
+    case 'gerarTransmissoesMes': gerarTransmissoesMes(); break;
+    case 'transmissaoPrev': {const tr=transmissaoCache.find(x=>x.id===id);moveTransmissao(id,TRANSMISSAO_STAGES[transmissaoStageIdx(tr.etapa)-1].id);break;}
+    case 'transmissaoNext': {const tr=transmissaoCache.find(x=>x.id===id);moveTransmissao(id,TRANSMISSAO_STAGES[transmissaoStageIdx(tr.etapa)+1].id);break;}
     case 'comment': {
       const inp=$('#f-comment'); const txt=inp.value.trim(); if(!txt||!modalId) return;
       inp.value='';
