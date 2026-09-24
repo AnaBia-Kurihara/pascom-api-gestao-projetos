@@ -1,15 +1,17 @@
 package br.org.pascom.controller;
 
-import br.org.pascom.dto.DashboardResumoDTO;
+import br.org.pascom.dto.DashboardAutoResumoDTO;
 import br.org.pascom.dto.InstagramConectarDTO;
-import br.org.pascom.dto.InstagramPostDTO;
 import br.org.pascom.dto.InstagramStatusDTO;
+import br.org.pascom.dto.MetaInstagramDTO;
+import br.org.pascom.dto.MetaInstagramRequestDTO;
 import br.org.pascom.model.Usuario;
-import br.org.pascom.model.enums.Setor;
 import br.org.pascom.service.InstagramService;
 
 import java.util.List;
+import java.util.Map;
 import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -41,14 +43,32 @@ public class InstagramController {
         return ResponseEntity.noContent().build();
     }
 
-    @GetMapping("/posts")
-    public ResponseEntity<List<InstagramPostDTO>> posts() {
-        return ResponseEntity.ok(instagramService.listarPostsRecentes());
+    /** Dispara na hora uma leitura completa dos posts da conta (a mesma que roda sozinha a cada 6h). */
+    @PostMapping("/sincronizar")
+    public ResponseEntity<Map<String, Integer>> sincronizar() {
+        int novos = instagramService.sincronizarPosts();
+        return ResponseEntity.ok(Map.of("postsNovos", novos));
     }
 
-    @GetMapping("/dashboard")
-    public ResponseEntity<DashboardResumoDTO> dashboard(@RequestParam Setor setor,
-                                                          @RequestParam(required = false) String periodo) {
-        return ResponseEntity.ok(instagramService.obterDashboard(setor, periodo));
+    @GetMapping("/resumo")
+    public ResponseEntity<DashboardAutoResumoDTO> resumo(@RequestParam(required = false) String periodo) {
+        return ResponseEntity.ok(instagramService.obterResumo(periodo));
+    }
+
+    @GetMapping("/metas")
+    public ResponseEntity<List<MetaInstagramDTO>> listarMetas() {
+        return ResponseEntity.ok(instagramService.listarMetas());
+    }
+
+    @PostMapping("/metas")
+    public ResponseEntity<MetaInstagramDTO> criarMeta(@Valid @RequestBody MetaInstagramRequestDTO dados,
+                                                        @AuthenticationPrincipal Usuario solicitante) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(instagramService.criarMeta(dados, solicitante));
+    }
+
+    @DeleteMapping("/metas/{id}")
+    public ResponseEntity<Void> excluirMeta(@PathVariable Long id, @AuthenticationPrincipal Usuario solicitante) {
+        instagramService.excluirMeta(id, solicitante);
+        return ResponseEntity.noContent().build();
     }
 }

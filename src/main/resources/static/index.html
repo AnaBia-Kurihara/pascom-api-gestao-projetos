@@ -269,13 +269,6 @@ p{margin:0}
 .dash-post-h{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .dash-stats{display:flex;gap:12px;flex-wrap:wrap;font-size:12.5px;color:var(--ink2);margin-top:4px}
 
-/* ---------- Instagram (vincular post) ---------- */
-.ig-list{display:flex;flex-direction:column;gap:6px;max-height:260px;overflow-y:auto;margin-top:6px}
-.ig-post{display:flex;flex-direction:column;gap:2px;text-align:left;background:var(--tint);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
-.ig-post:hover{border-color:var(--brand)}
-.ig-cap{font-size:13px;color:var(--ink)}
-.ig-meta{font-size:11.5px;color:var(--ink3)}
-
 /* ---------- Assistente (chat) ---------- */
 .chat-wrap{display:flex;flex-direction:column;max-width:760px;margin:0 auto;min-height:calc(100vh - 220px)}
 .chat-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:14px;padding:40px 10px}
@@ -838,25 +831,50 @@ function viewCalendario(){
     '<p class="note">Clique em um dia para planejar um conteúdo nessa data. Datas litúrgicas são exemplos e podem ser ajustadas à programação do santuário.</p>';
 }
 
-/* ---------- Dashboard ---------- */
-let dashboardCache={}; // chave "setor_periodo" -> DashboardResumoDTO já carregado
+/* ---------- Dashboard (leitura automática do Instagram) ---------- */
+let dashboardCache={}; // chave = periodo -> DashboardAutoResumoDTO já carregado
 let dashboardPeriodo='SEMANAL';
 let dashboardLoading=false;
+let dashboardSincronizando=false;
+let metasCache=null;
+let metasLoading=false;
+let metaFormOpen=false;
 const DASH_PERIODOS=[['SEMANAL','Semana'],['MENSAL','Mês'],['ANUAL','Ano']];
-function dashboardKey(){ return currentSetor+'_'+dashboardPeriodo; }
+const META_TIPOS=[
+  ['CURTIDAS_MEDIA','Média de curtidas por post (30 dias)'],
+  ['ALCANCE_MENSAL','Alcance total no mês'],
+  ['POSTS_POR_SEMANA','Posts por semana'],
+  ['ENGAJAMENTO_MEDIO','Engajamento médio por post (30 dias)']
+];
+const META_TIPO_NOME=Object.fromEntries(META_TIPOS);
 async function carregarDashboard(){
   dashboardLoading=true; render();
   try{
-    const dto=await api('/instagram/dashboard?setor='+currentSetor.toUpperCase()+'&periodo='+dashboardPeriodo);
-    dashboardCache[dashboardKey()]=dto;
+    dashboardCache[dashboardPeriodo]=await api('/instagram/resumo?periodo='+dashboardPeriodo);
   }catch(e){ toast(e.message,'warn'); }
   dashboardLoading=false; render();
 }
+async function carregarMetas(){
+  metasLoading=true; render();
+  try{ metasCache=await api('/instagram/metas'); }
+  catch(e){ metasCache=[]; }
+  metasLoading=false; render();
+}
+async function sincronizarInstagram(){
+  dashboardSincronizando=true; render();
+  try{
+    const r=await api('/instagram/sincronizar',{method:'POST'});
+    toast(r.postsNovos>0?r.postsNovos+' post(s) novo(s) encontrado(s)!':'Tudo já estava em dia.');
+    dashboardCache={};
+    await carregarDashboard();
+  }catch(e){ toast(e.message,'warn'); }
+  dashboardSincronizando=false; render();
+}
 function dashboardStatHtml(dados){
   const stats=[
-    ['Publicados',dados.totalPublicados],
-    ['Vinculados ao Instagram',dados.totalVinculadosInstagram],
+    ['Posts no período',dados.totalPosts],
     ['Curtidas',dados.totalCurtidas],
+    ['Média de curtidas',Math.round(dados.mediaCurtidas*10)/10],
     ['Comentários',dados.totalComentarios],
     ['Salvamentos',dados.totalSalvamentos],
     ['Compartilhamentos',dados.totalCompartilhamentos],
@@ -866,29 +884,77 @@ function dashboardStatHtml(dados){
 }
 function dashboardPostHtml(p,maxCurtidas){
   const pct=p.curtidas?Math.max(4,Math.round((p.curtidas/maxCurtidas)*100)):0;
-  const stats=p.vinculadoInstagram
-    ? '<div class="bar" style="margin:8px 0"><i style="width:'+pct+'%"></i></div>'+
-      '<div class="dash-stats"><span>'+(p.curtidas??'—')+' curtidas</span><span>'+(p.comentarios??'—')+' comentários</span><span>'+(p.salvamentos??'—')+' salvamentos</span><span>'+(p.compartilhamentos??'—')+' compart.</span><span>'+(p.alcance??'—')+' alcance</span></div>'+
-      (p.metricasColetadasEm?'<p class="note" style="margin-top:2px">Coletado em '+esc(p.metricasColetadasEm.slice(0,10))+'</p>':'<p class="note" style="margin-top:2px">Ainda sem métricas coletadas.</p>')
-    : '<p class="note" style="margin-top:4px">Ainda não vinculado a uma publicação do Instagram — abra o cartão pra vincular.</p>';
-  return '<button type="button" class="row" style="display:block;text-align:left" data-action="open" data-id="'+p.cartaoId+'">'+
-    '<div class="dash-post-h"><b>'+esc(p.titulo)+'</b>'+fmtChip({fmt:(p.formato||'reels').toLowerCase()})+'<span class="note">'+(p.dataPublicacao||'')+'</span></div>'+
-    stats+'</button>';
+  return '<a class="row" style="display:block;text-align:left" href="'+esc(p.permalink||'#')+'" target="_blank" rel="noopener">'+
+    '<div class="dash-post-h"><b>'+esc((p.legenda||'(sem legenda)').slice(0,70))+'</b><span class="note">'+esc((p.publicadoEm||'').slice(0,10))+'</span></div>'+
+    '<div class="bar" style="margin:8px 0"><i style="width:'+pct+'%"></i></div>'+
+    '<div class="dash-stats"><span>'+(p.curtidas??'—')+' curtidas</span><span>'+(p.comentarios??'—')+' comentários</span><span>'+(p.salvamentos??'—')+' salvamentos</span><span>'+(p.compartilhamentos??'—')+' compart.</span><span>'+(p.alcance??'—')+' alcance</span></div>'+
+  '</a>';
+}
+function metaFormHtml(){
+  if(!metaFormOpen) return '<button type="button" class="btn small" data-action="toggleMetaForm">+ Nova meta</button>';
+  return '<div class="form-inline" style="margin-top:8px">'+
+    '<label class="fld"><span>Título</span><input id="mt-titulo" placeholder="Ex.: Crescer o alcance"></label>'+
+    '<label class="fld"><span>Métrica</span><select id="mt-metrica">'+META_TIPOS.map(t=>'<option value="'+t[0]+'">'+t[1]+'</option>').join('')+'</select></label>'+
+    '<label class="fld"><span>Valor alvo</span><input id="mt-valor" type="number" min="1" placeholder="Ex.: 500"></label>'+
+    '<label class="fld"><span>Data alvo (opcional)</span><input id="mt-data" type="date"></label>'+
+    '<button class="btn primary" data-action="salvarMeta">Salvar meta</button></div>';
+}
+function metaHtml(m){
+  return '<div class="row" style="display:block">'+
+    '<div class="dash-post-h"><b>'+esc(m.titulo)+'</b><span class="pill">'+META_TIPO_NOME[m.metrica]+'</span>'+
+      (m.concluida?'<span class="pill ok">Concluída</span>':'')+
+      '<button type="button" class="link-btn" style="margin-left:auto;font-size:12px" data-action="excluirMeta" data-id="'+m.id+'">excluir</button></div>'+
+    (m.descricao?'<p class="note">'+esc(m.descricao)+'</p>':'')+
+    '<div class="bar" style="margin:8px 0"><i style="width:'+Math.min(100,m.progresso)+'%"></i></div>'+
+    '<div class="dash-stats"><span>'+Math.round(m.valorAtual*10)/10+' de '+m.valorAlvo+' ('+m.progresso+'%)</span>'+
+    (m.dataAlvo?'<span>até '+esc(m.dataAlvo)+'</span>':'')+'</div>'+
+  '</div>';
 }
 function viewDashboard(){
   const tabs='<div class="dash-tabs">'+DASH_PERIODOS.map(t=>
     '<button type="button" class="dash-tab'+(dashboardPeriodo===t[0]?' active':'')+'" data-action="dashPeriodo" data-periodo="'+t[0]+'">'+t[1]+'</button>'
-  ).join('')+'</div>';
-  const dados=dashboardCache[dashboardKey()];
-  if(!dados){
-    return tabs+'<div class="empty" style="margin-top:16px">'+(dashboardLoading?'Carregando...':'Sem dados ainda.')+'</div>';
-  }
-  const maxCurtidas=Math.max(1,...dados.posts.map(p=>p.curtidas||0));
-  const lista=dados.posts.length
-    ? '<div class="rows">'+dados.posts.map(p=>dashboardPostHtml(p,maxCurtidas)).join('')+'</div>'
-    : '<div class="empty">Nenhum cartão publicado nesse período, nesse setor.</div>';
-  return tabs+dashboardStatHtml(dados)+
-    '<section class="panel" style="margin-top:18px"><h2>Publicações do período</h2>'+lista+'</section>';
+  ).join('')+'<button type="button" class="btn small" style="margin-left:auto" data-action="sincronizarInstagram"'+(dashboardSincronizando?' disabled':'')+'>'+(dashboardSincronizando?'Sincronizando...':'Sincronizar agora')+'</button></div>';
+
+  const dados=dashboardCache[dashboardPeriodo];
+  const corpoDash=!dados
+    ? '<div class="empty" style="margin-top:16px">'+(dashboardLoading?'Carregando...':'Sem dados ainda.')+'</div>'
+    : (()=>{
+        const maxCurtidas=Math.max(1,...dados.posts.map(p=>p.curtidas||0));
+        const lista=dados.posts.length
+          ? '<div class="rows">'+dados.posts.map(p=>dashboardPostHtml(p,maxCurtidas)).join('')+'</div>'
+          : '<div class="empty">Nenhum post detectado nesse período. Clique em "Sincronizar agora" ou confira se o Instagram está conectado.</div>';
+        return dashboardStatHtml(dados)+'<section class="panel" style="margin-top:18px"><h2>Posts do período</h2>'+lista+'</section>';
+      })();
+
+  const metas=metasCache;
+  const corpoMetas='<section class="panel" style="margin-top:18px"><h2>Metas de crescimento</h2>'+
+    (metas===null?'<div class="empty">Carregando metas...</div>'
+      :(metas.length?'<div class="rows">'+metas.map(metaHtml).join('')+'</div>':'<div class="empty">Nenhuma meta cadastrada ainda.</div>'))+
+    metaFormHtml()+'</section>';
+
+  return tabs+corpoDash+corpoMetas;
+}
+async function salvarMeta(){
+  const titulo=$('#mt-titulo').value.trim();
+  const metrica=$('#mt-metrica').value;
+  const valor=Number($('#mt-valor').value);
+  const dataAlvo=$('#mt-data').value||null;
+  if(!titulo){toast('Dê um título à meta.','warn');return;}
+  if(!valor||valor<=0){toast('Defina um valor alvo maior que zero.','warn');return;}
+  try{
+    await api('/instagram/metas',{method:'POST',body:JSON.stringify({titulo:titulo,metrica:metrica,valorAlvo:valor,dataAlvo:dataAlvo})});
+    metaFormOpen=false;
+    toast('Meta criada!');
+    await carregarMetas();
+  }catch(e){ toast(e.message,'warn'); }
+}
+async function excluirMeta(id){
+  try{
+    await api('/instagram/metas/'+id,{method:'DELETE'});
+    metasCache=metasCache.filter(m=>String(m.id)!==String(id));
+    render();
+    toast('Meta excluída.');
+  }catch(e){ toast(e.message,'warn'); }
 }
 
 /* ---------- Ideias ---------- */
@@ -1007,39 +1073,12 @@ function chatAutoGrow(el){
 /* =====================================================================
    7. MODAL DO CARTÃO
    ===================================================================== */
-let igPicker=null; // {loading:bool, posts:[]} enquanto o seletor de posts do Instagram está aberto no modal
 function openCard(id,preset){
-  modalId=id||null; modalPreset=preset||{}; igPicker=null;
+  modalId=id||null; modalPreset=preset||{};
   const c=id?card(id):Object.assign({id:null,title:'',fmt:'reels',theme:'Formação',stage:'ideia',owner:null,due:'',pub:'',notes:'',checks:{},comments:[]},preset||{});
   const o=$('#overlay');
   o.innerHTML=cardModal(c); o.hidden=false;
   setTimeout(()=>{const f=$('#f-title'); if(f&&!id) f.focus();},30);
-}
-function reabrirModal(){
-  if(!modalId) return;
-  const c=card(modalId); if(!c) return;
-  $('#overlay').innerHTML=cardModal(c);
-}
-function instagramSecaoHtml(c){
-  if(!c.id||c.stage!=='publicado') return '';
-  let corpo;
-  if(c.instagramMediaId){
-    corpo='<p class="note">Vinculado a <a href="'+esc(c.instagramPermalink||'#')+'" target="_blank" rel="noopener">esta publicação</a>.</p>'+
-      '<button type="button" class="btn small" data-action="coletarMetricas">Atualizar métricas agora</button> '+
-      '<span class="note">Veja os números agregados na aba Dashboard.</span>';
-  }else if(igPicker&&igPicker.loading){
-    corpo='<p class="note">Buscando publicações recentes...</p>';
-  }else if(igPicker&&!igPicker.loading){
-    corpo=(igPicker.posts.length?'<div class="ig-list">'+igPicker.posts.map(p=>
-      '<button type="button" class="ig-post" data-action="vincularIg" data-id="'+esc(p.id)+'" data-permalink="'+esc(p.permalink||'')+'">'+
-        '<span class="ig-cap">'+esc((p.legenda||'(sem legenda)').slice(0,70))+'</span>'+
-        '<span class="ig-meta">'+esc((p.timestamp||'').slice(0,10))+' · '+(p.curtidas!=null?p.curtidas+' curtidas':'')+'</span>'+
-      '</button>').join('')+'</div>':'<p class="note">Nenhuma publicação encontrada na conta do Instagram.</p>')+
-      '<button type="button" class="btn small" style="margin-top:8px" data-action="fecharIgPicker">Cancelar</button>';
-  }else{
-    corpo='<button type="button" class="btn small" data-action="abrirIgPicker">Vincular a uma publicação do Instagram</button>';
-  }
-  return '<div><h4 style="font-size:16px;margin-bottom:4px">Instagram</h4>'+corpo+'</div>';
 }
 function commentsHtml(c){
   if(!c.id) return '<p class="note">Salve o cartão para começar a comentar.</p>';
@@ -1065,7 +1104,6 @@ function cardModal(c){
         CHECKS.map(k=>{const dis=k.approverOnly&&!isApprover();return '<label class="chk"><input type="checkbox" name="chk" value="'+k.id+'"'+(c.checks[k.id]?' checked':'')+(dis?' disabled':'')+'><span>'+k.label+(k.hint?'<small>'+esc(k.hint)+'</small>':'')+'</span></label>';}).join('')+
       '</fieldset>'+
       '<div><h4 style="font-size:16px;margin-bottom:4px">Revisão e comentários</h4><div id="comments">'+commentsHtml(c)+'</div></div>'+
-      instagramSecaoHtml(c)+
     '</div>'+
     '<div class="m-foot">'+(c.id?'<button class="btn danger" data-action="del">Excluir cartão</button>':'')+'<span class="sp"></span><button class="btn" data-action="close">Cancelar</button><button class="btn primary" data-action="save">Salvar cartão</button></div></div>';
 }
@@ -1097,34 +1135,6 @@ async function saveModal(){
       state.cards.push(novo);
     }
     closeModal(); render(); toast('Cartão salvo.');
-  }catch(e){ toast(e.message,'warn'); }
-}
-async function abrirIgPicker(){
-  igPicker={loading:true,posts:[]};
-  reabrirModal();
-  try{
-    const posts=await api('/instagram/posts');
-    igPicker={loading:false,posts:posts};
-  }catch(e){
-    igPicker=null;
-    toast(e.message,'warn');
-  }
-  reabrirModal();
-}
-function fecharIgPicker(){ igPicker=null; reabrirModal(); }
-async function vincularIg(mediaId,permalink){
-  try{
-    const dto=await api('/cartoes/'+modalId+'/instagram',{method:'PATCH',body:JSON.stringify({instagramMediaId:mediaId,instagramPermalink:permalink||null})});
-    Object.assign(card(modalId),cartaoFromApi(dto));
-    igPicker=null;
-    reabrirModal();
-    toast('Publicação vinculada!');
-  }catch(e){ toast(e.message,'warn'); }
-}
-async function coletarMetricas(){
-  try{
-    await api('/cartoes/'+modalId+'/metricas/coletar',{method:'POST'});
-    toast('Métricas atualizadas! Confira no Dashboard.');
   }catch(e){ toast(e.message,'warn'); }
 }
 async function delCartao(id){
@@ -1171,7 +1181,7 @@ function renderSide(){
     '<div class="nav">'+Object.keys(VIEWS).map(k=>'<button data-action="nav" data-view="'+k+'"'+(k===view?' aria-current="page"':'')+'><svg viewBox="0 0 24 24" aria-hidden="true">'+ICONS[VIEWS[k].icon]+'</svg><span>'+VIEWS[k].label+'</span></button>').join('')+'</div>'+
     '<div class="side-foot">Conectado como <b>'+esc(m?m.nome:'')+'</b>'+(m?' ('+ROLE_NAME[m.role]+')':'')+'<br><button data-action="logout">Sair</button></div>';
 }
-const SETOR_SCOPED_VIEWS=['painel','quadro','calendario','ideias','dashboard'];
+const SETOR_SCOPED_VIEWS=['painel','quadro','calendario','ideias'];
 function renderTop(){
   const v=VIEWS[view];
   const badge=SETOR_SCOPED_VIEWS.indexOf(view)>-1?' <span class="pill" style="vertical-align:middle;font-weight:600">'+esc(SETOR_NAME[currentSetor])+'</span>':'';
@@ -1332,20 +1342,20 @@ document.addEventListener('click',e=>{
   const t=e.target.closest('[data-action]'); if(!t) return;
   const a=t.dataset.action, id=t.dataset.id;
   switch(a){
-    case 'nav': view=t.dataset.view; render(); if(view==='assistente'&&chatLog.length) scrollChatToBottom(); else $('.main').scrollTop=0; if(view==='dashboard'&&!dashboardCache[dashboardKey()]) carregarDashboard(); break;
-    case 'dashPeriodo': dashboardPeriodo=t.dataset.periodo; render(); if(!dashboardCache[dashboardKey()]) carregarDashboard(); break;
+    case 'nav': view=t.dataset.view; render(); if(view==='assistente'&&chatLog.length) scrollChatToBottom(); else $('.main').scrollTop=0; if(view==='dashboard'){ if(!dashboardCache[dashboardPeriodo]) carregarDashboard(); if(metasCache===null) carregarMetas(); } break;
+    case 'dashPeriodo': dashboardPeriodo=t.dataset.periodo; render(); if(!dashboardCache[dashboardPeriodo]) carregarDashboard(); break;
+    case 'sincronizarInstagram': sincronizarInstagram(); break;
+    case 'toggleMetaForm': metaFormOpen=!metaFormOpen; render(); break;
+    case 'salvarMeta': salvarMeta(); break;
+    case 'excluirMeta': excluirMeta(t.dataset.id); break;
     case 'toggleSetorMenu': setorMenuOpen=!setorMenuOpen; renderSide(); break;
-    case 'setSetor': currentSetor=t.dataset.setor; setorMenuOpen=false; render(); $('.main').scrollTop=0; if(view==='dashboard'&&!dashboardCache[dashboardKey()]) carregarDashboard(); break;
+    case 'setSetor': currentSetor=t.dataset.setor; setorMenuOpen=false; render(); $('.main').scrollTop=0; break;
     case 'chatEnviar': {
       const inp=$('#chat-input'); if(!inp) break;
       const texto=inp.value; inp.value='';
       sendChatMessage(texto);
       break;}
     case 'chatSugestao': sendChatMessage(t.dataset.texto); break;
-    case 'abrirIgPicker': abrirIgPicker(); break;
-    case 'fecharIgPicker': fecharIgPicker(); break;
-    case 'vincularIg': vincularIg(t.dataset.id,t.dataset.permalink); break;
-    case 'coletarMetricas': coletarMetricas(); break;
     case 'open': openCard(id); break;
     case 'new': openCard(null,{}); break;
     case 'newOn': openCard(null,{pub:t.dataset.date}); break;

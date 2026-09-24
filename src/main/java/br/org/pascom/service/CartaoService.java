@@ -1,6 +1,5 @@
 package br.org.pascom.service;
 
-import br.org.pascom.dto.CartaoInstagramDTO;
 import br.org.pascom.dto.CartaoRequestDTO;
 import br.org.pascom.dto.CartaoResponseDTO;
 import br.org.pascom.dto.ComentarioResponseDTO;
@@ -117,14 +116,6 @@ public class CartaoService {
         // aconteça na hora e o ID gerado (IDENTITY) já volte preenchido na resposta.
         comentarioRepository.save(comentario);
         return ComentarioResponseDTO.from(comentario);
-    }
-
-    @Transactional
-    public CartaoResponseDTO vincularInstagram(Long id, CartaoInstagramDTO dados) {
-        Cartao cartao = buscarPorId(id);
-        cartao.setInstagramMediaId(dados.instagramMediaId());
-        cartao.setInstagramPermalink(dados.instagramPermalink());
-        return CartaoResponseDTO.from(cartaoRepository.save(cartao));
     }
 
     @Transactional

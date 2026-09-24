@@ -42,11 +42,13 @@ public class AgenteService {
 
     private final EventoService eventoService;
     private final IdeiaService ideiaService;
+    private final InstagramService instagramService;
     private final RestClient restClient = RestClient.create();
 
-    public AgenteService(EventoService eventoService, IdeiaService ideiaService) {
+    public AgenteService(EventoService eventoService, IdeiaService ideiaService, InstagramService instagramService) {
         this.eventoService = eventoService;
         this.ideiaService = ideiaService;
+        this.instagramService = instagramService;
     }
 
     public AgenteRespostaDTO conversar(AgenteMensagemDTO dados, Usuario solicitante) {
@@ -170,6 +172,7 @@ public class AgenteService {
                 case "criar_ideia" -> criarIdeia(args, solicitante, setorAtual, acoes);
                 case "listar_eventos" -> listarEventos();
                 case "listar_ideias" -> listarIdeias(setorAtual);
+                case "analisar_instagram" -> analisarInstagram();
                 default -> Map.of("erro", "Ferramenta desconhecida: " + nome);
             };
         } catch (IllegalStateException | IllegalArgumentException e) {
@@ -214,6 +217,25 @@ public class AgenteService {
         return Map.of("eventos", resumo);
     }
 
+    private Map<String, Object> analisarInstagram() {
+        var resumo = instagramService.obterResumo("MENSAL");
+        var metas = instagramService.listarMetas();
+        List<String> resumoMetas = metas.stream()
+                .map(m -> m.titulo() + ": " + Math.round(m.valorAtual()) + "/" + m.valorAlvo() + " (" + m.progresso() + "%)"
+                        + (Boolean.TRUE.equals(m.concluida()) ? " [concluída]" : ""))
+                .toList();
+        return Map.of(
+                "postsUltimos30Dias", resumo.totalPosts(),
+                "curtidasTotais", resumo.totalCurtidas(),
+                "mediaCurtidasPorPost", Math.round(resumo.mediaCurtidas() * 10) / 10.0,
+                "comentariosTotais", resumo.totalComentarios(),
+                "salvamentosTotais", resumo.totalSalvamentos(),
+                "compartilhamentosTotais", resumo.totalCompartilhamentos(),
+                "alcanceTotal", resumo.totalAlcance(),
+                "metas", resumoMetas
+        );
+    }
+
     private Map<String, Object> listarIdeias(Setor setorAtual) {
         List<String> resumo = ideiaService.listarPorSetor(setorAtual).stream()
                 .map(i -> i.titulo() + " (tema: " + i.tema() + (Boolean.TRUE.equals(i.adotada()) ? ", já virou cartão" : "") + ")")
@@ -237,8 +259,11 @@ public class AgenteService {
                 + "litúrgico católico pra escolher as datas mais conhecidas (não precisa ser exaustivo com santos obscuros) "
                 + "e crie um evento por data, com horário e local razoáveis quando não especificados (ex.: 19:00, 'Igreja "
                 + "Matriz'). Se pedirem uma ideia de vídeo/post e você não tiver certeza se deve salvar, pode sugerir em "
-                + "texto e perguntar se quer que salve no banco de ideias. Seja concisa nas respostas finais, resumindo o "
-                + "que foi feito.";
+                + "texto e perguntar se quer que salve no banco de ideias. Quando pedirem análise, estratégia ou dicas pra "
+                + "crescer no Instagram, use analisar_instagram pra pegar os números reais antes de responder, e dê "
+                + "sugestões concretas e práticas (não genéricas) com base neles — ex.: comparar formatos, horários, "
+                + "sugerir testar algo novo se o engajamento estiver caindo, comemorar quando uma meta estiver perto de "
+                + "bater. Seja concisa nas respostas finais, resumindo o que foi feito.";
     }
 
     private List<Map<String, Object>> ferramentas() {
@@ -279,6 +304,13 @@ public class AgenteService {
                 Map.of(
                         "name", "listar_ideias",
                         "description", "Lista as ideias de conteúdo já cadastradas, pra não repetir sugestões.",
+                        "parameters", Map.of("type", "OBJECT", "properties", Map.of())
+                ),
+                Map.of(
+                        "name", "analisar_instagram",
+                        "description", "Traz um resumo dos últimos 30 dias de posts e engajamento reais do Instagram (curtidas, "
+                                + "comentários, alcance, etc.) e o progresso das metas de crescimento cadastradas. Use isso sempre "
+                                + "que pedirem análise, estratégia, dicas ou ideias pra crescer no Instagram.",
                         "parameters", Map.of("type", "OBJECT", "properties", Map.of())
                 )
         );
