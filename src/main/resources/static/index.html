@@ -367,6 +367,14 @@ const STAGES=[
   {id:'publicado',name:'Publicado'}
 ];
 const FORMATS={reels:'Reels',carrossel:'Carrossel',stories:'Stories',foto:'Post de foto'};
+const DATASHOW_STAGES=[
+  {id:'aguardando_musicas',name:'Aguardando músicas'},
+  {id:'conferindo_momentos',name:'Conferindo momentos'},
+  {id:'montado',name:'Montado'},
+  {id:'passado',name:'Passado'}
+];
+const ETAPA_DATASHOW_FROM_API={AGUARDANDO_MUSICAS:'aguardando_musicas',CONFERINDO_MOMENTOS:'conferindo_momentos',MONTADO:'montado',PASSADO:'passado'};
+const datashowStageIdx=id=>DATASHOW_STAGES.findIndex(s=>s.id===id);
 const THEMES=['Liturgia','Formação','Eventos','Santuário','Juventude','Santos'];
 const CHECKS=[
   {id:'texto',short:'texto revisado',label:'Texto e ortografia revisados',hint:''},
@@ -538,6 +546,23 @@ function eventoFromApi(e){
   return {
     id:String(e.id), title:e.titulo, date:e.data, time:(e.horario||'').slice(0,5), place:e.local, big:!!e.eventoGrande,
     slots:(e.slots||[]).map(s=>({id:String(s.id), label:s.rotulo, tipo:s.tipo, who:s.voluntarioId!=null?String(s.voluntarioId):null}))
+  };
+}
+function missaFromApi(m){
+  return {
+    id:String(m.id), data:m.data||'', horario:(m.horario||'').slice(0,5), local:m.local||'',
+    etapa:ETAPA_DATASHOW_FROM_API[m.etapa]||'aguardando_musicas',
+    musicas:m.listaMusicas||'', avisos:m.avisosOutrasPastorais||'',
+    montagem:m.responsavelMontagem?String(m.responsavelMontagem.id):null,
+    passar:m.responsavelPassar?String(m.responsavelPassar.id):null
+  };
+}
+function missaToApi(data){
+  return {
+    data:data.data||null, horario:data.horario||null, local:data.local||'Igreja Matriz',
+    listaMusicas:data.musicas||null, avisosOutrasPastorais:data.avisos||null,
+    responsavelMontagemId:data.montagem?Number(data.montagem):null,
+    responsavelPassarId:data.passar?Number(data.passar):null
   };
 }
 
@@ -723,7 +748,7 @@ const ICONS={
    ===================================================================== */
 const VIEWS={
   painel:{label:'Painel',icon:'dash',title:()=>'Paz e bem, '+greetName(),sub:()=>cap(fmtLong(TODAY)),render:viewPainel},
-  quadro:{label:'Produção',icon:'board',title:()=>'Quadro de produção',sub:()=>'Cada vídeo ou post é um cartão que avança da ideia até a publicação.',render:viewQuadro},
+  quadro:{label:'Produção',icon:'board',title:()=>currentSetor==='datashow'?'Missas do Datashow':'Quadro de produção',sub:()=>currentSetor==='datashow'?'Da espera das músicas até a missa ser passada na celebração.':'Cada vídeo ou post é um cartão que avança da ideia até a publicação.',render:viewQuadro},
   calendario:{label:'Calendário',icon:'cal',title:()=>'Calendário editorial',sub:()=>'O que vai ao ar, junto com os santos do dia e os eventos do santuário.',render:viewCalendario},
   dashboard:{label:'Dashboard',icon:'chart',title:()=>'Dashboard',sub:()=>'Andamento e engajamento das publicações — semana, mês e ano.',render:viewDashboard},
   ideias:{label:'Ideias',icon:'bulb',title:()=>'Banco de ideias',sub:()=>'Qualquer pessoa da equipe sugere. As mais votadas viram cartões.',render:viewIdeias},
@@ -763,16 +788,52 @@ function viewPainel(){
     '</div></section>'+
   '</div><div>'+
     '<section class="panel"><h2>Carga da equipe</h2>'+loads+'<p class="note">Cartões em andamento por pessoa. A barra fica vermelha a partir de 4.</p></section>'+
-    '<section class="panel"><h2>Instagram</h2><p class="note">A conta do santuário já está conectada. Abra um cartão publicado e vincule-o a uma publicação real (aba de edição do cartão, em breve nesta versão) para acompanhar curtidas e alcance de verdade.</p></section>'+
+    '<section class="panel"><h2>Instagram</h2><p class="note">A conta do santuário está conectada e o sistema lê os posts automaticamente. Veja curtidas, alcance e metas de crescimento na aba <b>Dashboard</b>.</p></section>'+
   '</div></div>';
 }
 
 /* ---------- Quadro (Kanban) ---------- */
+let datashowCache=null; // array de missas já carregado, ou null se ainda não buscou
+let datashowLoading=false;
+async function carregarDatashow(){
+  datashowLoading=true; render();
+  try{ datashowCache=(await api('/datashow/missas')).map(missaFromApi); }
+  catch(e){ datashowCache=[]; toast(e.message,'warn'); }
+  datashowLoading=false; render();
+}
 function viewQuadro(){
+  if(currentSetor==='datashow') return viewDatashowQuadro();
   const owners='<option value="all">Todas as pessoas</option><option value="none">Sem responsável</option>'+MEMBERS.map(m=>'<option value="'+m.id+'"'+(filters.owner===m.id?' selected':'')+'>'+esc(m.nome)+'</option>').join('');
   return '<div class="filters"><input id="q" type="search" placeholder="Buscar cartão" value="'+esc(filters.q)+'" aria-label="Buscar cartão"><select id="fo" aria-label="Filtrar por pessoa">'+owners.replace('value="'+filters.owner+'"','value="'+filters.owner+'" selected')+'</select>'+
     '<span class="tip">Arraste os cartões entre as colunas ou use as setas. Para agendar é preciso ter o checklist completo.</span></div>'+
     '<div id="boardArea">'+boardHtml()+'</div>';
+}
+function viewDatashowQuadro(){
+  if(datashowCache===null) return '<div class="empty">'+(datashowLoading?'Carregando...':'Sem dados ainda.')+'</div>';
+  return '<p class="tip" style="margin-bottom:12px">Cada missa passa por 4 etapas: esperar a lista de músicas da pastoral da música, conferir os momentos da missa com as pastorais responsáveis, montar os slides e passar na celebração. Quem monta costuma cobrir a semana inteira; quem passa é combinado por missa.</p>'+
+    '<div id="boardArea">'+datashowBoardHtml()+'</div>';
+}
+function datashowBoardHtml(){
+  const missas=datashowCache||[];
+  return '<div class="board">'+DATASHOW_STAGES.map(s=>{
+    const list=missas.filter(m=>m.etapa===s.id).sort((a,b)=>(a.data||'9').localeCompare(b.data||'9'));
+    return '<section class="kcol" aria-label="'+s.name+'"><div class="kcol-h"><h3>'+s.name+'<span class="cnt">'+list.length+'</span></h3><button data-action="newDatashow" aria-label="Nova missa" title="Nova missa">+</button></div>'+
+      '<div class="kbody">'+(list.length?list.map(missaCard).join(''):'<div class="empty" style="padding:10px;font-size:13px">Nada aqui</div>')+'</div></section>';
+  }).join('')+'</div>';
+}
+function missaCard(m){
+  const i=datashowStageIdx(m.etapa);
+  const montagemMem=m.montagem?mem(m.montagem):null;
+  const passarMem=m.passar?mem(m.passar):null;
+  const dataFmt=m.data?fmtShort(m.data):'sem data';
+  return '<article class="kcard" data-id="'+m.id+'" data-action="openDatashow">'+
+    '<div class="kc-top"><span class="pill">'+esc(dataFmt)+(m.horario?' · '+esc(m.horario):'')+'</span></div>'+
+    '<h4>'+esc(m.local||'Missa')+'</h4>'+
+    '<div class="kc-meta"><span class="note">Monta:</span>'+(montagemMem?avatar(m.montagem)+esc(montagemMem.nome):'<span class="muted">ninguém ainda</span>')+'</div>'+
+    '<div class="kc-meta" style="margin-top:2px"><span class="note">Passa:</span>'+(passarMem?avatar(m.passar)+esc(passarMem.nome):'<span class="muted">ninguém ainda</span>')+'</div>'+
+    (m.musicas?'<p class="note" style="margin-top:6px">Lista de músicas já recebida.</p>':'<p class="note" style="margin-top:6px">Aguardando lista de músicas.</p>')+
+    '<div class="kc-mv" style="margin-top:8px"><button data-action="datashowPrev" data-id="'+m.id+'" '+(i===0?'disabled':'')+' aria-label="Voltar etapa">◀</button><button data-action="datashowNext" data-id="'+m.id+'" '+(i===DATASHOW_STAGES.length-1?'disabled':'')+' aria-label="Avançar etapa">▶</button></div>'+
+  '</article>';
 }
 function boardHtml(){
   const q=filters.q.trim().toLowerCase();
@@ -1107,7 +1168,75 @@ function cardModal(c){
     '</div>'+
     '<div class="m-foot">'+(c.id?'<button class="btn danger" data-action="del">Excluir cartão</button>':'')+'<span class="sp"></span><button class="btn" data-action="close">Cancelar</button><button class="btn primary" data-action="save">Salvar cartão</button></div></div>';
 }
+function datashowModal(m){
+  const sel=(id,arr,val)=>'<select id="'+id+'">'+arr.map(a=>'<option value="'+a[0]+'"'+(a[0]===val?' selected':'')+'>'+esc(a[1])+'</option>').join('')+'</select>';
+  const memOpts=[['','Sem responsável']].concat(MEMBERS.map(mb=>[mb.id,mb.nome]));
+  return '<div class="modal" role="dialog" aria-modal="true" aria-label="Missa do Datashow">'+
+    '<div class="m-head"><h3>'+(m.id?'Editar missa':'Nova missa')+'</h3><button class="x" data-action="close" aria-label="Fechar">×</button></div>'+
+    '<div class="m-body">'+
+      '<div class="fgrid">'+
+        '<label class="fld"><span>Data</span><input id="dm-data" type="date" value="'+esc(m.data)+'"></label>'+
+        '<label class="fld"><span>Horário</span><input id="dm-horario" type="time" value="'+esc(m.horario)+'"></label>'+
+        '<label class="fld"><span>Local</span><input id="dm-local" value="'+esc(m.local||'Igreja Matriz')+'"></label>'+
+        '<label class="fld"><span>Etapa</span>'+sel('dm-etapa',DATASHOW_STAGES.map(s=>[s.id,s.name]),m.etapa)+'</label>'+
+        '<label class="fld"><span>Quem monta (semana)</span>'+sel('dm-montagem',memOpts,m.montagem||'')+'</label>'+
+        '<label class="fld"><span>Quem passa (essa missa)</span>'+sel('dm-passar',memOpts,m.passar||'')+'</label>'+
+      '</div>'+
+      '<label class="fld"><span>Lista de músicas</span><textarea id="dm-musicas" rows="4" placeholder="Cole aqui a lista que a pastoral da música mandar">'+esc(m.musicas)+'</textarea></label>'+
+      '<label class="fld" style="margin-top:10px"><span>Avisos de outras pastorais</span><textarea id="dm-avisos" rows="3" placeholder="Avisos, leituras especiais, momentos combinados...">'+esc(m.avisos)+'</textarea></label>'+
+    '</div>'+
+    '<div class="m-foot">'+(m.id?'<button class="btn danger" data-action="delDatashow">Excluir missa</button>':'')+'<span class="sp"></span><button class="btn" data-action="close">Cancelar</button><button class="btn primary" data-action="saveDatashow">Salvar missa</button></div></div>';
+}
 function closeModal(){const o=$('#overlay');o.hidden=true;o.innerHTML='';modalId=null;}
+function openDatashow(id){
+  modalId=id||null;
+  const m=id?datashowCache.find(x=>x.id===id):{id:null,data:'',horario:'',local:'Igreja Matriz',etapa:'aguardando_musicas',musicas:'',avisos:'',montagem:null,passar:null};
+  const o=$('#overlay'); o.innerHTML=datashowModal(m); o.hidden=false;
+}
+async function saveDatashow(){
+  const data={
+    data:$('#dm-data').value, horario:$('#dm-horario').value, local:$('#dm-local').value.trim(),
+    musicas:$('#dm-musicas').value.trim(), avisos:$('#dm-avisos').value.trim(),
+    montagem:$('#dm-montagem').value||null, passar:$('#dm-passar').value||null
+  };
+  const etapaEscolhida=$('#dm-etapa').value;
+  if(!data.data){toast('Escolha a data da missa.','warn');return;}
+  try{
+    let atualizado;
+    if(modalId){
+      const dto=await api('/datashow/missas/'+modalId,{method:'PUT',body:JSON.stringify(missaToApi(data))});
+      atualizado=missaFromApi(dto);
+      if(etapaEscolhida!==atualizado.etapa){
+        const dto2=await api('/datashow/missas/'+modalId+'/etapa?novaEtapa='+etapaEscolhida.toUpperCase(),{method:'PATCH'});
+        atualizado=missaFromApi(dto2);
+      }
+      Object.assign(datashowCache.find(x=>x.id===modalId),atualizado);
+    }else{
+      const dto=await api('/datashow/missas',{method:'POST',body:JSON.stringify(missaToApi(data))});
+      atualizado=missaFromApi(dto);
+      if(etapaEscolhida!==atualizado.etapa){
+        const dto2=await api('/datashow/missas/'+atualizado.id+'/etapa?novaEtapa='+etapaEscolhida.toUpperCase(),{method:'PATCH'});
+        atualizado=missaFromApi(dto2);
+      }
+      datashowCache.push(atualizado);
+    }
+    closeModal(); render(); toast('Missa salva.');
+  }catch(e){ toast(e.message,'warn'); }
+}
+async function delDatashow(){
+  try{
+    await api('/datashow/missas/'+modalId,{method:'DELETE'});
+    datashowCache=datashowCache.filter(x=>x.id!==modalId);
+    closeModal(); render(); toast('Missa excluída.');
+  }catch(e){ toast(e.message,'warn'); }
+}
+async function moveDatashow(id,to){
+  try{
+    const dto=await api('/datashow/missas/'+id+'/etapa?novaEtapa='+to.toUpperCase(),{method:'PATCH'});
+    Object.assign(datashowCache.find(x=>x.id===id),missaFromApi(dto));
+    render(); toast('Etapa atualizada.');
+  }catch(e){ toast(e.message,'warn'); }
+}
 
 async function saveModal(){
   const checks={}; $$('input[name=chk]').forEach(i=>{checks[i.value]=i.checked;});
@@ -1185,8 +1314,12 @@ const SETOR_SCOPED_VIEWS=['painel','quadro','calendario','ideias'];
 function renderTop(){
   const v=VIEWS[view];
   const badge=SETOR_SCOPED_VIEWS.indexOf(view)>-1?' <span class="pill" style="vertical-align:middle;font-weight:600">'+esc(SETOR_NAME[currentSetor])+'</span>':'';
+  const isDatashow=currentSetor==='datashow';
+  const novoBtn=isDatashow
+    ? '<button class="btn primary" data-action="newDatashow">+ Nova missa</button>'
+    : '<button class="btn primary" data-action="new">+ Novo cartão</button>';
   $('#top').innerHTML='<div><h1>'+esc(v.title())+badge+'</h1><p>'+esc(v.sub())+'</p></div>'+
-    '<div class="top-actions"><button class="btn primary" data-action="new">+ Novo cartão</button></div>';
+    '<div class="top-actions">'+novoBtn+'</div>';
 }
 function render(){
   if(!authToken||authMode==='redefinir'){
@@ -1342,14 +1475,14 @@ document.addEventListener('click',e=>{
   const t=e.target.closest('[data-action]'); if(!t) return;
   const a=t.dataset.action, id=t.dataset.id;
   switch(a){
-    case 'nav': view=t.dataset.view; render(); if(view==='assistente'&&chatLog.length) scrollChatToBottom(); else $('.main').scrollTop=0; if(view==='dashboard'){ if(!dashboardCache[dashboardPeriodo]) carregarDashboard(); if(metasCache===null) carregarMetas(); } break;
+    case 'nav': view=t.dataset.view; render(); if(view==='assistente'&&chatLog.length) scrollChatToBottom(); else $('.main').scrollTop=0; if(view==='dashboard'){ if(!dashboardCache[dashboardPeriodo]) carregarDashboard(); if(metasCache===null) carregarMetas(); } if(view==='quadro'&&currentSetor==='datashow'&&datashowCache===null) carregarDatashow(); break;
     case 'dashPeriodo': dashboardPeriodo=t.dataset.periodo; render(); if(!dashboardCache[dashboardPeriodo]) carregarDashboard(); break;
     case 'sincronizarInstagram': sincronizarInstagram(); break;
     case 'toggleMetaForm': metaFormOpen=!metaFormOpen; render(); break;
     case 'salvarMeta': salvarMeta(); break;
     case 'excluirMeta': excluirMeta(t.dataset.id); break;
     case 'toggleSetorMenu': setorMenuOpen=!setorMenuOpen; renderSide(); break;
-    case 'setSetor': currentSetor=t.dataset.setor; setorMenuOpen=false; render(); $('.main').scrollTop=0; break;
+    case 'setSetor': currentSetor=t.dataset.setor; setorMenuOpen=false; render(); $('.main').scrollTop=0; if(view==='quadro'&&currentSetor==='datashow'&&datashowCache===null) carregarDatashow(); break;
     case 'chatEnviar': {
       const inp=$('#chat-input'); if(!inp) break;
       const texto=inp.value; inp.value='';
@@ -1368,6 +1501,15 @@ document.addEventListener('click',e=>{
       if(t.dataset.sure){ delCartao(modalId); }
       else{t.dataset.sure='1';t.textContent='Confirmar exclusão';}
       break;
+    case 'openDatashow': openDatashow(id); break;
+    case 'newDatashow': openDatashow(null); break;
+    case 'saveDatashow': saveDatashow(); break;
+    case 'delDatashow':
+      if(t.dataset.sure){ delDatashow(); }
+      else{t.dataset.sure='1';t.textContent='Confirmar exclusão';}
+      break;
+    case 'datashowPrev': {const m=datashowCache.find(x=>x.id===id);moveDatashow(id,DATASHOW_STAGES[datashowStageIdx(m.etapa)-1].id);break;}
+    case 'datashowNext': {const m=datashowCache.find(x=>x.id===id);moveDatashow(id,DATASHOW_STAGES[datashowStageIdx(m.etapa)+1].id);break;}
     case 'comment': {
       const inp=$('#f-comment'); const txt=inp.value.trim(); if(!txt||!modalId) return;
       inp.value='';
