@@ -209,9 +209,10 @@ p{margin:0}
 .idea .by{display:flex;align-items:center;gap:8px;margin-top:6px;font-size:12px;color:var(--ink3);flex-wrap:wrap}
 .evs{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:18px}
 .ev{border:1px solid var(--line);border-radius:12px;background:var(--panel);overflow:hidden}
-.ev-h{display:flex;gap:14px;padding:14px 16px;border-bottom:1px solid var(--line);align-items:center}
+.ev-h{display:flex;gap:14px;padding:14px 16px;border-bottom:1px solid var(--line);align-items:center;flex-wrap:wrap}
 .ev-h h3{font-size:17px}
 .ev-h small{color:var(--ink2);display:block}
+.ev-h-actions{display:flex;align-items:center;gap:8px;flex:none;margin-left:auto}
 .ev.big .ev-h{background:var(--gold-soft)}
 .slot{display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--line)}
 .slot:last-child{border-bottom:0}
@@ -707,9 +708,15 @@ async function doCompletarGoogle(){
     await entrarComResultadoGoogle(dto.login);
   }catch(e){ authError=e.message||'Não foi possível concluir o cadastro.'; renderAuth(); }
 }
-function renderGoogleButton(containerId){
+function renderGoogleButton(containerId,tentativa){
+  tentativa=tentativa||0;
   try{
-    if(!window.google||!google.accounts||!google.accounts.id) return;
+    if(!window.google||!google.accounts||!google.accounts.id){
+      // O script do Google carrega async e pode não estar pronto ainda no primeiro render —
+      // tenta de novo por uns segundos antes de desistir (em vez de nunca mostrar o botão).
+      if(tentativa<20) setTimeout(()=>renderGoogleButton(containerId,tentativa+1),250);
+      return;
+    }
     google.accounts.id.initialize({client_id:GOOGLE_CLIENT_ID, callback:onGoogleCredential});
     const el=document.getElementById(containerId);
     if(el) google.accounts.id.renderButton(el,{theme:'outline',size:'large',width:320,text:'continue_with',locale:'pt-BR'});
@@ -1187,8 +1194,8 @@ function viewEscalas(){
   return acoes+'<div class="evs">'+evs.map(e=>{
     const open=e.slots.filter(s=>!s.who).length, d=parse(e.date);
     const joined=e.slots.some(s=>s.who===state.me);
-    return '<article class="ev'+(e.big?' big':'')+'"><div class="ev-h"><div class="dbadge"><b>'+d.getDate()+'</b><span>'+d.toLocaleDateString('pt-BR',{month:'short'}).replace('.','')+'</span></div><div style="flex:1"><h3>'+esc(e.title)+'</h3><small>'+cap(d.toLocaleDateString('pt-BR',{weekday:'long'}))+', '+e.time+' no '+esc(e.place)+'</small></div><span class="pill '+(open?'warn':'ok')+'">'+(open?open+(open>1?' vagas':' vaga'):'Completa')+'</span>'+
-      (podeGerir?'<button class="btn small danger" data-action="excluirEvento" data-id="'+e.id+'" title="Excluir escala">Excluir</button>':'')+'</div>'+
+    return '<article class="ev'+(e.big?' big':'')+'"><div class="ev-h"><div class="dbadge"><b>'+d.getDate()+'</b><span>'+d.toLocaleDateString('pt-BR',{month:'short'}).replace('.','')+'</span></div><div style="flex:1;min-width:120px"><h3>'+esc(e.title)+'</h3><small>'+cap(d.toLocaleDateString('pt-BR',{weekday:'long'}))+', '+e.time+' no '+esc(e.place)+'</small></div><div class="ev-h-actions"><span class="pill '+(open?'warn':'ok')+'">'+(open?open+(open>1?' vagas':' vaga'):'Completa')+'</span>'+
+      (podeGerir?'<button class="btn small danger" data-action="excluirEvento" data-id="'+e.id+'" title="Excluir escala">Excluir</button>':'')+'</div></div>'+
       e.slots.map(s=>{
         let act='';
         if(!s.who) act=joined?'':'<button class="btn small primary" data-action="join" data-ev="'+e.id+'" data-slot="'+s.id+'">Eu vou</button>';
