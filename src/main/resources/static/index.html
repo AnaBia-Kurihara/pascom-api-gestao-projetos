@@ -315,13 +315,27 @@ p{margin:0}
 .link-btn{background:none;border:0;color:var(--brand);cursor:pointer;padding:0;font:inherit;text-decoration:underline}
 
 /* ---------- Mobile ---------- */
+.mbar{display:none}
+.mbar-backdrop{display:none}
 @media (max-width:860px){
-  .app{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) auto}
-  .side{order:2;flex-direction:row;padding:6px 4px;gap:0;overflow:visible;border-top:1px solid rgba(255,255,255,.1)}
-  .brand,.side-foot,.setor-switch{display:none}
-  .nav{flex-direction:row;width:100%;gap:0}
-  .nav button{flex-direction:column;gap:2px;padding:6px 2px;font-size:10.5px;justify-content:center;align-items:center;text-align:center;min-width:0}
-  .nav button[aria-current="page"]::before{left:20%;right:20%;top:0;bottom:auto;width:auto;height:3px;border-radius:0 0 3px 3px}
+  .mbar{display:flex;align-items:center;gap:12px;position:fixed;top:0;left:0;right:0;height:56px;padding:0 14px;padding-top:env(safe-area-inset-top,0px);background:var(--side);z-index:40}
+  .mbar-burger{background:none;border:0;width:34px;height:34px;flex:none;display:flex;align-items:center;justify-content:center;border-radius:8px;color:#fff}
+  .mbar-burger:hover{background:rgba(255,255,255,.1)}
+  .mbar-burger svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+  .mbar b{font-family:var(--serif);font-weight:400;font-size:16px;color:#fff}
+
+  .app{grid-template-columns:minmax(0,1fr);grid-template-rows:1fr}
+  .main{padding-top:calc(56px + env(safe-area-inset-top,0px))}
+
+  .side{position:fixed;top:0;bottom:0;left:0;width:min(82vw,300px);z-index:50;transform:translateX(-100%);transition:transform .2s ease-out;flex-direction:column;padding:calc(18px + env(safe-area-inset-top,0px)) 14px 18px;gap:4px;overflow-y:auto;border-top:0;box-shadow:0 0 40px rgba(0,0,0,.4)}
+  .side.open{transform:translateX(0)}
+  .mbar-backdrop.open{display:block;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:45}
+
+  .nav{flex-direction:column;width:100%;gap:2px}
+  .nav button{flex-direction:row;gap:12px;padding:11px 12px;font-size:15px;justify-content:flex-start;align-items:center;text-align:left;min-width:0}
+  .nav button span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .nav button[aria-current="page"]::before{left:-14px;right:auto;top:8px;bottom:8px;width:4px;height:auto;border-radius:0 3px 3px 0}
+
   .top{padding:18px 16px 4px}
   .top h1{font-size:23px}
   .view{padding:12px 16px 28px}
@@ -331,7 +345,7 @@ p{margin:0}
   .cal-wrap{display:none}
   .cal-list{display:block}
   .who span{display:none}
-  .toast{bottom:calc(env(safe-area-inset-bottom,0px) + 78px)}
+  .toast{bottom:calc(env(safe-area-inset-bottom,0px) + 24px)}
   .fgrid{grid-template-columns:1fr}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
@@ -340,6 +354,13 @@ p{margin:0}
 </head>
 <body>
 <div class="app" id="app" hidden>
+  <div class="mbar">
+    <button type="button" class="mbar-burger" data-action="toggleMobileNav" aria-label="Abrir menu">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+    </button>
+    <b>Pascom Fátima</b>
+  </div>
+  <div class="mbar-backdrop" id="mbarBackdrop" data-action="closeMobileNav"></div>
   <nav class="side" id="side" aria-label="Navegação principal"></nav>
   <main class="main">
     <header class="top" id="top"></header>
@@ -718,6 +739,7 @@ let currentSetor='redes_sociais';
 let setorMenuOpen=false;
 let exclusaoAlvo=null; // {tipo:'cartao'|'ideia'|'evento', id, titulo}
 let lixeira={cartoes:null,ideias:null,eventos:null,loading:false,setor:null};
+let mobileNavOpen=false;
 
 const mem=id=>MEMBERS.find(m=>m.id===id);
 const me=()=>mem(state.me);
@@ -1703,6 +1725,8 @@ function render(){
   $('#app').hidden=false;
   const main=$('.main'), ms=main.scrollTop, b=$('.board'), bs=b?b.scrollLeft:0;
   renderSide(); renderTop();
+  $('#side').classList.toggle('open',mobileNavOpen);
+  $('#mbarBackdrop').classList.toggle('open',mobileNavOpen);
   $('#view').innerHTML=VIEWS[view].render();
   const nb=$('.board'); if(nb) nb.scrollLeft=bs;
   main.scrollTop=ms;
@@ -1847,14 +1871,16 @@ document.addEventListener('click',e=>{
   const t=e.target.closest('[data-action]'); if(!t) return;
   const a=t.dataset.action, id=t.dataset.id;
   switch(a){
-    case 'nav': view=t.dataset.view; render(); if(view==='assistente'&&chatLog.length) scrollChatToBottom(); else $('.main').scrollTop=0; if(view==='dashboard'){ if(!dashboardCache[dashboardPeriodo]) carregarDashboard(); if(metasCache===null) carregarMetas(); } if(view==='quadro'&&currentSetor==='datashow'&&datashowCache===null) carregarDatashow(); if(view==='quadro'&&currentSetor==='transmissoes_videos'&&transmissaoCache===null) carregarTransmissoes(); if(view==='lixeira'&&(lixeira.cartoes===null||lixeira.setor!==currentSetor)) carregarLixeira(); break;
+    case 'nav': view=t.dataset.view; mobileNavOpen=false; render(); if(view==='assistente'&&chatLog.length) scrollChatToBottom(); else $('.main').scrollTop=0; if(view==='dashboard'){ if(!dashboardCache[dashboardPeriodo]) carregarDashboard(); if(metasCache===null) carregarMetas(); } if(view==='quadro'&&currentSetor==='datashow'&&datashowCache===null) carregarDatashow(); if(view==='quadro'&&currentSetor==='transmissoes_videos'&&transmissaoCache===null) carregarTransmissoes(); if(view==='lixeira'&&(lixeira.cartoes===null||lixeira.setor!==currentSetor)) carregarLixeira(); break;
+    case 'toggleMobileNav': mobileNavOpen=!mobileNavOpen; render(); break;
+    case 'closeMobileNav': mobileNavOpen=false; render(); break;
     case 'dashPeriodo': dashboardPeriodo=t.dataset.periodo; render(); if(!dashboardCache[dashboardPeriodo]) carregarDashboard(); break;
     case 'sincronizarInstagram': sincronizarInstagram(); break;
     case 'toggleMetaForm': metaFormOpen=!metaFormOpen; render(); break;
     case 'salvarMeta': salvarMeta(); break;
     case 'excluirMeta': excluirMeta(t.dataset.id); break;
     case 'toggleSetorMenu': setorMenuOpen=!setorMenuOpen; renderSide(); break;
-    case 'setSetor': currentSetor=t.dataset.setor; setorMenuOpen=false; render(); $('.main').scrollTop=0; if(view==='quadro'&&currentSetor==='datashow'&&datashowCache===null) carregarDatashow(); if(view==='quadro'&&currentSetor==='transmissoes_videos'&&transmissaoCache===null) carregarTransmissoes(); if(view==='lixeira'&&(lixeira.cartoes===null||lixeira.setor!==currentSetor)) carregarLixeira(); break;
+    case 'setSetor': currentSetor=t.dataset.setor; setorMenuOpen=false; mobileNavOpen=false; render(); $('.main').scrollTop=0; if(view==='quadro'&&currentSetor==='datashow'&&datashowCache===null) carregarDatashow(); if(view==='quadro'&&currentSetor==='transmissoes_videos'&&transmissaoCache===null) carregarTransmissoes(); if(view==='lixeira'&&(lixeira.cartoes===null||lixeira.setor!==currentSetor)) carregarLixeira(); break;
     case 'chatEnviar': {
       const inp=$('#chat-input'); if(!inp) break;
       const texto=inp.value; inp.value='';
@@ -1945,6 +1971,7 @@ document.addEventListener('input',e=>{
 });
 document.addEventListener('keydown',e=>{
   if(e.key==='Escape'&&!$('#overlay').hidden) closeModal();
+  if(e.key==='Escape'&&mobileNavOpen){ mobileNavOpen=false; render(); }
   if(e.key==='Enter'){
     const idAtt=e.target.id;
     if(idAtt==='au-email'||idAtt==='au-senha'||idAtt==='au-nome'||idAtt==='au-funcao'){
