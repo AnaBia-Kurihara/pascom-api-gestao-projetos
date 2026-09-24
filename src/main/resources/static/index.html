@@ -685,6 +685,8 @@ let setorMenuOpen=false;
 const mem=id=>MEMBERS.find(m=>m.id===id);
 const me=()=>mem(state.me);
 const isApprover=()=>{const m=me();return !!m&&(m.role==='coordenador_geral'||m.role==='coordenador');};
+const EMAIL_DESENVOLVEDORA='bibia.oliveira.kurihara@gmail.com';
+const isCoordenadorGeral=()=>{const m=me();return !!m&&(m.role==='coordenador_geral'||m.email===EMAIL_DESENVOLVEDORA);};
 const card=id=>state.cards.find(c=>c.id===id);
 const visibleCards=()=>state.cards.filter(c=>c.setor===currentSetor);
 const visibleIdeas=()=>state.ideas.filter(i=>i.setor===currentSetor);
@@ -1036,10 +1038,22 @@ function viewIdeias(){
 }
 
 /* ---------- Escalas ---------- */
+const SLOT_TIPO_NOME={FOTO:'Foto',VIDEO:'Vídeo',STORIES_AO_VIVO:'Stories ao vivo',TRANSMISSAO:'Transmissão'};
+let addSlotEventoId=null; // id do evento com o mini-form de "+ função" aberto
+function addSlotFormHtml(eventoId){
+  if(addSlotEventoId!==eventoId) return '';
+  return '<div class="fgrid" style="align-items:end;margin-top:8px">'+
+    '<label class="fld"><span>Nome da função</span><input id="as-rotulo" placeholder="Ex.: Transmissão"></label>'+
+    '<label class="fld"><span>Tipo</span><select id="as-tipo">'+Object.keys(SLOT_TIPO_NOME).map(t=>'<option value="'+t+'">'+SLOT_TIPO_NOME[t]+'</option>').join('')+'</select></label>'+
+    '<button type="button" class="btn small primary" data-action="salvarSlotExistente" data-ev="'+eventoId+'">Adicionar</button>'+
+  '</div>';
+}
 function viewEscalas(){
   const evs=state.events.slice().sort((a,b)=>a.date.localeCompare(b.date));
-  if(!evs.length) return '<div class="empty">Nenhum evento cadastrado ainda. A Coordenação pode criar eventos pela API.</div>';
-  return '<div class="evs">'+evs.map(e=>{
+  const podeGerir=isCoordenadorGeral();
+  const acoes=podeGerir?'<div class="filters" style="margin-bottom:16px"><button class="btn primary" data-action="novaEscala">+ Nova escala</button><button class="btn" data-action="gerarEscalasMes">Gerar domingos do mês</button><span class="tip">"Gerar domingos do mês" cria (sem duplicar) uma Missa das 10h pra cada domingo, já com Foto/Vídeo/Stories.</span></div>':'';
+  if(!evs.length) return acoes+'<div class="empty">Nenhum evento cadastrado ainda.'+(podeGerir?' Crie uma escala ou gere os domingos do mês acima.':' Fale com a Coordenação.')+'</div>';
+  return acoes+'<div class="evs">'+evs.map(e=>{
     const open=e.slots.filter(s=>!s.who).length, d=parse(e.date);
     const joined=e.slots.some(s=>s.who===state.me);
     return '<article class="ev'+(e.big?' big':'')+'"><div class="ev-h"><div class="dbadge"><b>'+d.getDate()+'</b><span>'+d.toLocaleDateString('pt-BR',{month:'short'}).replace('.','')+'</span></div><div style="flex:1"><h3>'+esc(e.title)+'</h3><small>'+cap(d.toLocaleDateString('pt-BR',{weekday:'long'}))+', '+e.time+' no '+esc(e.place)+'</small></div><span class="pill '+(open?'warn':'ok')+'">'+(open?open+(open>1?' vagas':' vaga'):'Completa')+'</span></div>'+
@@ -1049,8 +1063,84 @@ function viewEscalas(){
         else if(s.who===state.me||isApprover()) act='<button class="btn small" data-action="leave" data-ev="'+e.id+'" data-slot="'+s.id+'">'+(s.who===state.me?'Sair':'Liberar')+'</button>';
         const whoMem=s.who?mem(s.who):null;
         return '<div class="slot"><span class="sl">'+esc(s.label)+'</span><span class="sw">'+(whoMem?avatar(s.who)+esc(whoMem.nome):'<span class="muted">Vaga aberta</span>')+'</span>'+act+'</div>';
-      }).join('')+'</article>';
-  }).join('')+'</div><p class="note">Os horários são exemplos. Na versão real, a escala geraria um aviso para cada pessoa no dia anterior.</p>';
+      }).join('')+
+      (podeGerir?'<button type="button" class="btn small" style="margin-top:8px" data-action="toggleAddSlot" data-ev="'+e.id+'">'+(addSlotEventoId===e.id?'Cancelar':'+ função pra essa missa')+'</button>'+addSlotFormHtml(e.id):'')+
+    '</article>';
+  }).join('')+'</div>';
+}
+let escalaFormSlots=[];
+function sincronizarSlotFormDoDOM(){
+  escalaFormSlots=escalaFormSlots.map((s,i)=>({
+    rotulo:($('#es-slot-rotulo-'+i)?$('#es-slot-rotulo-'+i).value:s.rotulo),
+    tipo:($('#es-slot-tipo-'+i)?$('#es-slot-tipo-'+i).value:s.tipo)
+  }));
+}
+function escalaModal(){
+  return '<div class="modal" role="dialog" aria-modal="true" aria-label="Nova escala">'+
+    '<div class="m-head"><h3>Nova escala</h3><button class="x" data-action="close" aria-label="Fechar">×</button></div>'+
+    '<div class="m-body">'+
+      '<label class="fld"><span>Título</span><input id="es-titulo" placeholder="Ex.: Missa das 10h" value="Missa das 10h"></label>'+
+      '<div class="fgrid">'+
+        '<label class="fld"><span>Data</span><input id="es-data" type="date"></label>'+
+        '<label class="fld"><span>Horário</span><input id="es-horario" type="time" value="10:00"></label>'+
+        '<label class="fld"><span>Local</span><input id="es-local" value="Igreja Matriz"></label>'+
+      '</div>'+
+      '<label class="chk" style="margin-top:8px"><input type="checkbox" id="es-grande"><span>Evento grande/especial</span></label>'+
+      '<fieldset class="fset" style="margin-top:14px"><legend>Funções que precisam de voluntário</legend>'+
+        escalaFormSlots.map((s,i)=>
+          '<div class="fgrid" style="align-items:end;margin-bottom:8px">'+
+            '<label class="fld"><span>Nome da função</span><input id="es-slot-rotulo-'+i+'" value="'+esc(s.rotulo)+'"></label>'+
+            '<label class="fld"><span>Tipo</span><select id="es-slot-tipo-'+i+'">'+Object.keys(SLOT_TIPO_NOME).map(t=>'<option value="'+t+'"'+(t===s.tipo?' selected':'')+'>'+SLOT_TIPO_NOME[t]+'</option>').join('')+'</select></label>'+
+            '<button type="button" class="btn small danger" data-action="removerSlotForm" data-i="'+i+'">Remover</button>'+
+          '</div>'
+        ).join('')+
+        '<button type="button" class="btn small" data-action="adicionarSlotForm">+ Adicionar função</button>'+
+      '</fieldset>'+
+    '</div>'+
+    '<div class="m-foot"><span class="sp"></span><button class="btn" data-action="close">Cancelar</button><button class="btn primary" data-action="salvarEscala">Criar escala</button></div></div>';
+}
+function abrirNovaEscala(){
+  escalaFormSlots=[{rotulo:'Foto',tipo:'FOTO'},{rotulo:'Vídeo',tipo:'VIDEO'},{rotulo:'Stories ao vivo',tipo:'STORIES_AO_VIVO'}];
+  const o=$('#overlay'); o.innerHTML=escalaModal(); o.hidden=false;
+}
+function reabrirEscalaModal(){ $('#overlay').innerHTML=escalaModal(); }
+async function salvarEscala(){
+  sincronizarSlotFormDoDOM();
+  const titulo=$('#es-titulo').value.trim();
+  const data=$('#es-data').value;
+  const horario=$('#es-horario').value;
+  const local=$('#es-local').value.trim();
+  const grande=$('#es-grande').checked;
+  if(!titulo||!data||!horario||!local){toast('Preencha título, data, horário e local.','warn');return;}
+  const slots=escalaFormSlots.filter(s=>s.rotulo.trim());
+  try{
+    const dto=await api('/eventos',{method:'POST',body:JSON.stringify({
+      titulo:titulo,data:data,horario:horario,local:local,eventoGrande:grande,
+      slots:slots.map(s=>({rotulo:s.rotulo.trim(),tipo:s.tipo}))
+    })});
+    state.events.push(eventoFromApi(dto));
+    closeModal(); render(); toast('Escala criada!');
+  }catch(e){ toast(e.message,'warn'); }
+}
+async function gerarEscalasMes(){
+  try{
+    const r=await api('/eventos/gerar-escalas-mes',{method:'POST'});
+    toast(r.eventosCriados>0?r.eventosCriados+' escala(s) de domingo criada(s)!':'Já estava tudo criado esse mês.');
+    const eventos=await api('/eventos');
+    state.events=eventos.map(eventoFromApi);
+    render();
+  }catch(e){ toast(e.message,'warn'); }
+}
+async function salvarSlotExistente(eventoId){
+  const rotulo=$('#as-rotulo').value.trim();
+  const tipo=$('#as-tipo').value;
+  if(!rotulo){toast('Dê um nome pra função.','warn');return;}
+  try{
+    const dto=await api('/eventos/'+eventoId+'/slots',{method:'POST',body:JSON.stringify({rotulo:rotulo,tipo:tipo})});
+    Object.assign(state.events.find(x=>x.id===eventoId),eventoFromApi(dto));
+    addSlotEventoId=null;
+    render(); toast('Função adicionada!');
+  }catch(e){ toast(e.message,'warn'); }
 }
 
 /* ---------- Equipe ---------- */
@@ -1502,6 +1592,13 @@ document.addEventListener('click',e=>{
       else{t.dataset.sure='1';t.textContent='Confirmar exclusão';}
       break;
     case 'openDatashow': openDatashow(id); break;
+    case 'novaEscala': abrirNovaEscala(); break;
+    case 'adicionarSlotForm': sincronizarSlotFormDoDOM(); escalaFormSlots.push({rotulo:'',tipo:'FOTO'}); reabrirEscalaModal(); break;
+    case 'removerSlotForm': sincronizarSlotFormDoDOM(); escalaFormSlots.splice(Number(t.dataset.i),1); reabrirEscalaModal(); break;
+    case 'salvarEscala': salvarEscala(); break;
+    case 'gerarEscalasMes': gerarEscalasMes(); break;
+    case 'toggleAddSlot': addSlotEventoId=(addSlotEventoId===id?null:id); render(); break;
+    case 'salvarSlotExistente': salvarSlotExistente(t.dataset.ev); break;
     case 'newDatashow': openDatashow(null); break;
     case 'saveDatashow': saveDatashow(); break;
     case 'delDatashow':
