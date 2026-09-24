@@ -34,7 +34,7 @@ import java.util.Map;
 public class AgenteService {
 
     private static final String GEMINI_URL =
-            "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={key}";
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key={key}";
     private static final int MAX_RODADAS_FERRAMENTA = 6;
 
     @Value("${api.gemini.chave}")
@@ -72,18 +72,23 @@ public class AgenteService {
 
         for (int rodada = 0; rodada < MAX_RODADAS_FERRAMENTA && textoFinal == null; rodada++) {
             Map<String, Object> resposta = chamarGemini(contents, solicitante, setorAtual);
-            Map<String, Object> chamada = extrairFunctionCall(resposta);
+            // A parte inteira (não só o functionCall) precisa ser preservada e devolvida do jeito que veio —
+            // o Gemini 3.6 inclui um "thoughtSignature" na mesma parte, e rejeita a rodada seguinte com 400
+            // (INVALID_ARGUMENT) se esse campo não voltar exatamente igual.
+            Map<String, Object> parteComFuncao = extrairParteComFunctionCall(resposta);
 
-            if (chamada == null) {
+            if (parteComFuncao == null) {
                 textoFinal = extrairTexto(resposta);
                 break;
             }
 
+            @SuppressWarnings("unchecked")
+            Map<String, Object> chamada = (Map<String, Object>) parteComFuncao.get("functionCall");
             String nome = (String) chamada.get("name");
             @SuppressWarnings("unchecked")
             Map<String, Object> args = (Map<String, Object>) chamada.getOrDefault("args", Map.of());
 
-            contents.add(Map.of("role", "model", "parts", List.of(Map.of("functionCall", chamada))));
+            contents.add(Map.of("role", "model", "parts", List.of(parteComFuncao)));
 
             Map<String, Object> resultado = executarFerramenta(nome, args, solicitante, setorAtual, acoes);
 
@@ -117,20 +122,22 @@ public class AgenteService {
             @SuppressWarnings("unchecked")
             Map<String, Object> tipado = (Map<String, Object>) resp;
             return tipado;
+        } catch (org.springframework.web.client.HttpClientErrorException.TooManyRequests e) {
+            throw new IllegalStateException("O assistente recebeu mensagens demais em pouco tempo (limite do plano gratuito do Gemini). Espera meio minutinho e tenta de novo.", e);
         } catch (RestClientException e) {
             throw new IllegalStateException("Não foi possível falar com o assistente agora. Tente de novo em instantes.", e);
         }
     }
 
     @SuppressWarnings("unchecked")
-    private Map<String, Object> extrairFunctionCall(Map<String, Object> resposta) {
+    private Map<String, Object> extrairParteComFunctionCall(Map<String, Object> resposta) {
         try {
             List<Map<String, Object>> candidates = (List<Map<String, Object>>) resposta.get("candidates");
             Map<String, Object> content = (Map<String, Object>) candidates.get(0).get("content");
             List<Map<String, Object>> parts = (List<Map<String, Object>>) content.get("parts");
             for (Map<String, Object> parte : parts) {
                 if (parte.containsKey("functionCall")) {
-                    return (Map<String, Object>) parte.get("functionCall");
+                    return parte;
                 }
             }
         } catch (Exception ignorada) {
