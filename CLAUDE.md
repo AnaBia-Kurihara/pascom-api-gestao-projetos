@@ -67,6 +67,12 @@ O front-end tem um seletor de "espaço" na barra lateral (`setorSwitchHtml()`, e
 
 **Conhecido em aberto**: o seletor de espaço fica escondido no mobile (`.setor-switch{display:none}` no media query) — no celular dá pra ver em qual setor você está (aparece uma pílula ao lado do título), mas ainda não dá pra trocar de setor pelo celular. Também ainda não foi feito deploy dessa funcionalidade pra produção (testada só localmente) — veja o histórico de commits pra status atualizado.
 
+### Lixeira (exclusão suave)
+
+`Cartao`, `Ideia` e `Evento` usam **exclusão suave**: excluir nunca apaga a linha do banco, só preenche `excluidoEm`/`motivoExclusao`/`detalheExclusao` (enum `MotivoExclusao`: `NAO_DEU_TEMPO`, `JA_PASSOU`, `DUPLICADO`, `MUDANCA_DE_PLANOS`, `NAO_APROVADO`, `OUTRO`). Todo listing normal (`listarTodos`/`listarPorSetor` nos três services) filtra `excluidoEmIsNull`; a lixeira usa as queries complementares (`...ExcluidoEmIsNotNull...`). Endpoints, iguais nos três controllers: `POST /{id}/lixeira` (body `{motivo, detalhe}`, via `ExclusaoRequestDTO`) move pra lixeira, `POST /{id}/restaurar` traz de volta, `GET /lixeira` lista os excluídos (`?setor=X` pra Cartão/Ideia — `Evento` não é filtrado por setor, ver acima). Restaurar/excluir `Evento` exige `temPoderesDeCoordenadorGeral()` (mesma regra de `criar`); Cartão e Ideia continuam sem checagem de papel, igual o resto do fluxo desses dois agregados.
+
+No front, a aba **Lixeira** (`viewLixeira()`) é sector-scoped (Cartões/Ideias do `currentSetor`) mas sempre mostra todas as Escalas excluídas (já que `Evento` é global). Excluir qualquer um dos três tipos abre um modal (`abrirExclusao`/`motivoExclusaoModal`) pedindo o motivo antes de confirmar — não existe mais exclusão direta sem motivo. **Cuidado ao mexer em `EventoService.gerarEscalasDominicaisDoMes`**: o check de duplicidade usa `existsByDataAndTituloAndExcluidoEmIsNull` (não `existsByDataAndTitulo`) de propósito, senão um domingo cujo evento foi pra lixeira nunca seria regerado automaticamente no mês seguinte.
+
 ### Integração com Instagram
 
 **Validada de ponta a ponta com a conta real do santuário** (`@santuariodefatima`) via `InstagramService`/`InstagramController`. Usa o fluxo **"Instagram API with Instagram Login"** (Business Login for Instagram) — não exige Página do Facebook vinculada, só que a conta seja Business/Creator. O app Meta é o "Pascom Fátima - Integração" (App ID `1858551365508382`).

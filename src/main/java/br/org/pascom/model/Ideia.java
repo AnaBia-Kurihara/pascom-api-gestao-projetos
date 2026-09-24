@@ -1,10 +1,12 @@
 package br.org.pascom.model;
 
+import br.org.pascom.model.enums.MotivoExclusao;
 import br.org.pascom.model.enums.Setor;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import lombok.*;
 
+import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -48,4 +50,13 @@ public class Ideia {
     @Column(name = "usuario_id")
     @Builder.Default
     private Set<Long> votantesIds = new HashSet<>();
+
+    /** Preenchido quando a ideia vai pra lixeira; null enquanto estiver ativa. */
+    private LocalDateTime excluidoEm;
+
+    @Enumerated(EnumType.STRING)
+    private MotivoExclusao motivoExclusao;
+
+    @Column(columnDefinition = "TEXT")
+    private String detalheExclusao;
 }

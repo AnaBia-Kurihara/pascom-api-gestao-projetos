@@ -4,9 +4,11 @@ import br.org.pascom.model.Cartao;
 import br.org.pascom.model.Checklist;
 import br.org.pascom.model.enums.Etapa;
 import br.org.pascom.model.enums.Formato;
+import br.org.pascom.model.enums.MotivoExclusao;
 import br.org.pascom.model.enums.Setor;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 public record CartaoResponseDTO(
@@ -23,7 +25,10 @@ public record CartaoResponseDTO(
         String instagramPermalink,
         Checklist checklist,
         List<ComentarioResponseDTO> comentarios,
-        Setor setor
+        Setor setor,
+        LocalDateTime excluidoEm,
+        MotivoExclusao motivoExclusao,
+        String detalheExclusao
 ) {
     public static CartaoResponseDTO from(Cartao c) {
         return new CartaoResponseDTO(
@@ -33,7 +38,7 @@ public record CartaoResponseDTO(
                 c.getInstagramMediaId(), c.getInstagramPermalink(),
                 c.getChecklist(),
                 c.getComentarios().stream().map(ComentarioResponseDTO::from).toList(),
-                c.getSetor()
+                c.getSetor(), c.getExcluidoEm(), c.getMotivoExclusao(), c.getDetalheExclusao()
         );
     }
 }

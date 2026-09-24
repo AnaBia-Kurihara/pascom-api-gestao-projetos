@@ -13,4 +13,7 @@ public interface CartaoRepository extends JpaRepository<Cartao, Long> {
     List<Cartao> findByEtapaAndInstagramMediaIdIsNotNull(Etapa etapa);
     List<Cartao> findBySetor(Setor setor);
     List<Cartao> findBySetorAndEtapaAndDataPublicacaoBetween(Setor setor, Etapa etapa, LocalDate inicio, LocalDate fim);
+    List<Cartao> findByExcluidoEmIsNull();
+    List<Cartao> findBySetorAndExcluidoEmIsNull(Setor setor);
+    List<Cartao> findBySetorAndExcluidoEmIsNotNullOrderByExcluidoEmDesc(Setor setor);
 }

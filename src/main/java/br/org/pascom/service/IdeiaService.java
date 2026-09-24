@@ -7,11 +7,13 @@ import br.org.pascom.dto.IdeiaResponseDTO;
 import br.org.pascom.model.Ideia;
 import br.org.pascom.model.Usuario;
 import br.org.pascom.model.enums.Formato;
+import br.org.pascom.model.enums.MotivoExclusao;
 import br.org.pascom.model.enums.Setor;
 import br.org.pascom.repository.IdeiaRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -26,11 +28,16 @@ public class IdeiaService {
     }
 
     public List<IdeiaResponseDTO> listarTodas() {
-        return ideiaRepository.findAll().stream().map(IdeiaResponseDTO::from).toList();
+        return ideiaRepository.findByExcluidoEmIsNull().stream().map(IdeiaResponseDTO::from).toList();
     }
 
     public List<IdeiaResponseDTO> listarPorSetor(Setor setor) {
-        return ideiaRepository.findBySetor(setor).stream().map(IdeiaResponseDTO::from).toList();
+        return ideiaRepository.findBySetorAndExcluidoEmIsNull(setor).stream().map(IdeiaResponseDTO::from).toList();
+    }
+
+    public List<IdeiaResponseDTO> listarLixeira(Setor setor) {
+        return ideiaRepository.findBySetorAndExcluidoEmIsNotNullOrderByExcluidoEmDesc(setor).stream()
+                .map(IdeiaResponseDTO::from).toList();
     }
 
     @Transactional
@@ -88,5 +95,28 @@ public class IdeiaService {
         );
 
         return cartaoService.criar(cartaoReq);
+    }
+
+    @Transactional
+    public IdeiaResponseDTO moverParaLixeira(Long id, MotivoExclusao motivo, String detalhe) {
+        Ideia ideia = ideiaRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Ideia não encontrada."));
+        ideia.setExcluidoEm(LocalDateTime.now());
+        ideia.setMotivoExclusao(motivo);
+        ideia.setDetalheExclusao(detalhe);
+        return IdeiaResponseDTO.from(ideiaRepository.save(ideia));
+    }
+
+    @Transactional
+    public IdeiaResponseDTO restaurar(Long id) {
+        Ideia ideia = ideiaRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Ideia não encontrada."));
+        if (ideia.getExcluidoEm() == null) {
+            throw new IllegalStateException("Esta ideia não está na lixeira.");
+        }
+        ideia.setExcluidoEm(null);
+        ideia.setMotivoExclusao(null);
+        ideia.setDetalheExclusao(null);
+        return IdeiaResponseDTO.from(ideiaRepository.save(ideia));
     }
 }

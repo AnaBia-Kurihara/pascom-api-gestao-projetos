@@ -9,6 +9,7 @@ import br.org.pascom.model.Checklist;
 import br.org.pascom.model.Comentario;
 import br.org.pascom.model.Usuario;
 import br.org.pascom.model.enums.Etapa;
+import br.org.pascom.model.enums.MotivoExclusao;
 import br.org.pascom.model.enums.Setor;
 import br.org.pascom.repository.CartaoRepository;
 import br.org.pascom.repository.ComentarioRepository;
@@ -34,11 +35,16 @@ public class CartaoService {
     }
 
     public List<CartaoResponseDTO> listarTodos() {
-        return cartaoRepository.findAll().stream().map(CartaoResponseDTO::from).toList();
+        return cartaoRepository.findByExcluidoEmIsNull().stream().map(CartaoResponseDTO::from).toList();
     }
 
     public List<CartaoResponseDTO> listarPorSetor(Setor setor) {
-        return cartaoRepository.findBySetor(setor).stream().map(CartaoResponseDTO::from).toList();
+        return cartaoRepository.findBySetorAndExcluidoEmIsNull(setor).stream().map(CartaoResponseDTO::from).toList();
+    }
+
+    public List<CartaoResponseDTO> listarLixeira(Setor setor) {
+        return cartaoRepository.findBySetorAndExcluidoEmIsNotNullOrderByExcluidoEmDesc(setor).stream()
+                .map(CartaoResponseDTO::from).toList();
     }
 
     public Cartao buscarPorId(Long id) {
@@ -119,8 +125,23 @@ public class CartaoService {
     }
 
     @Transactional
-    public void deletar(Long id) {
+    public CartaoResponseDTO moverParaLixeira(Long id, MotivoExclusao motivo, String detalhe) {
         Cartao cartao = buscarPorId(id);
-        cartaoRepository.delete(cartao);
+        cartao.setExcluidoEm(LocalDateTime.now());
+        cartao.setMotivoExclusao(motivo);
+        cartao.setDetalheExclusao(detalhe);
+        return CartaoResponseDTO.from(cartaoRepository.save(cartao));
+    }
+
+    @Transactional
+    public CartaoResponseDTO restaurar(Long id) {
+        Cartao cartao = buscarPorId(id);
+        if (cartao.getExcluidoEm() == null) {
+            throw new IllegalStateException("Este cartão não está na lixeira.");
+        }
+        cartao.setExcluidoEm(null);
+        cartao.setMotivoExclusao(null);
+        cartao.setDetalheExclusao(null);
+        return CartaoResponseDTO.from(cartaoRepository.save(cartao));
     }
 }

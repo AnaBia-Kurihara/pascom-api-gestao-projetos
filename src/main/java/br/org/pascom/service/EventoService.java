@@ -7,6 +7,7 @@ import br.org.pascom.dto.SlotEscalaRequestDTO;
 import br.org.pascom.model.Evento;
 import br.org.pascom.model.SlotEscala;
 import br.org.pascom.model.Usuario;
+import br.org.pascom.model.enums.MotivoExclusao;
 import br.org.pascom.model.enums.SlotTipo;
 import br.org.pascom.repository.EventoRepository;
 import br.org.pascom.repository.SlotEscalaRepository;
@@ -16,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.YearMonth;
 import java.time.temporal.TemporalAdjusters;
@@ -33,7 +35,11 @@ public class EventoService {
     }
 
     public List<EventoDTO> listarTodos() {
-        return eventoRepository.findAll().stream().map(this::toDTO).toList();
+        return eventoRepository.findByExcluidoEmIsNull().stream().map(this::toDTO).toList();
+    }
+
+    public List<EventoDTO> listarLixeira() {
+        return eventoRepository.findByExcluidoEmIsNotNullOrderByExcluidoEmDesc().stream().map(this::toDTO).toList();
     }
 
     @Transactional
@@ -120,7 +126,7 @@ public class EventoService {
         int criados = 0;
         LocalDate primeiroDomingo = mes.atDay(1).with(TemporalAdjusters.nextOrSame(DayOfWeek.SUNDAY));
         for (LocalDate domingo = primeiroDomingo; !domingo.isAfter(mes.atEndOfMonth()); domingo = domingo.plusWeeks(1)) {
-            if (eventoRepository.existsByDataAndTitulo(domingo, "Missa das 10h")) {
+            if (eventoRepository.existsByDataAndTituloAndExcluidoEmIsNull(domingo, "Missa das 10h")) {
                 continue;
             }
             Evento evento = Evento.builder()
@@ -171,6 +177,35 @@ public class EventoService {
         return toDTO(eventoRepository.findById(eventoId).orElseThrow());
     }
 
+    @Transactional
+    public EventoDTO moverParaLixeira(Long id, MotivoExclusao motivo, String detalhe, Usuario solicitante) {
+        if (!solicitante.temPoderesDeCoordenadorGeral()) {
+            throw new IllegalStateException("Apenas o Coordenador Geral pode excluir eventos da escala.");
+        }
+        Evento evento = eventoRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Evento não encontrado."));
+        evento.setExcluidoEm(LocalDateTime.now());
+        evento.setMotivoExclusao(motivo);
+        evento.setDetalheExclusao(detalhe);
+        return toDTO(eventoRepository.save(evento));
+    }
+
+    @Transactional
+    public EventoDTO restaurar(Long id, Usuario solicitante) {
+        if (!solicitante.temPoderesDeCoordenadorGeral()) {
+            throw new IllegalStateException("Apenas o Coordenador Geral pode restaurar eventos da lixeira.");
+        }
+        Evento evento = eventoRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Evento não encontrado."));
+        if (evento.getExcluidoEm() == null) {
+            throw new IllegalStateException("Este evento não está na lixeira.");
+        }
+        evento.setExcluidoEm(null);
+        evento.setMotivoExclusao(null);
+        evento.setDetalheExclusao(null);
+        return toDTO(eventoRepository.save(evento));
+    }
+
     private EventoDTO toDTO(Evento e) {
         List<SlotEscalaDTO> slotsDto = e.getSlots().stream()
                 .map(s -> new SlotEscalaDTO(
@@ -183,7 +218,8 @@ public class EventoService {
 
         return new EventoDTO(
                 e.getId(), e.getTitulo(), e.getData(), e.getHorario(),
-                e.getLocal(), e.getEventoGrande(), slotsDto
+                e.getLocal(), e.getEventoGrande(), slotsDto,
+                e.getExcluidoEm(), e.getMotivoExclusao(), e.getDetalheExclusao()
         );
     }
 }

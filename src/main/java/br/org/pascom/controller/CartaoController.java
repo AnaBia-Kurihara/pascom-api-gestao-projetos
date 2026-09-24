@@ -3,6 +3,7 @@ package br.org.pascom.controller;
 import br.org.pascom.dto.CartaoRequestDTO;
 import br.org.pascom.dto.CartaoResponseDTO;
 import br.org.pascom.dto.ComentarioResponseDTO;
+import br.org.pascom.dto.ExclusaoRequestDTO;
 import br.org.pascom.dto.NovoComentarioDTO;
 import br.org.pascom.model.Usuario;
 import br.org.pascom.model.enums.Etapa;
@@ -61,10 +62,19 @@ public class CartaoController {
         return ResponseEntity.status(HttpStatus.CREATED).body(cartaoService.adicionarComentario(id, autor, payload));
     }
 
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deletar(@PathVariable Long id) {
-        cartaoService.deletar(id);
-        return ResponseEntity.noContent().build();
+    @GetMapping("/lixeira")
+    public ResponseEntity<List<CartaoResponseDTO>> listarLixeira(@RequestParam Setor setor) {
+        return ResponseEntity.ok(cartaoService.listarLixeira(setor));
+    }
+
+    @PostMapping("/{id}/lixeira")
+    public ResponseEntity<CartaoResponseDTO> moverParaLixeira(@PathVariable Long id, @Valid @RequestBody ExclusaoRequestDTO dados) {
+        return ResponseEntity.ok(cartaoService.moverParaLixeira(id, dados.motivo(), dados.detalhe()));
+    }
+
+    @PostMapping("/{id}/restaurar")
+    public ResponseEntity<CartaoResponseDTO> restaurar(@PathVariable Long id) {
+        return ResponseEntity.ok(cartaoService.restaurar(id));
     }
 
 }

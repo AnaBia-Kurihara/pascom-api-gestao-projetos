@@ -2,6 +2,7 @@ package br.org.pascom.controller;
 
 import br.org.pascom.dto.EventoDTO;
 import br.org.pascom.dto.EventoRequestDTO;
+import br.org.pascom.dto.ExclusaoRequestDTO;
 import br.org.pascom.dto.SlotEscalaRequestDTO;
 import br.org.pascom.model.Usuario;
 import br.org.pascom.service.EventoService;
@@ -60,5 +61,21 @@ public class EventoController {
     @PostMapping("/{eventoId}/slots/{slotId}/desinscrever")
     public ResponseEntity<EventoDTO> desinscrever(@PathVariable Long eventoId, @PathVariable Long slotId) {
         return ResponseEntity.ok(eventoService.desinscreverVoluntario(eventoId, slotId));
+    }
+
+    @GetMapping("/lixeira")
+    public ResponseEntity<List<EventoDTO>> listarLixeira() {
+        return ResponseEntity.ok(eventoService.listarLixeira());
+    }
+
+    @PostMapping("/{id}/lixeira")
+    public ResponseEntity<EventoDTO> moverParaLixeira(@PathVariable Long id, @Valid @RequestBody ExclusaoRequestDTO dados,
+                                                        @AuthenticationPrincipal Usuario solicitante) {
+        return ResponseEntity.ok(eventoService.moverParaLixeira(id, dados.motivo(), dados.detalhe(), solicitante));
+    }
+
+    @PostMapping("/{id}/restaurar")
+    public ResponseEntity<EventoDTO> restaurar(@PathVariable Long id, @AuthenticationPrincipal Usuario solicitante) {
+        return ResponseEntity.ok(eventoService.restaurar(id, solicitante));
     }
 }
