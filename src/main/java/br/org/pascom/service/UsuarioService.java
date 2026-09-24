@@ -84,7 +84,7 @@ public class UsuarioService {
 
     @Transactional
     public UsuarioResponseDTO alterarRole(Long id, Role novoRole, Usuario solicitante) {
-        if (solicitante.getRole() != Role.COORDENADOR_GERAL) {
+        if (!solicitante.temPoderesDeCoordenadorGeral()) {
             throw new IllegalStateException("Só o Coordenador Geral pode alterar a função de alguém da equipe.");
         }
 

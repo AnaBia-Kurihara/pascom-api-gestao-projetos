@@ -6,7 +6,6 @@ import br.org.pascom.dto.SlotEscalaDTO;
 import br.org.pascom.model.Evento;
 import br.org.pascom.model.SlotEscala;
 import br.org.pascom.model.Usuario;
-import br.org.pascom.model.enums.Role;
 import br.org.pascom.repository.EventoRepository;
 import br.org.pascom.repository.SlotEscalaRepository;
 import org.springframework.stereotype.Service;
@@ -31,7 +30,7 @@ public class EventoService {
 
     @Transactional
     public EventoDTO criar(EventoRequestDTO dto, Usuario solicitante) {
-        if (solicitante.getRole() != Role.COORDENADOR_GERAL) {
+        if (!solicitante.temPoderesDeCoordenadorGeral()) {
             throw new IllegalStateException("Apenas o Coordenador Geral pode criar eventos e marcar datas no calendário.");
         }
 

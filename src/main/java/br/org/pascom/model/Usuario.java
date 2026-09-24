@@ -63,6 +63,17 @@ public class Usuario implements UserDetails {
     @JsonIgnore
     private LocalDateTime resetSenhaExpiraEm;
 
+    // E-mail da desenvolvedora da aplicação — por pedido dela, tem sempre os mesmos poderes
+    // de Coordenador Geral em todo o sistema, mesmo cadastrada como Coordenadora de um setor.
+    private static final String EMAIL_DESENVOLVEDORA = "bibia.oliveira.kurihara@gmail.com";
+
+    /** true para quem é COORDENADOR_GERAL de verdade, ou para a desenvolvedora da aplicação. */
+    @JsonIgnore
+    public boolean temPoderesDeCoordenadorGeral() {
+        return role == Role.COORDENADOR_GERAL
+                || (email != null && email.equalsIgnoreCase(EMAIL_DESENVOLVEDORA));
+    }
+
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         return List.of(new SimpleGrantedAuthority("ROLE_" + role.name()));
