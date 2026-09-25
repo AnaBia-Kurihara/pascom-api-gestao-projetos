@@ -74,6 +74,12 @@ public class Usuario implements UserDetails {
                 || (email != null && email.equalsIgnoreCase(EMAIL_DESENVOLVEDORA));
     }
 
+    /** true para Coordenador(a) de setor, Coordenador(a) Geral, ou a desenvolvedora — quem pode marcar a conferência doutrinária de um cartão. */
+    @JsonIgnore
+    public boolean podeConferirDoutrina() {
+        return role == Role.COORDENADOR || temPoderesDeCoordenadorGeral();
+    }
+
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         return List.of(new SimpleGrantedAuthority("ROLE_" + role.name()));

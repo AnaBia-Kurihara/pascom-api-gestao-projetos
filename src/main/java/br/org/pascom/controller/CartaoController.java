@@ -38,13 +38,13 @@ public class CartaoController {
     }
 
     @PostMapping
-    public ResponseEntity<CartaoResponseDTO> criar(@Valid @RequestBody CartaoRequestDTO cartao) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(cartaoService.criar(cartao));
+    public ResponseEntity<CartaoResponseDTO> criar(@Valid @RequestBody CartaoRequestDTO cartao, @AuthenticationPrincipal Usuario solicitante) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(cartaoService.criar(cartao, solicitante));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<CartaoResponseDTO> atualizar(@PathVariable Long id, @Valid @RequestBody CartaoRequestDTO cartao) {
-        return ResponseEntity.ok(cartaoService.atualizar(id, cartao));
+    public ResponseEntity<CartaoResponseDTO> atualizar(@PathVariable Long id, @Valid @RequestBody CartaoRequestDTO cartao, @AuthenticationPrincipal Usuario solicitante) {
+        return ResponseEntity.ok(cartaoService.atualizar(id, cartao, solicitante));
     }
 
     @PatchMapping("/{id}/etapa")

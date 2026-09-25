@@ -7,7 +7,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.List;
 
 public interface IdeiaRepository extends JpaRepository<Ideia, Long> {
-    List<Ideia> findBySetor(Setor setor);
     List<Ideia> findByExcluidoEmIsNull();
     List<Ideia> findBySetorAndExcluidoEmIsNull(Setor setor);
     List<Ideia> findBySetorAndExcluidoEmIsNotNullOrderByExcluidoEmDesc(Setor setor);

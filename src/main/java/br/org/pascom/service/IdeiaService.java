@@ -94,7 +94,9 @@ public class IdeiaService {
                 ideia.getSetor()
         );
 
-        return cartaoService.criar(cartaoReq);
+        // checklist sempre vem em branco nesse fluxo (não há como marcar doutrina já adotando a
+        // ideia), então não precisa de um solicitante pra checar a conferência doutrinária aqui.
+        return cartaoService.criar(cartaoReq, null);
     }
 
     @Transactional

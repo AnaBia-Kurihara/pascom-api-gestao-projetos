@@ -200,6 +200,7 @@ p{margin:0}
 .fld input,.fld select,.fld textarea{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 10px;color:var(--ink);font-size:15px}
 .fld textarea{resize:vertical}
 .idea{display:grid;grid-template-columns:64px 1fr auto;gap:14px;align-items:center;padding:14px 0;border-bottom:1px solid var(--line)}
+.idea-actions{display:flex;gap:6px;align-items:center}
 .vote{display:flex;flex-direction:column;align-items:center;gap:2px;border:1.5px solid var(--line);background:var(--panel);border-radius:10px;padding:6px 0;width:58px}
 .vote b{font-family:var(--serif);font-weight:400;font-size:20px;line-height:1}
 .vote span{font-size:11px;color:var(--ink3)}
@@ -348,6 +349,11 @@ p{margin:0}
   .who span{display:none}
   .toast{bottom:calc(env(safe-area-inset-bottom,0px) + 24px)}
   .fgrid{grid-template-columns:1fr}
+
+  .idea{grid-template-columns:58px 1fr;grid-template-areas:"vote content" ". actions";row-gap:10px;align-items:start}
+  .idea .vote{grid-area:vote}
+  .idea-content{grid-area:content}
+  .idea-actions{grid-area:actions;justify-content:flex-end}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
@@ -1169,8 +1175,8 @@ function viewIdeias(){
       const on=i.voters.indexOf(state.me)>-1;
       const autor=mem(i.by);
       return '<div class="idea"><button class="vote'+(on?' on':'')+'" data-action="vote" data-id="'+i.id+'" aria-pressed="'+on+'" title="Votar"><b>'+i.voters.length+'</b><span>'+(on?'votou':'votar')+'</span></button>'+
-        '<div><h4>'+esc(i.title)+'</h4><p>'+esc(i.desc)+'</p><div class="by">'+avatar(i.by)+'<span>'+esc(autor?autor.nome:'')+'</span><span class="pill">'+esc(i.theme)+'</span></div></div>'+
-        '<div style="display:flex;gap:6px;align-items:center">'+(i.adopted?'<span class="pill ok">Virou cartão</span>':'<button class="btn small" data-action="adopt" data-id="'+i.id+'">Virar cartão</button>')+
+        '<div class="idea-content"><h4>'+esc(i.title)+'</h4><p>'+esc(i.desc)+'</p><div class="by">'+avatar(i.by)+'<span>'+esc(autor?autor.nome:'')+'</span><span class="pill">'+esc(i.theme)+'</span></div></div>'+
+        '<div class="idea-actions">'+(i.adopted?'<span class="pill ok">Virou cartão</span>':'<button class="btn small" data-action="adopt" data-id="'+i.id+'">Virar cartão</button>')+
         '<button class="btn small danger" data-action="excluirIdeia" data-id="'+i.id+'" title="Excluir ideia">Excluir</button></div></div>';
     }).join(''):'<div class="empty">Nenhuma ideia ainda. Seja a primeira pessoa a sugerir uma!</div>');
 }

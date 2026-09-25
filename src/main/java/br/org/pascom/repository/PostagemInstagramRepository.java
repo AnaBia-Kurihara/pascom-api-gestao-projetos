@@ -10,5 +10,4 @@ import java.util.Optional;
 public interface PostagemInstagramRepository extends JpaRepository<PostagemInstagram, Long> {
     Optional<PostagemInstagram> findByInstagramMediaId(String instagramMediaId);
     List<PostagemInstagram> findByPublicadoEmBetween(LocalDateTime inicio, LocalDateTime fim);
-    List<PostagemInstagram> findAllByOrderByPublicadoEmDesc();
 }

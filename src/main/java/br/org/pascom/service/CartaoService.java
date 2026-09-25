@@ -57,22 +57,39 @@ public class CartaoService {
     }
 
     @Transactional
-    public CartaoResponseDTO criar(CartaoRequestDTO dados) {
+    public CartaoResponseDTO criar(CartaoRequestDTO dados, Usuario solicitante) {
         Cartao cartao = new Cartao();
         preencherCamposEditaveis(cartao, dados);
         cartao.setEtapa(Etapa.IDEIA);
-        cartao.setChecklist(dados.checklist() != null ? dados.checklist() : new Checklist());
+        aplicarChecklist(cartao, dados.checklist(), solicitante);
         return CartaoResponseDTO.from(cartaoRepository.save(cartao));
     }
 
     @Transactional
-    public CartaoResponseDTO atualizar(Long id, CartaoRequestDTO dados) {
+    public CartaoResponseDTO atualizar(Long id, CartaoRequestDTO dados, Usuario solicitante) {
         Cartao existente = buscarPorId(id);
         preencherCamposEditaveis(existente, dados);
         if (dados.checklist() != null) {
-            existente.setChecklist(dados.checklist());
+            aplicarChecklist(existente, dados.checklist(), solicitante);
         }
         return CartaoResponseDTO.from(cartaoRepository.save(existente));
+    }
+
+    /**
+     * Marcar "conferência doutrinária" como feita exige ser coordenador — checado aqui, não só
+     * escondendo o campo no front, porque uma chamada direta à API ainda poderia burlar o front.
+     * Reenviar o mesmo valor que já estava salvo (ex.: editando outro campo do cartão) é sempre
+     * permitido; o que é bloqueado é a transição de "não conferida" pra "conferida" por quem não
+     * pode aprovar.
+     */
+    private void aplicarChecklist(Cartao cartao, Checklist checklistRecebido, Usuario solicitante) {
+        Checklist novo = checklistRecebido != null ? checklistRecebido : new Checklist();
+        boolean jaEstavaConferida = cartao.getChecklist() != null && cartao.getChecklist().isDoutrinaConferida();
+        if (novo.isDoutrinaConferida() && !jaEstavaConferida
+                && (solicitante == null || !solicitante.podeConferirDoutrina())) {
+            throw new IllegalStateException("Só um(a) coordenador(a) pode marcar a conferência doutrinária como feita.");
+        }
+        cartao.setChecklist(novo);
     }
 
     private void preencherCamposEditaveis(Cartao cartao, CartaoRequestDTO dados) {
