@@ -95,7 +95,7 @@ Aba "Assistente" no front (`viewAssistente`/`chatLog` em `index.html`) — um ch
 
 ### Persistência
 
-Por padrão (sem profile ativo, uso local/dev), banco H2 baseado em arquivo em `./data/pascomdb` (ignorado pelo git) com `ddl-auto: update` — o schema evolui automaticamente a partir das entidades, sem scripts de migração (sem Flyway/Liquibase). O SQL é logado (`show-sql: true`).
+Por padrão (sem profile ativo, uso local/dev), banco H2 baseado em arquivo em `./data/pascomdb` (ignorado pelo git) com `ddl-auto: update` — o schema evolui automaticamente a partir das entidades, sem Flyway (`spring.flyway.enabled: false` nesse perfil). O SQL é logado (`show-sql: true`).
 
 ### Deploy / produção
 
@@ -107,11 +107,9 @@ railway up --ci --message "descrição do que mudou"
 ```
 (`railway login` uma vez, `railway link` já feito na pasta do projeto). Isso builda com Maven dentro do Railway e sobe uma imagem nova — não depende do GitHub, mas ainda assim vale sempre dar `git push` pra manter o repositório em dia.
 
-**Cuidado com renomear valores de enum que já têm dados em produção**: o Postgres do Railway tem `CHECK CONSTRAINT`s gerados pelo Hibernate a partir dos enums Java (ex.: `tb_usuarios_role_check`), e `ddl-auto: update` **não** atualiza essas constraints sozinho quando um enum muda — elas continuam com os valores antigos e todo INSERT/UPDATE com um valor novo quebra com `violates check constraint`. Depois de renomear um enum, é preciso rodar manualmente (via `railway connect postgres --tunnel-only` + `psql`, já que os consoles SQL do próprio painel do Railway se mostraram instáveis nesse projeto):
-```sql
-ALTER TABLE tb_usuarios DROP CONSTRAINT tb_usuarios_role_check;
-ALTER TABLE tb_usuarios ADD CONSTRAINT tb_usuarios_role_check CHECK (role IN ('NOVO_VALOR_1','NOVO_VALOR_2'));
-```
+**Cuidado com renomear valores de enum que já têm dados em produção**: o Postgres do Railway tem `CHECK CONSTRAINT`s gerados pelo Hibernate a partir dos enums Java (ex.: `tb_usuarios_role_check`), e `ddl-auto: update` **não** atualiza essas constraints sozinho quando um enum muda — elas continuam com os valores antigos e todo INSERT/UPDATE com um valor novo quebra com `violates check constraint`. Isso já aconteceu de verdade nesse projeto; a partir de agora, o jeito certo de corrigir isso é com uma migração do Flyway (ver abaixo), não mais rodando o `ALTER TABLE` manualmente via `psql`.
+
+**Flyway** (só no perfil `prod`, contra o Postgres — o H2 local continua em `ddl-auto:update` puro, sem Flyway, `spring.flyway.enabled: false` no perfil default): adotado numa base que o Hibernate já vinha mantendo sozinho havia meses, então usa `baseline-on-migrate: true` + `baseline-version: "1"` — o Flyway aceita o schema existente como ponto de partida (marca a versão 1 como "já aplicada" sem rodar nada) em vez de tentar recriar tudo do zero. Por isso **não existe `V1__*.sql`** em [src/main/resources/db/migration](src/main/resources/db/migration) — o primeiro arquivo real começa em `V2`. O `ddl-auto` do perfil `prod` segue em `update` por enquanto (as duas coisas convivem: o Flyway roda antes, via `@AutoConfigureBefore(HibernateJpaAutoConfiguration.class)`, e o Hibernate só confirma que não sobrou nada novo pra criar) — a ideia é trocar pra `validate` assim que a primeira migração de verdade (ex.: a próxima troca de nome de enum, usando `ALTER TABLE ... DROP/ADD CONSTRAINT` num arquivo versionado) for confirmada funcionando em produção, momento em que o Flyway passa a ser o dono de verdade do schema.
 
 **E-mail transacional (recuperação de senha) usa a API HTTPS do Resend, não SMTP** — confirmado testando com `railway ssh` que o Railway bloqueia as portas de saída 25/465/587 (SMTP), inclusive pra Gmail com senha de app; só HTTPS (443) funciona. `EmailService` chama `api.resend.com/emails` direto via `RestClient` (mesmo padrão de HTTP cru já usado pra Instagram/Google), com a chave em `api.resend.chave` / env var `RESEND_API_KEY` e remetente em `api.resend.remetente` / `RESEND_FROM` (default `onboarding@resend.dev`, funciona sem verificar domínio próprio).
 

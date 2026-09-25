@@ -21,6 +21,10 @@ spring:
     properties:
       hibernate:
         format_sql: true
+  # O Flyway só roda no perfil "prod" (Postgres) — localmente o H2 continua no ddl-auto:update
+  # de sempre, sem migração nenhuma. Ver o bloco do perfil prod, mais embaixo, pro porquê.
+  flyway:
+    enabled: false
 
 api:
   resend:
@@ -69,4 +73,16 @@ spring:
     hibernate:
       ddl-auto: update
     show-sql: false
+  # Adota o Flyway numa base que o Hibernate ddl-auto:update já vinha mantendo sozinho até aqui.
+  # baseline-on-migrate faz o Flyway aceitar esse schema existente como ponto de partida (marca
+  # a versão 1 como "já aplicada" sem rodar nada) em vez de tentar recriar tudo do zero — por
+  # isso não existe um V1 em db/migration, só V2 em diante. O ddl-auto continua em "update" por
+  # enquanto (o Hibernate segue ajustando o schema como sempre); só depois de confirmar que o
+  # Flyway subiu limpo em produção é que ele passa pra "validate" e o Flyway vira o dono de
+  # verdade das mudanças de schema.
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    baseline-version: "1"
+    baseline-description: "Schema existente, mantido pelo Hibernate ddl-auto antes do Flyway entrar"
 
