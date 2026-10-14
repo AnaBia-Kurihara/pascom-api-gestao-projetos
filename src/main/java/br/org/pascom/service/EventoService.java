@@ -18,6 +18,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -32,18 +33,43 @@ public class EventoService {
 
     public static final String TITULO_MISSA_DOMINICAL = "Missa das 10h";
     public static final LocalTime HORARIO_MISSA_DOMINICAL = LocalTime.of(10, 0);
+    public static final String TITULO_MISSA_SABADO = "Missa das 16h";
+    public static final LocalTime HORARIO_MISSA_SABADO = LocalTime.of(16, 0);
     public static final String LOCAL_PADRAO = "Igreja Matriz";
 
-    /** Funções que toda Missa das 10h de domingo já nasce tendo, separadas por setor. */
+    /**
+     * Versão atual do modelo de funções das missas automáticas. Subir esse número quando
+     * {@link #MISSAS_AUTOMATICAS} mudar: os eventos futuros com versão menor são atualizados uma
+     * única vez pelo {@link #gerarEscalasDoMes}; depois disso, as edições da coordenação valem.
+     * Versão 2 = Transmissões com 3 câmeras + corte + auxiliar de corte (antes: uma "Transmissão"
+     * só) e a Missa das 16h de sábado só com Datashow.
+     */
+    static final int VERSAO_FUNCOES_PADRAO = 2;
+
+    /** Função que uma missa automática já nasce tendo. */
     private record FuncaoPadrao(Setor setor, String rotulo, SlotTipo tipo) {}
 
-    private static final List<FuncaoPadrao> FUNCOES_PADRAO_DOMINGO = List.of(
-            new FuncaoPadrao(Setor.REDES_SOCIAIS, "Foto", SlotTipo.FOTO),
-            new FuncaoPadrao(Setor.REDES_SOCIAIS, "Vídeo", SlotTipo.VIDEO),
-            new FuncaoPadrao(Setor.REDES_SOCIAIS, "Stories ao vivo", SlotTipo.STORIES_AO_VIVO),
-            new FuncaoPadrao(Setor.TRANSMISSOES_VIDEOS, "Transmissão", SlotTipo.TRANSMISSAO),
-            new FuncaoPadrao(Setor.DATASHOW, "Datashow", null)
+    /** Missa que entra sozinha na escala todo mês, num dia da semana fixo, com as funções padrão dela. */
+    private record MissaAutomatica(DayOfWeek dia, String titulo, LocalTime horario, List<FuncaoPadrao> funcoes) {}
+
+    private static final List<MissaAutomatica> MISSAS_AUTOMATICAS = List.of(
+            new MissaAutomatica(DayOfWeek.SUNDAY, TITULO_MISSA_DOMINICAL, HORARIO_MISSA_DOMINICAL, List.of(
+                    new FuncaoPadrao(Setor.REDES_SOCIAIS, "Foto", SlotTipo.FOTO),
+                    new FuncaoPadrao(Setor.REDES_SOCIAIS, "Vídeo", SlotTipo.VIDEO),
+                    new FuncaoPadrao(Setor.REDES_SOCIAIS, "Stories ao vivo", SlotTipo.STORIES_AO_VIVO),
+                    new FuncaoPadrao(Setor.TRANSMISSOES_VIDEOS, "Câmera 1", null),
+                    new FuncaoPadrao(Setor.TRANSMISSOES_VIDEOS, "Câmera 2", null),
+                    new FuncaoPadrao(Setor.TRANSMISSOES_VIDEOS, "Câmera 3", null),
+                    new FuncaoPadrao(Setor.TRANSMISSOES_VIDEOS, "Corte da transmissão", SlotTipo.TRANSMISSAO),
+                    new FuncaoPadrao(Setor.TRANSMISSOES_VIDEOS, "Auxiliar de corte", null),
+                    new FuncaoPadrao(Setor.DATASHOW, "Datashow", null))),
+            // Sábado só o Datashow opera.
+            new MissaAutomatica(DayOfWeek.SATURDAY, TITULO_MISSA_SABADO, HORARIO_MISSA_SABADO, List.of(
+                    new FuncaoPadrao(Setor.DATASHOW, "Datashow", null)))
     );
+
+    /** Função única de transmissão do modelo antigo (versão 1), trocada pelas câmeras + corte. */
+    private static final String ROTULO_TRANSMISSAO_ANTIGO = "Transmissão";
 
     private final EventoRepository eventoRepository;
     private final SlotEscalaRepository slotEscalaRepository;
@@ -150,6 +176,52 @@ public class EventoService {
     }
 
     /**
+     * Renomeia uma função da escala. Coordenador Geral mexe em qualquer função; coordenador de
+     * setor, só nas do próprio setor (funções gerais, sem setor, só o Coordenador Geral).
+     */
+    @Transactional
+    public EventoDTO renomearSlot(Long eventoId, Long slotId, String rotulo, Usuario solicitante) {
+        SlotEscala slot = slotDoEvento(eventoId, slotId);
+        exigirPodeEditarFuncao(slot, solicitante);
+        if (rotulo == null || rotulo.isBlank()) {
+            throw new IllegalArgumentException("Dê um nome pra função.");
+        }
+        slot.setRotulo(rotulo.trim());
+        slotEscalaRepository.save(slot);
+        return toDTO(eventoRepository.findById(eventoId).orElseThrow());
+    }
+
+    /** Remove uma função da escala (mesma regra de permissão do {@link #renomearSlot}). */
+    @Transactional
+    public EventoDTO removerSlot(Long eventoId, Long slotId, Usuario solicitante) {
+        SlotEscala slot = slotDoEvento(eventoId, slotId);
+        exigirPodeEditarFuncao(slot, solicitante);
+        Evento evento = slot.getEvento();
+        evento.getSlots().remove(slot);
+        eventoRepository.save(evento);
+        return toDTO(eventoRepository.findById(eventoId).orElseThrow());
+    }
+
+    private SlotEscala slotDoEvento(Long eventoId, Long slotId) {
+        SlotEscala slot = slotEscalaRepository.findById(slotId)
+                .orElseThrow(() -> new IllegalArgumentException("Função não encontrada."));
+        if (!slot.getEvento().getId().equals(eventoId)) {
+            throw new IllegalArgumentException("Essa função não pertence a este evento.");
+        }
+        return slot;
+    }
+
+    private void exigirPodeEditarFuncao(SlotEscala slot, Usuario solicitante) {
+        if (solicitante.temPoderesDeCoordenadorGeral()) return;
+        if (solicitante.getRole() != Role.COORDENADOR) {
+            throw new IllegalStateException("Apenas coordenadores podem alterar as funções da escala.");
+        }
+        if (slot.getSetor() == null || slot.getSetor() != solicitante.getSetor()) {
+            throw new IllegalStateException("Você só pode alterar as funções do seu setor.");
+        }
+    }
+
+    /**
      * Quem pode tirar alguém de uma escala:
      * - a própria pessoa (sair da escala em que se inscreveu);
      * - o Coordenador Geral, qualquer pessoa;
@@ -191,70 +263,89 @@ public class EventoService {
     }
 
     /**
-     * Gera automaticamente um evento "Missa das 10h" pra cada domingo do mês informado (datas
-     * vindas do {@link CalendarioService}), já com as funções padrão de cada setor — sem duplicar
-     * se já existir. Para os domingos que já tinham evento (e ainda não passaram), completa as
-     * funções padrão que estiverem faltando (ex.: eventos antigos, criados antes da escala por setor).
+     * Gera as missas automáticas do mês (Missa das 10h de cada domingo e Missa das 16h de cada
+     * sábado, datas do {@link CalendarioService}), cada uma já com as funções padrão e sem
+     * ninguém escalado: todo mês começa uma escala nova, limpa. Não duplica: se a missa já existe
+     * (e ainda não passou) mas está num modelo de funções antigo, atualiza as funções uma única vez.
      *
      * @return quantos eventos novos foram criados
      */
     @Transactional
-    public int gerarEscalasDominicaisDoMes(YearMonth mes) {
+    public int gerarEscalasDoMes(YearMonth mes) {
         int criados = 0;
         LocalDate hoje = calendarioService.hoje();
-        for (LocalDate domingo : calendarioService.domingosDoMes(mes)) {
-            Evento existente = eventoRepository
-                    .findFirstByDataAndTituloAndExcluidoEmIsNull(domingo, TITULO_MISSA_DOMINICAL)
-                    .orElse(null);
-            if (existente != null) {
-                if (!domingo.isBefore(hoje) && completarFuncoesPadrao(existente)) {
-                    eventoRepository.save(existente);
+        for (MissaAutomatica missa : MISSAS_AUTOMATICAS) {
+            for (LocalDate dia : calendarioService.diasDaSemanaDoMes(mes, missa.dia())) {
+                // ExcluidoEmIsNull de propósito: missa que foi pra lixeira não impede gerar de novo.
+                Evento existente = eventoRepository
+                        .findFirstByDataAndTituloAndExcluidoEmIsNull(dia, missa.titulo())
+                        .orElse(null);
+                if (existente != null) {
+                    if (!dia.isBefore(hoje) && atualizarModeloDeFuncoes(existente, missa)) {
+                        eventoRepository.save(existente);
+                    }
+                    continue;
                 }
-                continue;
+                // Não cria missa em data que já passou (ex.: os primeiros sábados do mês em que
+                // a missa de sábado entrou na escala automática).
+                if (dia.isBefore(hoje)) continue;
+                Evento evento = Evento.builder()
+                        .titulo(missa.titulo())
+                        .data(dia)
+                        .horario(missa.horario())
+                        .local(LOCAL_PADRAO)
+                        .eventoGrande(false)
+                        .versaoFuncoesPadrao(VERSAO_FUNCOES_PADRAO)
+                        .build();
+                for (FuncaoPadrao padrao : missa.funcoes()) adicionarFuncao(evento, padrao);
+                eventoRepository.save(evento);
+                criados++;
             }
-            Evento evento = Evento.builder()
-                    .titulo(TITULO_MISSA_DOMINICAL)
-                    .data(domingo)
-                    .horario(HORARIO_MISSA_DOMINICAL)
-                    .local(LOCAL_PADRAO)
-                    .eventoGrande(false)
-                    .build();
-            completarFuncoesPadrao(evento);
-            eventoRepository.save(evento);
-            criados++;
         }
         return criados;
     }
 
-    /** Adiciona ao evento as funções padrão de domingo que ainda não existem nele. Devolve true se mudou algo. */
-    private boolean completarFuncoesPadrao(Evento evento) {
-        boolean mudou = false;
-        for (FuncaoPadrao padrao : FUNCOES_PADRAO_DOMINGO) {
+    /**
+     * Leva uma missa já existente pro modelo de funções atual, uma vez só. Tira a "Transmissão"
+     * única do modelo antigo (só se ninguém estiver nela) e acrescenta as funções padrão que
+     * faltarem. Eventos já na versão atual não são tocados, pra não desfazer o que a coordenação
+     * editou ou removeu. Devolve true se mudou algo.
+     */
+    private boolean atualizarModeloDeFuncoes(Evento evento, MissaAutomatica missa) {
+        Integer versao = evento.getVersaoFuncoesPadrao();
+        if (versao != null && versao >= VERSAO_FUNCOES_PADRAO) return false;
+
+        evento.getSlots().removeIf(s -> s.getSetor() == Setor.TRANSMISSOES_VIDEOS
+                && s.getVoluntario() == null
+                && ROTULO_TRANSMISSAO_ANTIGO.equalsIgnoreCase(s.getRotulo() == null ? "" : s.getRotulo().trim()));
+        for (FuncaoPadrao padrao : missa.funcoes()) {
             boolean jaTem = evento.getSlots().stream().anyMatch(s ->
-                    s.getRotulo() != null && s.getRotulo().equalsIgnoreCase(padrao.rotulo())
+                    s.getRotulo() != null && s.getRotulo().trim().equalsIgnoreCase(padrao.rotulo())
                             && (s.getSetor() == null || s.getSetor() == padrao.setor()));
-            if (!jaTem) {
-                evento.getSlots().add(SlotEscala.builder()
-                        .rotulo(padrao.rotulo())
-                        .tipo(padrao.tipo())
-                        .setor(padrao.setor())
-                        .evento(evento)
-                        .build());
-                mudou = true;
-            }
+            if (!jaTem) adicionarFuncao(evento, padrao);
         }
-        return mudou;
+        evento.setVersaoFuncoesPadrao(VERSAO_FUNCOES_PADRAO);
+        return true;
+    }
+
+    private void adicionarFuncao(Evento evento, FuncaoPadrao padrao) {
+        evento.getSlots().add(SlotEscala.builder()
+                .rotulo(padrao.rotulo())
+                .tipo(padrao.tipo())
+                .setor(padrao.setor())
+                .evento(evento)
+                .build());
     }
 
     /**
-     * Mantém a escala sempre "renovada": garante os domingos do mês atual e do próximo (pra
+     * Mantém a escala sempre "renovada": garante as missas automáticas do mês atual e do próximo (pra
      * quem quiser se inscrever com antecedência no fim do mês). Usado pelo agendamento e
      * também na inicialização da aplicação, caso o servidor estivesse fora do ar no dia 1.
      */
     @Transactional
     public int garantirEscalasDoMesAtualEProximo() {
         YearMonth atual = YearMonth.from(calendarioService.hoje());
-        return gerarEscalasDominicaisDoMes(atual) + gerarEscalasDominicaisDoMes(atual.plusMonths(1));
+        return gerarEscalasDoMes(atual) + gerarEscalasDoMes(atual.plusMonths(1));
     }
 
     /** Roda no dia 1 de cada mês às 6h (horário de Brasília). */

@@ -222,7 +222,12 @@ p{margin:0}
 .ev.big .ev-h{background:var(--gold-soft)}
 .slot{display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--line)}
 .slot:last-child{border-bottom:0}
-.slot .sl{width:110px;font-weight:600;font-size:14px}
+.slot .sl{width:160px;flex:none;font-weight:600;font-size:14px;display:flex;align-items:center;gap:4px;min-width:0;overflow-wrap:anywhere}
+.slot-tools{display:inline-flex;gap:2px;margin-left:auto;padding-right:6px}
+.icon-btn{width:26px;height:26px;display:grid;place-items:center;border:0;background:none;border-radius:6px;color:var(--ink3);padding:0}
+.icon-btn:hover{background:var(--tint);color:var(--ink)}
+.icon-btn svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.slot-edit input{flex:1;min-width:0;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px 10px;color:var(--ink);font-size:14px}
 .slot .sw{flex:1;font-size:14px;display:flex;align-items:center;gap:8px}
 .slot-grp{padding:8px 16px 4px;font-size:11.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--ink3);border-bottom:1px solid var(--line)}
 .team{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:22px 26px}
@@ -391,6 +396,8 @@ p{margin:0}
   .who span{display:none}
   .toast{bottom:calc(env(safe-area-inset-bottom,0px) + 24px)}
   .fgrid{grid-template-columns:1fr}
+  .slot{flex-wrap:wrap}
+  .slot .sl{width:100%}
 
   .idea{grid-template-columns:58px 1fr;grid-template-areas:"vote content" ". actions";row-gap:10px;align-items:start}
   .idea .vote{grid-area:vote}
@@ -1267,6 +1274,10 @@ function viewIdeias(){
 /* ---------- Escalas ---------- */
 const SLOT_TIPO_NOME={FOTO:'Foto',VIDEO:'Vídeo',STORIES_AO_VIVO:'Stories ao vivo',TRANSMISSAO:'Transmissão'};
 let addSlotEventoId=null; // id do evento com o mini-form de "+ função" aberto
+let editSlotKey=null; // 'idEvento:idFuncao' da função sendo renomeada
+// Mesma regra do backend (EventoService.exigirPodeEditarFuncao): Coordenação Geral mexe em tudo;
+// coordenador de setor, só nas funções do próprio setor.
+const podeEditarFuncao=s=>s.setor?coordenaSetor(s.setor):isCoordenadorGeral();
 let escalaAba='setor'; // 'setor' | 'completa'
 const mesAtualStr=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');};
 const shiftMes=(m,n)=>{const p=m.split('-').map(Number);const d=new Date(p[0],p[1]-1+n,1);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');};
@@ -1296,12 +1307,14 @@ function viewEscalas(){
   const doSetor=s=>s.setor===currentSetor||s.setor===null;
   const evs=state.events
     .filter(e=>e.date>=hoje)
-    .filter(e=>e.slots.some(doSetor)||podeEditarSetor)
+    // Coordenação também vê eventos extras sem funções do setor (pra poder acrescentar as dela), mas
+    // não as missas fixas de outro setor (ex.: a Missa das 16h de sábado, que é só do Datashow).
+    .filter(e=>e.slots.some(doSetor)||(podeEditarSetor&&!/^missa das \d{1,2}h(\d{2})?$/i.test((e.title||'').trim())))
     .sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
   const acoes=pdfBarHtml(currentSetor)+'<div class="filters" style="margin-bottom:16px">'+
     (podeCriar?'<button class="btn primary" data-action="novaEscala">+ Evento extra com escala</button>':'')+
-    (isCoordenadorGeral()?'<button class="btn" data-action="gerarEscalasMes">Gerar domingos do mês</button>':'')+
-    '<span class="tip">Os domingos (Missa das 10h) entram sozinhos na escala todo mês.'+(podeCriar?' Se tiver outro evento que precise de gente, marque como evento extra.':'')+'</span></div>';
+    (isCoordenadorGeral()?'<button class="btn" data-action="gerarEscalasMes">Gerar missas do mês</button>':'')+
+    '<span class="tip">Todo mês a escala começa nova, sem ninguém escalado: a Missa das 10h de cada domingo e, só pro Datashow, a Missa das 16h de cada sábado entram sozinhas, já com as funções de cada setor.'+(podeEditarSetor?' Você pode renomear, remover ou adicionar funções de '+esc(SETOR_NAME[currentSetor])+' em cada missa.':'')+(podeCriar?' Se tiver outro evento que precise de gente, marque como evento extra.':'')+'</span></div>';
   if(!evs.length) return escalaTabsHtml()+acoes+'<div class="empty">Nenhuma escala aberta pra '+esc(SETOR_NAME[currentSetor])+' por enquanto.</div>';
   return escalaTabsHtml()+acoes+'<div class="evs">'+evs.map(e=>{
     const slots=e.slots.filter(doSetor);
@@ -1314,7 +1327,16 @@ function viewEscalas(){
         if(!s.who) act=joined?'':'<button class="btn small primary" data-action="join" data-ev="'+e.id+'" data-slot="'+s.id+'">Eu vou</button>';
         else if(podeTirarDaEscala(s.who)) act='<button class="btn small" data-action="leave" data-ev="'+e.id+'" data-slot="'+s.id+'">'+(s.who===state.me?'Sair':'Tirar da escala')+'</button>';
         const whoMem=s.who?mem(s.who):null;
-        return '<div class="slot"><span class="sl">'+esc(s.label)+'</span><span class="sw">'+(whoMem?avatar(s.who)+esc(whoMem.nome):'<span class="muted">Vaga aberta</span>')+'</span>'+act+'</div>';
+        const key=e.id+':'+s.id, editavel=podeEditarFuncao(s);
+        if(editavel&&editSlotKey===key){
+          return '<div class="slot slot-edit"><input id="es-rename" value="'+esc(s.label)+'" maxlength="80" aria-label="Novo nome da função">'+
+            '<button class="btn small primary" data-action="salvarRenomeSlot" data-ev="'+e.id+'" data-slot="'+s.id+'">Salvar</button>'+
+            '<button class="btn small" data-action="cancelarRenomeSlot">Cancelar</button></div>';
+        }
+        const ferramentas=editavel?'<span class="slot-tools">'+
+          '<button type="button" class="icon-btn" data-action="renomearSlot" data-ev="'+e.id+'" data-slot="'+s.id+'" title="Renomear função" aria-label="Renomear '+esc(s.label)+'"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4zM14 6l4 4"/></svg></button>'+
+          '<button type="button" class="icon-btn" data-action="removerSlot" data-ev="'+e.id+'" data-slot="'+s.id+'" title="Remover função" aria-label="Remover '+esc(s.label)+'"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></span>':'';
+        return '<div class="slot"><span class="sl">'+esc(s.label)+ferramentas+'</span><span class="sw">'+(whoMem?avatar(s.who)+esc(whoMem.nome):'<span class="muted">Vaga aberta</span>')+'</span>'+act+'</div>';
       }).join(''):'<div class="slot"><span class="muted">Nenhuma função de '+esc(SETOR_NAME[currentSetor])+' neste evento ainda.</span></div>')+
       (podeEditarSetor?'<div style="padding:0 16px 12px"><button type="button" class="btn small" style="margin-top:8px" data-action="toggleAddSlot" data-ev="'+e.id+'">'+(addSlotEventoId===e.id?'Cancelar':'+ função de '+esc(SETOR_NAME[currentSetor]))+'</button></div>'+addSlotFormHtml(e.id):'')+
     '</article>';
@@ -1407,7 +1429,7 @@ function escalaModal(){
 function abrirNovaEscala(){
   escalaFormSlots=currentSetor==='redes_sociais'
     ?[{rotulo:'Foto',tipo:'FOTO'},{rotulo:'Vídeo',tipo:'VIDEO'},{rotulo:'Stories ao vivo',tipo:'STORIES_AO_VIVO'}]
-    :currentSetor==='transmissoes_videos'?[{rotulo:'Transmissão',tipo:'TRANSMISSAO'}]
+    :currentSetor==='transmissoes_videos'?[{rotulo:'Câmera 1',tipo:null},{rotulo:'Câmera 2',tipo:null},{rotulo:'Câmera 3',tipo:null},{rotulo:'Corte da transmissão',tipo:'TRANSMISSAO'},{rotulo:'Auxiliar de corte',tipo:null}]
     :[{rotulo:currentSetor==='datashow'?'Datashow':'',tipo:null}];
   const o=$('#overlay'); o.innerHTML=escalaModal(); o.hidden=false;
 }
@@ -1434,11 +1456,31 @@ async function salvarEscala(){
 async function gerarEscalasMes(){
   try{
     const r=await api('/eventos/gerar-escalas-mes',{method:'POST'});
-    toast(r.eventosCriados>0?r.eventosCriados+' escala(s) de domingo criada(s)!':'Já estava tudo criado esse mês.');
+    toast(r.eventosCriados>0?r.eventosCriados+(r.eventosCriados>1?' missas criadas na escala!':' missa criada na escala!'):'Já estava tudo criado esse mês.');
     const eventos=await api('/eventos');
     state.events=eventos.map(eventoFromApi);
     invalidarEscalaCompleta();
     render();
+  }catch(e){ toast(e.message,'warn'); }
+}
+async function salvarRenomeSlot(eventoId,slotId){
+  const rotulo=($('#es-rename')||{value:''}).value.trim();
+  if(!rotulo){toast('Dê um nome pra função.','warn');return;}
+  try{
+    const dto=await api('/eventos/'+eventoId+'/slots/'+slotId,{method:'PATCH',body:JSON.stringify({rotulo:rotulo})});
+    Object.assign(state.events.find(x=>x.id===eventoId),eventoFromApi(dto));
+    invalidarEscalaCompleta(); editSlotKey=null; render(); toast('Função renomeada.');
+  }catch(e){ toast(e.message,'warn'); }
+}
+async function removerSlot(eventoId,slotId){
+  const ev=state.events.find(x=>x.id===eventoId), sl=ev&&ev.slots.find(x=>x.id===slotId);
+  if(!sl) return;
+  const quem=sl.who&&mem(sl.who)?' '+mem(sl.who).nome+' está escalado(a) nela e vai sair da escala.':'';
+  if(!confirm('Remover a função "'+sl.label+'" desta missa?'+quem)) return;
+  try{
+    const dto=await api('/eventos/'+eventoId+'/slots/'+slotId,{method:'DELETE'});
+    Object.assign(ev,eventoFromApi(dto));
+    invalidarEscalaCompleta(); render(); toast('Função removida.');
   }catch(e){ toast(e.message,'warn'); }
 }
 async function salvarSlotExistente(eventoId){
@@ -2253,6 +2295,10 @@ document.addEventListener('click',e=>{
     case 'salvarEscala': salvarEscala(); break;
     case 'gerarEscalasMes': gerarEscalasMes(); break;
     case 'toggleAddSlot': addSlotEventoId=(addSlotEventoId===id?null:id); render(); break;
+    case 'renomearSlot': editSlotKey=t.dataset.ev+':'+t.dataset.slot; render(); {const i=$('#es-rename'); if(i){i.focus();i.select();}} break;
+    case 'cancelarRenomeSlot': editSlotKey=null; render(); break;
+    case 'salvarRenomeSlot': salvarRenomeSlot(t.dataset.ev,t.dataset.slot); break;
+    case 'removerSlot': removerSlot(t.dataset.ev,t.dataset.slot); break;
     case 'salvarSlotExistente': salvarSlotExistente(t.dataset.ev); break;
     case 'newDatashow': openDatashow(null); break;
     case 'saveDatashow': saveDatashow(); break;
@@ -2320,6 +2366,7 @@ document.addEventListener('input',e=>{
 document.addEventListener('keydown',e=>{
   if(e.key==='Escape'&&!$('#overlay').hidden) closeModal();
   if(e.key==='Escape'&&mobileNavOpen){ mobileNavOpen=false; render(); }
+  if(e.key==='Escape'&&editSlotKey){ editSlotKey=null; render(); }
   if(e.key==='Enter'){
     const idAtt=e.target.id;
     if(idAtt==='au-email'||idAtt==='au-senha'||idAtt==='au-nome'||idAtt==='au-funcao'){
@@ -2332,6 +2379,10 @@ document.addEventListener('keydown',e=>{
     if(idAtt==='au-senha-nova'||idAtt==='au-senha-confirma'){
       e.preventDefault();
       doRedefinirSenha();
+    }
+    if(idAtt==='es-rename'){
+      e.preventDefault();
+      const b=$('[data-action="salvarRenomeSlot"]'); if(b) salvarRenomeSlot(b.dataset.ev,b.dataset.slot);
     }
     if(idAtt==='chat-input'&&!e.shiftKey){
       e.preventDefault();

@@ -49,8 +49,22 @@ public class EventoController {
             throw new IllegalStateException("Apenas o Coordenador Geral pode gerar as escalas do mês.");
         }
         YearMonth alvo = mes != null ? YearMonth.parse(mes) : YearMonth.now(java.time.ZoneId.of(br.org.pascom.service.CalendarioService.FUSO));
-        int criados = eventoService.gerarEscalasDominicaisDoMes(alvo);
+        int criados = eventoService.gerarEscalasDoMes(alvo);
         return ResponseEntity.ok(Map.of("eventosCriados", criados));
+    }
+
+    /** Corpo: {"rotulo": "Câmera 4"}. Coordenação do setor da função ou Coordenador Geral. */
+    @PatchMapping("/{eventoId}/slots/{slotId}")
+    public ResponseEntity<EventoDTO> renomearSlot(@PathVariable Long eventoId, @PathVariable Long slotId,
+                                                  @RequestBody Map<String, String> corpo,
+                                                  @AuthenticationPrincipal Usuario solicitante) {
+        return ResponseEntity.ok(eventoService.renomearSlot(eventoId, slotId, corpo.get("rotulo"), solicitante));
+    }
+
+    @DeleteMapping("/{eventoId}/slots/{slotId}")
+    public ResponseEntity<EventoDTO> removerSlot(@PathVariable Long eventoId, @PathVariable Long slotId,
+                                                 @AuthenticationPrincipal Usuario solicitante) {
+        return ResponseEntity.ok(eventoService.removerSlot(eventoId, slotId, solicitante));
     }
 
     @PostMapping("/{eventoId}/slots/{slotId}/inscrever")

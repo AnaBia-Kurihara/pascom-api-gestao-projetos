@@ -40,6 +40,14 @@ public class Evento {
     @Builder.Default
     private Boolean eventoGrande = false; // Ex: Festa de Nossa Senhora de Fátima
 
+    /**
+     * Versão do modelo de funções padrão aplicado a uma missa gerada automaticamente (ver
+     * EventoService.VERSAO_FUNCOES_PADRAO). Null em eventos extras e nos domingos antigos, de antes
+     * do modelo atual. A geração automática só mexe nas funções de eventos com versão menor que a
+     * atual; depois disso, o que a coordenação editar, renomear ou remover é respeitado.
+     */
+    private Integer versaoFuncoesPadrao;
+
     @OneToMany(mappedBy = "evento", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<SlotEscala> slots = new ArrayList<>();

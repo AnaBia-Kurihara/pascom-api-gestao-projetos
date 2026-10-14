@@ -43,6 +43,17 @@ public class CalendarioService {
         return domingos;
     }
 
+    /** Todos os dias do mês que caem no dia da semana informado (ex.: os sábados). */
+    public List<LocalDate> diasDaSemanaDoMes(YearMonth mes, DayOfWeek dia) {
+        List<LocalDate> dias = new ArrayList<>();
+        LocalDate d = mes.atDay(1).with(TemporalAdjusters.nextOrSame(dia));
+        while (YearMonth.from(d).equals(mes)) {
+            dias.add(d);
+            d = d.plusWeeks(1);
+        }
+        return dias;
+    }
+
     public boolean ehDomingo(LocalDate data) {
         return data != null && data.getDayOfWeek() == DayOfWeek.SUNDAY;
     }

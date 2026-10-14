@@ -26,7 +26,7 @@ import java.util.stream.Collectors;
  *       substitui o e-mail que antes ficava fixo no código. Só liga, nunca desliga: pra tirar o admin
  *       de alguém, remova da env var e desligue a coluna {@code admin_sistema} no banco;</li>
  *   <li>funções de escala antigas (de antes da escala por setor) ganham o setor certo;</li>
- *   <li>garante a escala dos domingos do mês atual e do próximo, caso o servidor estivesse fora do ar no dia 1.</li>
+ *   <li>garante as missas automáticas (domingos e sábados) do mês atual e do próximo, caso o servidor estivesse fora do ar no dia 1.</li>
  * </ol>
  */
 @Component
@@ -54,9 +54,9 @@ public class InicializacaoDados {
         executarComSeguranca("normalizar e-mails", this::normalizarEmails);
         executarComSeguranca("aplicar ADMIN_EMAILS", this::aplicarAdmins);
         executarComSeguranca("definir setor das funções antigas", this::definirSetorDasFuncoesAntigas);
-        executarComSeguranca("gerar escalas dos domingos", () -> {
+        executarComSeguranca("gerar escalas automáticas", () -> {
             int criados = eventoService.garantirEscalasDoMesAtualEProximo();
-            if (criados > 0) log.info("Escalas de domingo criadas na inicialização: {}", criados);
+            if (criados > 0) log.info("Escalas automáticas (domingos e sábados) criadas na inicialização: {}", criados);
         });
     }
 

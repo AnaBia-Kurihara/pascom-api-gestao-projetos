@@ -193,25 +193,38 @@ public class EscalaPdfService {
 
     /**
      * Junta as funções de todos os eventos do mês, sem repetir (o rótulo é comparado sem
-     * diferenciar maiúsculas), na ordem em que os setores já vêm do DTO.
+     * diferenciar maiúsculas), com os setores na ordem fixa do DTO. Dentro de cada setor, a ordem
+     * é a posição média da função nas missas: assim "Câmera 1, 2, 3, Corte..." continua na ordem
+     * certa mesmo quando a coordenação renomeia ou remove uma função de uma missa só.
      */
     private List<Linha> linhas(List<EscalaCompletaDTO.EventoEscala> eventos) {
-        Map<String, Linha> porChave = new LinkedHashMap<>();
-        // Passa setor por setor, pra manter as linhas de um mesmo setor juntas.
         List<Setor> ordemSetores = new ArrayList<>(List.of(Setor.values()));
         ordemSetores.add(null);
+
+        List<Linha> resultado = new ArrayList<>();
         for (Setor setor : ordemSetores) {
+            Map<String, Linha> porChave = new LinkedHashMap<>();
+            Map<String, double[]> posicao = new LinkedHashMap<>(); // {soma das posições, quantidade}
             for (EscalaCompletaDTO.EventoEscala ev : eventos) {
                 for (EscalaCompletaDTO.GrupoSetor g : ev.setores()) {
                     if (!Objects.equals(g.setor(), setor)) continue;
-                    for (SlotEscalaDTO f : g.funcoes()) {
+                    for (int i = 0; i < g.funcoes().size(); i++) {
+                        SlotEscalaDTO f = g.funcoes().get(i);
                         String rotulo = f.rotulo() == null ? "" : f.rotulo().trim();
-                        porChave.putIfAbsent(chave(setor, rotulo), new Linha(setor, g.nomeSetor(), rotulo));
+                        String chave = chave(setor, rotulo);
+                        porChave.putIfAbsent(chave, new Linha(setor, g.nomeSetor(), rotulo));
+                        double[] p = posicao.computeIfAbsent(chave, k -> new double[2]);
+                        p[0] += i;
+                        p[1]++;
                     }
                 }
             }
+            List<String> chaves = new ArrayList<>(porChave.keySet());
+            // Sort estável: empate na posição média mantém a ordem em que a função apareceu primeiro.
+            chaves.sort(java.util.Comparator.comparingDouble(k -> posicao.get(k)[0] / posicao.get(k)[1]));
+            for (String k : chaves) resultado.add(porChave.get(k));
         }
-        return new ArrayList<>(porChave.values());
+        return resultado;
     }
 
     private static String chave(Setor setor, String rotulo) {
@@ -300,7 +313,8 @@ public class EscalaPdfService {
         p.setLeading(11);
         p.add(new Chunk(ev.data().format(DIA) + "\n", CAB_DATA));
         p.add(new Chunk(diaSemana.replace("-feira", "") + " · " + hora(ev.horario()), CAB_PEQ));
-        boolean extra = !ev.domingo() || !"Missa das 10h".equalsIgnoreCase(ev.titulo());
+        // As missas fixas ("Missa das 10h", "Missa das 16h") não precisam repetir o título; evento extra mostra.
+        boolean extra = ev.titulo() == null || !ev.titulo().trim().matches("(?i)missa das \\d{1,2}h(\\d{2})?");
         if (extra) p.add(new Chunk("\n" + ev.titulo(), CAB_EXTRA));
 
         PdfPCell c = new PdfPCell();
