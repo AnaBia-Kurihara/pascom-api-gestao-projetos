@@ -187,6 +187,23 @@ public class UsuarioService {
         return s == null || s.isBlank() ? null : s.trim();
     }
 
+    /**
+     * Plano B da recuperação de senha, pra quando o e-mail não chega: a Coordenação Geral gera um
+     * link de nova senha pra uma pessoa e manda por fora (WhatsApp). Mesmo token do "esqueci a
+     * senha", mas vale 24h (dá tempo de a pessoa ver a mensagem).
+     */
+    @Transactional
+    public String gerarLinkRedefinicao(Long usuarioId, Usuario solicitante) {
+        if (!solicitante.temPoderesDeCoordenadorGeral()) {
+            throw new IllegalStateException("Só a Coordenação Geral pode gerar um link de nova senha.");
+        }
+        Usuario usuario = buscar(usuarioId);
+        usuario.setResetSenhaToken(UUID.randomUUID().toString());
+        usuario.setResetSenhaExpiraEm(LocalDateTime.now().plusHours(24));
+        usuarioRepository.save(usuario);
+        return emailService.linkRedefinicao(usuario.getResetSenhaToken());
+    }
+
     @Transactional
     public void esqueciSenha(String email) {
         // Não revela se o e-mail existe ou não — sempre "sucesso" do ponto de vista de quem pediu.

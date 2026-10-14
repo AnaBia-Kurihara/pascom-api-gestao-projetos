@@ -32,8 +32,12 @@ public class EmailService {
         this.restClient = RestClient.create();
     }
 
+    public String linkRedefinicao(String token) {
+        return baseUrl + "/?resetToken=" + token;
+    }
+
     public void enviarLinkRedefinicaoSenha(String destinatario, String token) {
-        String link = baseUrl + "/?resetToken=" + token;
+        String link = linkRedefinicao(token);
 
         String texto =
                 "Alguém (esperamos que você) pediu para redefinir a senha da sua conta na Pascom Fátima.\n\n" +
@@ -56,7 +60,7 @@ public class EmailService {
                     .retrieve()
                     .toBodilessEntity();
         } catch (RestClientException e) {
-            throw new IllegalStateException("Não foi possível enviar o e-mail de redefinição agora. Tente de novo em alguns minutos.", e);
+            throw new IllegalStateException("Não conseguimos enviar o e-mail agora. Peça à Coordenação Geral um link de nova senha (ela gera pelo app, na aba Equipe).", e);
         }
     }
 }

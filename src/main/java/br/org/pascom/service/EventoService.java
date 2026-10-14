@@ -141,6 +141,13 @@ public class EventoService {
             throw new IllegalStateException("Esse horário já foi preenchido por outro voluntário.");
         }
 
+        // Cada pessoa só pega vaga dos setores dela (o principal e os extras marcados no perfil);
+        // função geral (sem setor) é aberta a todos. Coordenação Geral faz parte de todos.
+        if (slot.getSetor() != null && !voluntario.fazParteDoSetor(slot.getSetor())) {
+            throw new IllegalStateException("Essa vaga é de " + nomeSetor(slot.getSetor())
+                    + ". Se você também serve nesse setor, adicione ele no seu perfil.");
+        }
+
         boolean jaInscrito = evento.getSlots().stream()
                 .anyMatch(s -> s.getVoluntario() != null && s.getVoluntario().getId().equals(voluntario.getId()));
 

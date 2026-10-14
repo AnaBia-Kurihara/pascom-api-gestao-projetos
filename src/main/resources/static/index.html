@@ -95,6 +95,7 @@ p{margin:0}
 /* ---------- Botões e pequenos elementos ---------- */
 .btn{border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:8px 14px;border-radius:8px;font-weight:500}
 .btn:hover{border-color:var(--ink3)}
+a.btn{text-decoration:none;display:inline-flex;align-items:center;justify-content:center}
 .btn.primary{background:var(--brand);color:var(--brand-ink);border-color:transparent;font-weight:600}
 .btn.primary:hover{filter:brightness(1.08)}
 .btn.gold{background:var(--gold);color:#1B1400;border-color:transparent;font-weight:600}
@@ -236,6 +237,8 @@ p{margin:0}
 .mem .fn{color:var(--ink2);font-size:14px}
 .mem ul{margin:8px 0 0;padding-left:18px;color:var(--ink2);font-size:13px}
 .mem h3 .pill{vertical-align:middle;font-size:11px}
+.mem-link{display:inline-block;margin-top:8px;font-size:13px}
+.so-setor{font-size:12px;color:var(--ink3);white-space:nowrap}
 .eq-h{font-size:18px;margin:22px 0 12px;display:flex;align-items:baseline;gap:8px}
 .eq-h:first-of-type{margin-top:6px}
 .eq-h small{font-family:var(--sans);font-size:13px;color:var(--ink3);font-weight:500}
@@ -360,7 +363,7 @@ p{margin:0}
 .chat-hint{font-size:11.5px;color:var(--ink3);text-align:center;margin-top:8px}
 
 /* ---------- Autenticação ---------- */
-.authwrap{min-height:100%;display:grid;place-items:center;padding:24px}
+.authwrap{min-height:100%;display:grid;grid-template-columns:minmax(0,1fr);place-items:center;padding:24px}
 .authbox{width:min(380px,100%);background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:30px 28px;box-shadow:0 10px 40px rgba(20,32,61,.08)}
 .authbox h2{font-size:24px}
 .link-btn{background:none;border:0;color:var(--brand);cursor:pointer;padding:0;font:inherit;text-decoration:underline}
@@ -482,6 +485,8 @@ details.como p{max-width:72ch;line-height:1.55}
   .board{scroll-snap-type:x mandatory;margin:0 -16px;padding:0 16px 14px;scroll-padding:0 16px}
   .kcol{flex-basis:84vw;scroll-snap-align:start}
   .fgrid{grid-template-columns:1fr}
+  .authwrap{padding:16px;align-items:start;padding-top:calc(24px + env(safe-area-inset-top,0px))}
+  .authbox{padding:24px 18px}
   .slot{flex-wrap:wrap}
   .slot .sl{width:100%}
 
@@ -807,8 +812,15 @@ async function doCadastro(){
       role:role.toUpperCase(),
       setor: role==='coordenador_geral' ? null : setor.toUpperCase()
     })});
-    authMode='login'; authError='Conta criada! Agora é só entrar.'; renderAuth();
-  }catch(e){ authError=e.message||'Não foi possível criar a conta.'; renderAuth(); }
+  }catch(e){ authError=e.message||'Não foi possível criar a conta.'; renderAuth(); return; }
+  // Conta criada: já entra, sem pedir pra digitar e-mail e senha de novo.
+  try{
+    const data=await api('/usuarios/login',{method:'POST',body:JSON.stringify({email:email,senha:senha})});
+    authToken=data.token; try{localStorage.setItem(TOKEN_KEY,authToken);}catch(e){}
+    await carregarTudo(data.usuario.id);
+    authMode='login'; view='painel'; authError=''; authOk=''; render();
+    toast('Conta criada! Bem-vindo(a) à Pascom.');
+  }catch(e){ authMode='login'; authError=''; authOk='Conta criada! Agora é só entrar.'; renderAuth(); }
 }
 function logout(){
   authToken=null; try{localStorage.removeItem(TOKEN_KEY);localStorage.removeItem(SETOR_KEY);}catch(e){}
@@ -864,7 +876,8 @@ function renderGoogleButton(containerId,tentativa){
     }
     google.accounts.id.initialize({client_id:GOOGLE_CLIENT_ID, callback:onGoogleCredential});
     const el=document.getElementById(containerId);
-    if(el) google.accounts.id.renderButton(el,{theme:'outline',size:'large',width:320,text:'continue_with',locale:'pt-BR'});
+    // Largura fixa estourava a caixa no celular: usa o espaço que tiver (a API aceita de 200 a 400).
+    if(el) google.accounts.id.renderButton(el,{theme:'outline',size:'large',width:Math.max(200,Math.min(320,el.clientWidth||280)),text:'continue_with',locale:'pt-BR'});
   }catch(e){}
 }
 async function doRedefinirSenha(){
@@ -1457,7 +1470,8 @@ function viewEscalas(){
     (podeCriar?'<button class="btn primary" data-action="novaEscala">+ Evento extra com escala</button>':'')+
     (isCoordenadorGeral()?'<button class="btn" data-action="gerarEscalasMes">Gerar missas do mês</button>':'')+'</div>':'';
   const como='<details class="como"><summary>Como funciona a escala</summary><p>Todo mês a escala começa nova, sem ninguém escalado: a Missa das 10h de cada domingo e, só pro Datashow, a Missa das 16h de cada sábado entram sozinhas, já com as funções de cada setor. Toque em <b>Eu vou</b> na vaga que você quer.'+(podeEditarSetor?' Como coordenação, você pode renomear, remover ou adicionar funções de '+esc(SETOR_NAME[currentSetor])+' em cada missa.':'')+(podeCriar?' Se tiver outro evento que precise de gente, marque como evento extra.':'')+'</p></details>';
-  const acoes=chips+coord+como;
+  const naoFaz=me()&&!pertenceSetor(me(),currentSetor)?'<div class="aviso-equipe"><span>Você ainda não faz parte de <b>'+esc(SETOR_NAME[currentSetor])+'</b>, então não pode se inscrever nas vagas daqui. Se você também serve neste setor, adicione ele no seu perfil.</span><button class="btn small primary" data-action="abrirPerfil">Ir pro meu perfil</button></div>':'';
+  const acoes=naoFaz+chips+coord+como;
   const rodape=pdfBarHtml(currentSetor);
   const vazio=escalaFiltro==='minhas'?'Você ainda não está em nenhuma escala de '+esc(SETOR_NAME[currentSetor])+'.':escalaFiltro==='vagas'?'Nenhuma vaga aberta em '+esc(SETOR_NAME[currentSetor])+' agora.':'Nenhuma escala aberta pra '+esc(SETOR_NAME[currentSetor])+' por enquanto.';
   if(!filtrados.length) return escalaTabsHtml()+acoes+'<div class="empty">'+vazio+'</div>'+rodape;
@@ -1469,7 +1483,9 @@ function viewEscalas(){
       (isCoordenadorGeral()?'<button class="btn small danger" data-action="excluirEvento" data-id="'+e.id+'" title="Excluir escala">Excluir</button>':'')+'</div></div>'+
       (slots.length?slots.map(s=>{
         let act='';
-        if(!s.who) act=joined?'':'<button class="btn small primary" data-action="join" data-ev="'+e.id+'" data-slot="'+s.id+'">Eu vou</button>';
+        // "Eu vou" só nas vagas dos setores da pessoa (mesma regra do backend); função geral é de todos.
+        const podeEntrar=!s.setor||pertenceSetor(me(),s.setor);
+        if(!s.who) act=joined?'':podeEntrar?'<button class="btn small primary" data-action="join" data-ev="'+e.id+'" data-slot="'+s.id+'">Eu vou</button>':'<span class="so-setor">Só pra '+esc(SETOR_NAME[s.setor])+'</span>';
         else if(podeTirarDaEscala(s.who)) act='<button class="btn small" data-action="leave" data-ev="'+e.id+'" data-slot="'+s.id+'">'+(s.who===state.me?'Sair':'Tirar da escala')+'</button>';
         const whoMem=s.who?mem(s.who):null;
         const key=e.id+':'+s.id, editavel=podeEditarFuncao(s);
@@ -1674,7 +1690,8 @@ function viewEquipeSetor(){
     return '<div class="mem">'+avatar(m.id,true)+'<div><h3>'+esc(m.nome)+(m.id===state.me?' <span class="pill">você</span>':'')+'</h3>'+
       '<div class="fn">'+esc(m.funcao||'—')+'</div>'+
       '<div class="note" style="margin-top:2px"><span class="pill'+(r<2?' warn':'')+'">'+esc(papelNoSetor(m,s))+'</span> Disponível: '+esc((m.disp||'').toLowerCase())+'</div>'+
-      (cs.length?'<ul>'+cs.map(c=>'<li>'+esc(c.title)+'</li>').join('')+'</ul>':'<p class="note">Sem cartões em andamento neste setor.</p>')+'</div></div>';
+      (cs.length?'<ul>'+cs.map(c=>'<li>'+esc(c.title)+'</li>').join('')+'</ul>':(ehSetorDeConteudo()?'<p class="note">Sem cartões em andamento neste setor.</p>':''))+
+      (isCoordenadorGeral()&&m.id!==state.me?'<button type="button" class="link-btn mem-link" data-action="linkSenha" data-id="'+m.id+'">Gerar link de nova senha</button>':'')+'</div></div>';
   };
   const aviso=eu&&!pertenceSetor(eu,s)
     ?'<div class="aviso-equipe"><span>Você ainda não faz parte da equipe de <b>'+esc(SETOR_NAME[s])+'</b>. Se você também serve aqui, adicione este setor no seu perfil.</span><button class="btn small primary" data-action="abrirPerfil">Ir pro meu perfil</button></div>'
@@ -1759,6 +1776,20 @@ function capturarRascunhoPerfil(){
 function atualizarMembro(u){
   const nm=memberFromApi(u), i=MEMBERS.findIndex(x=>x.id===nm.id);
   if(i>-1) MEMBERS[i]=nm; else MEMBERS.push(nm);
+}
+// Plano B da senha: a Coordenação Geral gera o link e manda pra pessoa pelo WhatsApp.
+async function gerarLinkSenha(id){
+  const m=mem(id); if(!m) return;
+  try{
+    const r=await api('/usuarios/'+id+'/link-redefinicao',{method:'POST'});
+    const msg='Oi, '+m.nome.split(' ')[0]+'! Use este link pra criar uma nova senha na Pascom (vale 24h): '+r.link;
+    const o=$('#overlay');
+    o.innerHTML='<div class="modal" role="dialog" aria-modal="true" aria-label="Link de nova senha"><div class="m-head"><h3>Link de nova senha</h3><button class="x" data-action="close" aria-label="Fechar">×</button></div>'+
+      '<div class="m-body"><p class="note" style="margin:0">Mande esta mensagem pra <b>'+esc(m.nome)+'</b>. O link vale 24 horas e só funciona uma vez.</p>'+
+      '<label class="fld"><span>Mensagem</span><textarea id="link-senha-msg" rows="4" readonly>'+esc(msg)+'</textarea></label></div>'+
+      '<div class="m-foot"><span class="sp"></span><a class="btn" href="https://wa.me/?text='+encodeURIComponent(msg)+'" target="_blank" rel="noopener">Abrir WhatsApp</a><button class="btn primary" data-action="copiarLinkSenha">Copiar</button></div></div>';
+    o.hidden=false;
+  }catch(e){ toast(e.message,'warn'); }
 }
 async function salvarPerfil(){
   capturarRascunhoPerfil();
@@ -2483,6 +2514,14 @@ document.addEventListener('click',e=>{
     case 'verTime': view='equipe'; equipeAba='time'; render(); $('.main').scrollTop=0; break;
     case 'abrirPerfil': view='perfil'; perfilRascunho=null; mobileNavOpen=false; render(); $('.main').scrollTop=0; break;
     case 'salvarPerfil': salvarPerfil(); break;
+    case 'linkSenha': gerarLinkSenha(id); break;
+    case 'copiarLinkSenha': {
+      const ta=$('#link-senha-msg'); if(!ta) break;
+      const ok=()=>toast('Mensagem copiada. É só colar no WhatsApp da pessoa.');
+      if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(ta.value).then(ok,()=>{ta.select();document.execCommand('copy');ok();});
+      else { ta.select(); document.execCommand('copy'); ok(); }
+      break;
+    }
     case 'escolherFoto': {const f=$('#perfil-foto'); if(f) f.click(); break;}
     case 'removerFoto': removerFoto(); break;
     case 'removerSlotForm': sincronizarSlotFormDoDOM(); escalaFormSlots.splice(Number(t.dataset.i),1); reabrirEscalaModal(); break;

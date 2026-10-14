@@ -89,6 +89,13 @@ public class UsuarioController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    /** Só Coordenação Geral: gera um link de nova senha pra mandar por fora (ex.: WhatsApp). */
+    @PostMapping("/{id}/link-redefinicao")
+    public ResponseEntity<java.util.Map<String, String>> linkRedefinicao(@PathVariable Long id,
+                                                                         @AuthenticationPrincipal Usuario solicitante) {
+        return ResponseEntity.ok(java.util.Map.of("link", usuarioService.gerarLinkRedefinicao(id, solicitante)));
+    }
+
     @PostMapping("/esqueci-senha")
     public ResponseEntity<Void> esqueciSenha(@Valid @RequestBody EsqueciSenhaDTO dados) {
         usuarioService.esqueciSenha(dados.email());
