@@ -250,6 +250,9 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center;justify-conten
 .cand-ok{color:var(--green);border-color:var(--green)}
 .pub-bar{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 14px;margin:0 0 14px}
 .pub-row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:4px 0}
+.lembrete-pub{display:flex;align-items:center;gap:10px 12px;flex-wrap:wrap;background:var(--gold-soft);color:var(--gold-ink);border:1px solid var(--gold);border-radius:12px;padding:12px 14px;margin:0 0 16px}
+.lembrete-pub>div{flex:1 1 240px;display:flex;flex-direction:column;gap:2px;font-size:14px}
+.lembrete-pub span{font-size:13px;opacity:.9}
 .aviso-montagem{background:var(--tint);border-radius:12px;padding:10px 14px;margin:0 0 14px;font-size:14px;color:var(--ink2)}
 .eq-h{font-size:18px;margin:22px 0 12px;display:flex;align-items:baseline;gap:8px}
 .eq-h:first-of-type{margin-top:6px}
@@ -1040,6 +1043,22 @@ const VIEWS={
    "onde ainda falta gente no meu setor". */
 const hojeISO=()=>{const a=new Date();return a.getFullYear()+'-'+String(a.getMonth()+1).padStart(2,'0')+'-'+String(a.getDate()).padStart(2,'0');};
 const doSetorAtual=s=>s.setor===currentSetor||s.setor===null;
+// Mês que já chegou: escala fechada pra equipe (só a coordenação mexe). Mesma regra do backend:
+// vale de novembro/2026 em diante (outubro, quando o sistema começou, fica aberto até o fim).
+const PRIMEIRO_MES_COM_FECHAMENTO='2026-11';
+const mesFechado=iso=>{const m=iso.slice(0,7);return m>=PRIMEIRO_MES_COM_FECHAMENTO&&m<=hojeISO().slice(0,7);};
+function proximoMesISO(){const a=new Date();const d=new Date(a.getFullYear(),a.getMonth()+1,1);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');}
+/* A partir do dia 25, quem coordena vê o que falta publicar do mês que vem. Se ninguém publicar,
+   o servidor publica sozinho no dia 1º (EventoService.publicarMesQueChegou). */
+function lembretePublicacaoHtml(){
+  const m=me(); if(!m||new Date().getDate()<25) return '';
+  const meus=isCoordenadorGeral()?SETORES.map(x=>x.id):(m.role==='coordenador'&&m.setor?[m.setor]:[]);
+  const prox=proximoMesISO();
+  const pend=meus.filter(st=>state.events.some(e=>e.date.slice(0,7)===prox&&e.slots.some(s=>s.setor===st&&!s.publicada)));
+  if(!pend.length) return '';
+  return '<div class="lembrete-pub"><div><b>Falta publicar a escala de '+esc(nomeMes(prox))+'</b><span>'+pend.map(st=>esc(SETOR_NAME[st])).join(', ')+'. Se ninguém publicar, ela é publicada sozinha no dia 1º, do jeito que estiver.</span></div>'+
+    pend.map(st=>'<button class="btn small gold" data-action="irPublicar" data-setor="'+st+'">'+(pend.length>1?esc(SETOR_NAME[st]):'Revisar e publicar')+'</button>').join('')+'</div>';
+}
 function dbadgeHtml(iso){const d=parse(iso);return '<div class="dbadge"><b>'+d.getDate()+'</b><span>'+d.toLocaleDateString('pt-BR',{month:'short'}).replace('.','')+'</span></div>';}
 function minhasEscalas(){
   const h=hojeISO();
@@ -1048,7 +1067,8 @@ function minhasEscalas(){
 }
 function eventosComVagaNoSetor(){
   const h=hojeISO();
-  return state.events.filter(e=>e.date>=h&&e.slots.some(s=>doSetorAtual(s)&&!s.who&&!s.oculto))
+  const coord=coordenaSetor(currentSetor);
+  return state.events.filter(e=>e.date>=h&&(coord||!mesFechado(e.date))&&e.slots.some(s=>doSetorAtual(s)&&!s.who&&!s.oculto))
     .sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
 }
 function minhasEscalasPanelHtml(){
@@ -1078,10 +1098,11 @@ function viewPainelEscala(){
       '<p>'+esc(prox.title)+' · '+(euVou?'você está escalado(a)':montagem?(cand?'escala em montagem, você se candidatou':'escala em montagem, candidate-se'):vag?vag+(vag>1?' vagas abertas':' vaga aberta'):'escala completa')+'</p></div>'+
       '<div class="hero-act"><button class="btn gold" data-action="nav" data-view="escalas">Ver escala</button></div></section>';
   }
-  return hero+'<div class="cols"><div>'+minhasEscalasPanelHtml()+vagasPanelHtml()+'</div><div>'+timePainelHtml()+'</div></div>';
+  return lembretePublicacaoHtml()+hero+'<div class="cols"><div>'+minhasEscalasPanelHtml()+vagasPanelHtml()+'</div><div>'+timePainelHtml()+'</div></div>';
 }
 function viewPainel(){
   if(!ehSetorDeConteudo()) return viewPainelEscala();
+  const lembrete=lembretePublicacaoHtml();
   const cards=visibleCards();
   const d13=next13(), n=diff(d13);
   const planned=cards.filter(c=>c.pub===d13).length;
@@ -1097,7 +1118,7 @@ function viewPainel(){
     const k=cards.filter(c=>c.owner===m.id&&c.stage!=='publicado').length;
     return '<div class="load"><span>'+esc(m.nome)+'</span><div class="bar"><i class="'+(k>=4?'hi':'')+'" style="width:'+Math.min(100,k*25)+'%"></i></div><b>'+k+'</b></div>';
   }).join('');
-  return ''+
+  return lembrete+
   '<section class="hero"><div><h2>'+head+'</h2><p>'+sub+'</p></div>'+
     '<div class="hero-act"><button class="btn gold" data-action="newOn" data-date="'+d13+'">Planejar conteúdo</button><button class="btn light" data-action="goDate" data-date="'+d13+'">Ver no calendário</button></div></section>'+
   '<div class="strip"><div><b>'+prod+'</b><span>em produção</span></div><div><b>'+rev+'</b><span>aguardando revisão</span></div><div><b>'+ag+'</b><span>agendados</span></div><div class="'+(late?'alert':'')+'"><b>'+late+'</b><span>com prazo vencido</span></div></div>'+
@@ -1478,7 +1499,7 @@ function viewEscalas(){
     .filter(e=>e.slots.some(doSetor)||(podeEditarSetor&&!/^missa das \d{1,2}h(\d{2})?$/i.test((e.title||'').trim())))
     .sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
   // Filtro rápido: todas / só onde ainda falta gente / só onde eu estou.
-  const comVaga=e=>e.slots.some(s=>doSetor(s)&&!s.who), minha=e=>e.slots.some(s=>s.who===state.me||s.euCand);
+  const comVaga=e=>(podeEditarSetor||!mesFechado(e.date))&&e.slots.some(s=>doSetor(s)&&!s.who), minha=e=>e.slots.some(s=>s.who===state.me||s.euCand);
   const n={todas:evs.length,vagas:evs.filter(comVaga).length,minhas:evs.filter(minha).length};
   const filtrados=escalaFiltro==='vagas'?evs.filter(comVaga):escalaFiltro==='minhas'?evs.filter(minha):evs;
   const chips='<div class="dash-tabs chips-esc">'+[['todas','Todas'],['vagas','Com vaga'],['minhas','Minhas']].map(x=>
@@ -1489,7 +1510,7 @@ function viewEscalas(){
   const como='<details class="como"><summary>Como funciona a escala</summary><p>Todo mês a escala começa nova: as missas de domingo (e, pro Datashow, as das 8h, 18h30 e a de sábado às 16h) entram sozinhas, já com as funções de cada setor. '+
     (podeEditarSetor
       ?'Enquanto a escala do mês está <b>em montagem</b>, só a coordenação vê quem foi escalado: veja os candidatos de cada função, toque em <b>Escalar</b> ou <b>Trocar</b> e, quando estiver pronta, <b>publique</b>. Você também pode renomear, remover ou adicionar funções de '+esc(SETOR_NAME[currentSetor])+'.'
-      :'Toque em <b>Quero servir</b> nas funções em que você pode servir. A coordenação escolhe quem fica em cada uma e, quando a escala for <b>publicada</b>, ela aparece aqui pra todo mundo.')+
+      :'Toque em <b>Quero servir</b> nas funções em que você pode servir. A coordenação escolhe quem fica em cada uma e, quando a escala for <b>publicada</b>, ela aparece aqui pra todo mundo. Quando o mês chega, a escala dele <b>fecha</b>: se precisar sair, fale com a coordenação do seu setor.')+
     (podeCriar?' Se tiver outro evento que precise de gente, marque como evento extra.':'')+'</p></details>';
   const naoFaz=me()&&!pertenceSetor(me(),currentSetor)?'<div class="aviso-equipe"><span>Você ainda não faz parte de <b>'+esc(SETOR_NAME[currentSetor])+'</b>, então não pode se inscrever nas vagas daqui. Se você também serve neste setor, adicione ele no seu perfil.</span><button class="btn small primary" data-action="abrirPerfil">Ir pro meu perfil</button></div>':'';
   // Status de cada mês da lista (em montagem / publicada) pro setor atual.
@@ -1497,11 +1518,12 @@ function viewEscalas(){
   evs.forEach(e=>e.slots.filter(s=>s.setor===currentSetor).forEach(s=>{const m=e.date.slice(0,7); if(!(m in meses)) meses[m]=s.publicada;}));
   const mesesKeys=Object.keys(meses).sort();
   const statusMeses=!mesesKeys.length?'':podeEditarSetor
-    ?'<div class="pub-bar">'+mesesKeys.map(m=>'<div class="pub-row"><span><b>'+esc(nomeMes(m))+'</b> <span class="pill '+(meses[m]?'ok':'warn')+'">'+(meses[m]?'Publicada':'Em montagem')+'</span></span>'+
-        (meses[m]?'<button class="btn small" data-action="despublicarMes" data-mes="'+m+'">Voltar pra montagem</button>':'<button class="btn small primary" data-action="publicarMes" data-mes="'+m+'">Publicar escala</button>')+'</div>').join('')+
-      '<p class="note" style="margin:6px 0 0">Enquanto está em montagem, só a coordenação vê os nomes. Publicou, a equipe vê a escala final.</p></div>'
+    ?'<div class="pub-bar">'+mesesKeys.map(m=>{const fech=mesFechado(m+'-01');
+        return '<div class="pub-row"><span><b>'+esc(nomeMes(m))+'</b> <span class="pill '+(fech?'':meses[m]?'ok':'warn')+'">'+(fech?'Fechada':meses[m]?'Publicada':'Em montagem')+'</span></span>'+
+        (fech?'<span class="note" style="margin:0">Só a coordenação mexe</span>':meses[m]?'<button class="btn small" data-action="despublicarMes" data-mes="'+m+'">Voltar pra montagem</button>':'<button class="btn small primary" data-action="publicarMes" data-mes="'+m+'">Publicar escala</button>')+'</div>';}).join('')+
+      '<p class="note" style="margin:6px 0 0">Em montagem, só a coordenação vê os nomes. Publicou, a equipe vê a escala final. Quando o mês chega, a escala dele fecha (e, se não tiver sido publicada, é publicada sozinha no dia 1º).</p></div>'
     :(mesesKeys.some(m=>!meses[m])?'<div class="aviso-montagem">A escala de <b>'+mesesKeys.filter(m=>!meses[m]).map(nomeMes).join(' e ')+'</b> está em montagem. Toque em <b>Quero servir</b> nas funções em que você pode; a coordenação escolhe e publica.</div>':'');
-  const acoes=naoFaz+chips+coord+statusMeses+como;
+  const acoes=(podeEditarSetor?lembretePublicacaoHtml():'')+naoFaz+chips+coord+statusMeses+como;
   const rodape=pdfBarHtml(currentSetor);
   const vazio=escalaFiltro==='minhas'?'Você ainda não está em nenhuma escala de '+esc(SETOR_NAME[currentSetor])+'.':escalaFiltro==='vagas'?'Nenhuma vaga aberta em '+esc(SETOR_NAME[currentSetor])+' agora.':'Nenhuma escala aberta pra '+esc(SETOR_NAME[currentSetor])+' por enquanto.';
   if(!filtrados.length) return escalaTabsHtml()+acoes+'<div class="empty">'+vazio+'</div>'+rodape;
@@ -1518,10 +1540,14 @@ function viewEscalas(){
         const podeEntrar=!s.setor||pertenceSetor(me(),s.setor);
         const key=e.id+':'+s.id, editavel=podeEditarFuncao(s);
         const ds=' data-ev="'+e.id+'" data-slot="'+s.id+'"';
+        const fechado=mesFechado(e.date);
         const candBtn=()=>!podeEntrar?'<span class="so-setor">Só pra '+esc(SETOR_NAME[s.setor])+'</span>'
           :s.euCand?'<button class="btn small cand-ok" data-action="desistir"'+ds+' title="Toque pra desistir">✓ Me candidatei</button>'
           :'<button class="btn small primary" data-action="candidatar"'+ds+'>Quero servir</button>';
-        if(!s.setor){
+        if(fechado&&!editavel){
+          // Mês que já chegou: escala fechada pra equipe (mudanças só pela coordenação).
+          act=s.who===state.me?'<span class="so-setor">Escala fechada</span>':'';
+        }else if(!s.setor){
           // Função geral: continua com "Eu vou" direto.
           if(!s.who) act=joined?'':'<button class="btn small primary" data-action="join"'+ds+'>Eu vou</button>';
           else if(podeTirarDaEscala(s.who)) act='<button class="btn small" data-action="leave"'+ds+'>'+(s.who===state.me?'Sair':'Tirar da escala')+'</button>';
@@ -2648,6 +2674,7 @@ document.addEventListener('click',e=>{
     case 'confirmarEscalar': {const sel=$('#escalar-sel'); if(sel&&sel.value) acaoEscala(t.dataset.ev,t.dataset.slot+'/escalar','POST',{usuarioId:Number(sel.value)},'Pessoa escalada.'); break;}
     case 'escalarCand': acaoEscala(t.dataset.ev,t.dataset.slot+'/escalar','POST',{usuarioId:Number(t.dataset.usuario)},'Pessoa escalada.'); break;
     case 'publicarMes': publicarMes(t.dataset.mes,true); break;
+    case 'irPublicar': currentSetor=t.dataset.setor; lembrarSetor(); view='escalas'; escalaAba='setor'; render(); $('.main').scrollTop=0; break;
     case 'despublicarMes': publicarMes(t.dataset.mes,false); break;
     case 'leave': leaveSlot(t.dataset.ev,t.dataset.slot); break;
     case 'copy': {

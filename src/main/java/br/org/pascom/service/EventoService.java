@@ -165,6 +165,8 @@ public class EventoService {
             throw new IllegalArgumentException("Esse slot não pertence a este evento.");
         }
 
+        exigirMesAberto(slot.getEvento().getData());
+
         // Antes de qualquer outra checagem, pra não revelar se a função (em montagem) já tem alguém.
         // Função de setor é por candidatura: a coordenação escala e publica. "Eu vou" direto só
         // nas funções gerais (sem setor).
@@ -276,9 +278,7 @@ public class EventoService {
             throw new IllegalStateException("Essa função é de " + nomeSetor(slot.getSetor())
                     + ". Se você também serve nesse setor, adicione ele no seu perfil.");
         }
-        if (slot.getEvento().getData().isBefore(calendarioService.hoje())) {
-            throw new IllegalStateException("Essa missa já passou.");
-        }
+        exigirMesAberto(slot.getEvento().getData());
         Set<String> publicados = publicacaoRepository.findByMesAndSetor(
                 YearMonth.from(slot.getEvento().getData()).toString(), slot.getSetor()).isPresent()
                 ? Set.of(chavePublicacao(slot.getEvento().getData(), slot.getSetor())) : Set.of();
@@ -295,7 +295,8 @@ public class EventoService {
 
     @Transactional
     public EventoDTO desistirCandidatura(Long eventoId, Long slotId, Usuario voluntario) {
-        slotDoEvento(eventoId, slotId);
+        SlotEscala slot = slotDoEvento(eventoId, slotId);
+        exigirMesAberto(slot.getEvento().getData());
         candidaturaRepository.findBySlotIdAndUsuarioId(slotId, voluntario.getId())
                 .ifPresent(candidaturaRepository::delete);
         return toDTO(eventoRepository.findById(eventoId).orElseThrow(), voluntario);
@@ -343,6 +344,9 @@ public class EventoService {
     @Transactional
     public void despublicar(YearMonth mes, Setor setor, Usuario solicitante) {
         exigirCoordenaSetor(setor, solicitante);
+        if (mesFechado(mes.atDay(1))) {
+            throw new IllegalStateException("A escala desse mês já está fechada e não pode voltar pra montagem.");
+        }
         publicacaoRepository.findByMesAndSetor(mes.toString(), setor).ifPresent(publicacaoRepository::delete);
     }
 
@@ -351,22 +355,6 @@ public class EventoService {
         if (!solicitante.coordenaSetor(setor)) {
             throw new IllegalStateException("Só a coordenação de " + nomeSetor(setor) + " pode publicar essa escala.");
         }
-    }
-
-    /**
-     * Na primeira vez que o sistema roda com candidatura/publicação, a escala do mês atual já
-     * estava em uso (gente escalada pelo "Eu vou"), então ela entra publicada pra não sumir da
-     * tela de ninguém. Os meses seguintes começam em montagem.
-     */
-    @Transactional
-    public boolean publicarMesAtualSeNuncaPublicou() {
-        if (publicacaoRepository.count() > 0) return false;
-        String mes = YearMonth.from(calendarioService.hoje()).toString();
-        for (Setor setor : Setor.values()) {
-            publicacaoRepository.save(PublicacaoEscala.builder()
-                    .mes(mes).setor(setor).publicadaEm(LocalDateTime.now()).build());
-        }
-        return true;
     }
 
     /**
@@ -402,6 +390,12 @@ public class EventoService {
             throw new IllegalStateException(solicitante.getRole() == Role.COORDENADOR
                     ? "Você só pode tirar da escala pessoas da sua equipe."
                     : "Apenas coordenadores podem tirar outra pessoa da escala.");
+        }
+        // Mês que já chegou tem a escala fechada: quem precisar sair fala com a coordenação,
+        // que continua podendo trocar/tirar pra cobrir imprevistos.
+        if (!coordenaEquipeDela && mesFechado(slot.getEvento().getData())) {
+            throw new IllegalStateException("A escala de " + nomeMesExtenso(slot.getEvento().getData())
+                    + " já está fechada. Pra sair, fale com a coordenação do seu setor.");
         }
 
         slot.setVoluntario(null);
@@ -505,6 +499,57 @@ public class EventoService {
         } catch (Exception ignorada) {
             // não deve travar a aplicação; dá pra gerar manualmente depois
         }
+        try {
+            publicarMesQueChegou();
+        } catch (Exception ignorada) {
+            // idem: roda de novo na próxima subida da aplicação
+        }
+    }
+
+    /**
+     * O mês que chegou não pode ficar "em montagem": no dia 1 (e na subida da aplicação, caso o
+     * servidor estivesse fora do ar no dia 1), publica a escala do mês atual de todo setor que a
+     * coordenação não publicou. A partir do dia 25 do mês anterior o front já avisa a coordenação.
+     *
+     * @return quantos setores foram publicados agora
+     */
+    @Transactional
+    public int publicarMesQueChegou() {
+        String mes = YearMonth.from(calendarioService.hoje()).toString();
+        int publicados = 0;
+        for (Setor setor : Setor.values()) {
+            if (publicacaoRepository.findByMesAndSetor(mes, setor).isEmpty()) {
+                publicacaoRepository.save(PublicacaoEscala.builder()
+                        .mes(mes).setor(setor).publicadaEm(LocalDateTime.now()).build());
+                publicados++;
+            }
+        }
+        return publicados;
+    }
+
+    /**
+     * Primeiro mês em que o fechamento vale. O sistema começou a ser usado no meio de outubro de
+     * 2026, então a escala de outubro fica aberta até o fim; de novembro em diante, todo mês fecha
+     * quando chega.
+     */
+    static final YearMonth PRIMEIRO_MES_COM_FECHAMENTO = YearMonth.of(2026, 11);
+
+    /** Mês que já chegou (ou passou): a escala está fechada pra equipe. */
+    private boolean mesFechado(LocalDate data) {
+        YearMonth m = YearMonth.from(data);
+        return !m.isBefore(PRIMEIRO_MES_COM_FECHAMENTO) && !m.isAfter(YearMonth.from(calendarioService.hoje()));
+    }
+
+    private void exigirMesAberto(LocalDate data) {
+        if (mesFechado(data)) {
+            throw new IllegalStateException("A escala de " + nomeMesExtenso(data)
+                    + " já está fechada. Se precisar mudar algo, fale com a coordenação do seu setor.");
+        }
+    }
+
+    private static String nomeMesExtenso(LocalDate data) {
+        String m = data.getMonth().getDisplayName(java.time.format.TextStyle.FULL, java.util.Locale.forLanguageTag("pt-BR"));
+        return m.substring(0, 1).toUpperCase() + m.substring(1);
     }
 
     /** Escala completa do mês: todos os eventos com escala, com as funções agrupadas por setor. */

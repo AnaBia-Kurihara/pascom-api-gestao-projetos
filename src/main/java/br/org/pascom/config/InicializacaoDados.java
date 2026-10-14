@@ -58,10 +58,9 @@ public class InicializacaoDados {
             int criados = eventoService.garantirEscalasDoMesAtualEProximo();
             if (criados > 0) log.info("Escalas automáticas (domingos e sábados) criadas na inicialização: {}", criados);
         });
-        executarComSeguranca("publicar a escala do mês em uso", () -> {
-            if (eventoService.publicarMesAtualSeNuncaPublicou()) {
-                log.info("Primeira vez com publicação de escala: mês atual publicado pra todos os setores.");
-            }
+        executarComSeguranca("publicar a escala do mês que chegou", () -> {
+            int n = eventoService.publicarMesQueChegou();
+            if (n > 0) log.info("Escala do mês atual publicada automaticamente em {} setor(es).", n);
         });
     }
 
