@@ -368,15 +368,54 @@ p{margin:0}
 /* ---------- Mobile ---------- */
 .mbar{display:none}
 .mbar-backdrop{display:none}
+.tabbar{display:none}
+.fgrid>*{min-width:0}
+.fld input,.fld select,.fld textarea{width:100%;min-width:0}
+.rt-sub{display:block;font-size:12.5px;color:var(--ink3);font-weight:400;margin-top:2px}
+.hero-k{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.06em;opacity:.75;margin-bottom:6px}
+.hero-escala::after{content:none}
+.hero-escala h2{max-width:none}
+.pdf-bar{display:flex;align-items:center;gap:10px 14px;flex-wrap:wrap;margin:0 0 16px;padding:12px 14px;background:var(--panel);border:1px solid var(--line);border-radius:12px}
+.pdf-bar-setor{margin:22px 0 0}
+.pdf-k{font-weight:600;font-size:14px}
+.mes-nav{display:flex;align-items:center;gap:6px}
+.mes-nav b{min-width:136px;text-align:center;font-size:14.5px}
+.pdf-acoes{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+.pdf-acoes .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px}
+.pdf-acoes svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.chips-esc{flex-wrap:wrap}
+/* Filtros (Todas / Com vaga / Minhas) mais discretos que as abas de cima */
+.chips-esc .dash-tab{padding:6px 14px;font-size:13px;background:transparent}
+.chips-esc .dash-tab.active{background:var(--tint);color:var(--brand);border-color:var(--brand)}
+details.como{margin:0 0 14px;font-size:13.5px;color:var(--ink2)}
+details.como summary{cursor:pointer;color:var(--brand);font-weight:500;list-style:none;display:inline-flex;align-items:center;gap:6px;padding:4px 0}
+details.como summary::-webkit-details-marker{display:none}
+details.como summary::before{content:"?";display:inline-grid;place-items:center;width:18px;height:18px;border-radius:50%;border:1.5px solid currentColor;font-size:11px;font-weight:700}
+details.como[open] summary{margin-bottom:6px}
+details.como p{max-width:72ch;line-height:1.55}
 @media (max-width:860px){
-  .mbar{display:flex;align-items:center;gap:12px;position:fixed;top:0;left:0;right:0;height:56px;padding:0 14px;padding-top:env(safe-area-inset-top,0px);background:var(--side);z-index:40}
-  .mbar-burger{background:none;border:0;width:34px;height:34px;flex:none;display:flex;align-items:center;justify-content:center;border-radius:8px;color:#fff}
-  .mbar-burger:hover{background:rgba(255,255,255,.1)}
-  .mbar-burger svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
-  .mbar b{font-family:var(--serif);font-weight:400;font-size:16px;color:#fff}
+  /* Topo: espaço atual (toque pra trocar) + sua foto */
+  .mbar{display:flex;align-items:center;gap:10px;position:fixed;top:0;left:0;right:0;height:calc(56px + env(safe-area-inset-top,0px));padding:env(safe-area-inset-top,0px) 12px 0;background:var(--side);z-index:40}
+  .mbar-setor{display:flex;align-items:center;gap:9px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);border-radius:11px;padding:5px 10px 5px 5px;color:#fff;min-width:0;max-width:calc(100% - 52px);text-align:left}
+  .mbar-setor .ico{width:30px;height:30px;border-radius:8px;background:var(--gold);display:grid;place-items:center;color:#1B1400;flex:none}
+  .mbar-setor .ico svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+  .mbar-setor .tx{min-width:0}
+  .mbar-setor small{display:block;font-size:10px;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:.05em;line-height:1.2}
+  .mbar-setor b{display:block;font-size:14.5px;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .mbar-setor .chev{width:14px;height:14px;stroke:rgba(255,255,255,.65);fill:none;stroke-width:2;flex:none}
+  .mbar-me{margin-left:auto;background:none;border:0;padding:0;border-radius:50%;flex:none}
+  .mbar-me .av{width:36px;height:36px;font-size:13px;box-shadow:0 0 0 2px rgba(255,255,255,.25)}
+
+  /* Barra de abas embaixo, ao alcance do polegar */
+  .tabbar{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:40;background:var(--panel);border-top:1px solid var(--line);padding:6px 6px calc(6px + env(safe-area-inset-bottom,0px));box-shadow:0 -6px 20px rgba(0,0,0,.08)}
+  .tabbar button{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;background:none;border:0;color:var(--ink3);font-size:11px;font-weight:600;padding:5px 0 3px;min-width:0;border-radius:12px}
+  .tabbar button span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+  .tabbar svg{width:24px;height:24px;padding:2px 10px;box-sizing:content-box;border-radius:99px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+  .tabbar button[aria-current="page"]{color:var(--brand)}
+  .tabbar button[aria-current="page"] svg{background:var(--tint)}
 
   .app{grid-template-columns:minmax(0,1fr);grid-template-rows:1fr}
-  .main{padding-top:calc(56px + env(safe-area-inset-top,0px))}
+  .main{padding-top:calc(56px + env(safe-area-inset-top,0px));padding-bottom:calc(72px + env(safe-area-inset-bottom,0px))}
 
   .side{position:fixed;top:0;bottom:0;left:0;width:min(82vw,300px);z-index:50;transform:translateX(-100%);transition:transform .2s ease-out;flex-direction:column;padding:calc(18px + env(safe-area-inset-top,0px)) 14px 18px;gap:4px;overflow-y:auto;border-top:0;box-shadow:0 0 40px rgba(0,0,0,.4)}
   .side.open{transform:translateX(0)}
@@ -396,7 +435,52 @@ p{margin:0}
   .cal-wrap{display:none}
   .cal-list{display:block}
   .who span{display:none}
-  .toast{bottom:calc(env(safe-area-inset-bottom,0px) + 24px)}
+  .toast{bottom:calc(env(safe-area-inset-bottom,0px) + 86px)}
+  .update-banner{bottom:calc(env(safe-area-inset-bottom,0px) + 84px)}
+
+  /* Ação principal da tela vira botão flutuante acima das abas */
+  .top-actions .fab{position:fixed;right:16px;bottom:calc(80px + env(safe-area-inset-bottom,0px));z-index:35;border-radius:99px;padding:13px 20px;box-shadow:0 10px 26px rgba(20,32,61,.35)}
+
+  /* Cabeçalho e Painel mais compactos */
+  .top h1{font-size:22px}
+  .top h1 .pill{display:none} /* o setor já aparece no topo */
+  .top p{font-size:13.5px}
+  .hero{padding:18px 18px;border-radius:14px}
+  .hero h2{font-size:20px}
+  .hero::after{font-size:120px;top:-18px}
+  .hero-act{width:100%}
+  .hero-act .btn{flex:1}
+  .strip{margin-top:16px}
+  .strip>div{flex:1 1 45%;padding:10px 12px}
+  .strip b{font-size:22px}
+  .cols{gap:22px;margin-top:18px}
+
+  /* Toques mais fáceis */
+  .btn{min-height:42px}
+  .btn.small{min-height:36px;padding:6px 12px}
+  .fld input,.fld select,.fld textarea{font-size:16px} /* 16px evita o zoom automático do iPhone ao focar */
+
+  /* Abas/filtros rolam de lado em vez de quebrar em várias linhas */
+  .dash-tabs{overflow-x:auto;flex-wrap:nowrap;scrollbar-width:none;margin-left:-16px;margin-right:-16px;padding:0 16px 2px}
+  .dash-tabs::-webkit-scrollbar{display:none}
+  .dash-tab{flex:none}
+  .time-chips{margin-left:0;margin-right:0;padding:0}
+
+  /* PDF da escala: mês numa linha, botões ocupando a largura */
+  .mes-nav{flex:1 1 100%;justify-content:space-between}
+  .mes-nav b{min-width:0}
+  .pdf-acoes{margin-left:0;flex:1 1 100%}
+  .pdf-acoes .btn{flex:1}
+
+  /* Janelas viram painel que sobe de baixo, com rodapé sempre visível */
+  .overlay{padding:0;align-items:flex-end}
+  .modal{width:100%;max-height:calc(100dvh - 24px - env(safe-area-inset-top,0px));border-radius:18px 18px 0 0;display:flex;flex-direction:column;animation:sobe .2s ease-out}
+  .m-body{overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+  .m-foot{padding-bottom:calc(14px + env(safe-area-inset-bottom,0px))}
+
+  /* Quadro de produção: uma coluna por vez, deslizando de lado */
+  .board{scroll-snap-type:x mandatory;margin:0 -16px;padding:0 16px 14px;scroll-padding:0 16px}
+  .kcol{flex-basis:84vw;scroll-snap-align:start}
   .fgrid{grid-template-columns:1fr}
   .slot{flex-wrap:wrap}
   .slot .sl{width:100%}
@@ -406,18 +490,15 @@ p{margin:0}
   .idea-content{grid-area:content}
   .idea-actions{grid-area:actions;justify-content:flex-end}
 }
+@keyframes sobe{from{transform:translateY(40px);opacity:.5}to{transform:none;opacity:1}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
 <div class="app" id="app" hidden>
-  <div class="mbar">
-    <button type="button" class="mbar-burger" data-action="toggleMobileNav" aria-label="Abrir menu">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
-    </button>
-    <b>Pascom Fátima</b>
-  </div>
+  <div class="mbar" id="mbar"></div>
+  <nav class="tabbar" id="tabbar" aria-label="Navegação principal no celular"></nav>
   <div class="mbar-backdrop" id="mbarBackdrop" data-action="closeMobileNav"></div>
   <div class="update-banner" id="updateBanner" role="status" hidden><span>Saiu uma atualização do sistema.</span><button type="button" class="btn small gold" data-action="recarregarPagina">Atualizar agora</button></div>
   <nav class="side" id="side" aria-label="Navegação principal"></nav>
@@ -695,8 +776,12 @@ async function carregarTudo(meId){
     me:String(meId)
   };
   const m=me();
-  currentSetor=(m&&m.setor)?m.setor:'redes_sociais';
+  // Volta no último espaço aberto neste aparelho; se não tiver, começa no setor da pessoa.
+  let salvo=null; try{ salvo=localStorage.getItem(SETOR_KEY); }catch(e){}
+  currentSetor=SETOR_NAME[salvo]?salvo:((m&&m.setor)?m.setor:'redes_sociais');
 }
+const SETOR_KEY='pascom-fatima-setor';
+function lembrarSetor(){ try{ localStorage.setItem(SETOR_KEY,currentSetor); }catch(e){} }
 
 async function doLogin(){
   const email=$('#au-email').value.trim().toLowerCase(), senha=$('#au-senha').value;
@@ -726,7 +811,7 @@ async function doCadastro(){
   }catch(e){ authError=e.message||'Não foi possível criar a conta.'; renderAuth(); }
 }
 function logout(){
-  authToken=null; try{localStorage.removeItem(TOKEN_KEY);}catch(e){}
+  authToken=null; try{localStorage.removeItem(TOKEN_KEY);localStorage.removeItem(SETOR_KEY);}catch(e){}
   state={cards:[],ideas:[],events:[],me:null};
   authMode='login'; authError=''; renderAuth();
 }
@@ -898,6 +983,8 @@ const ICONS={
   live:'<circle cx="12" cy="12" r="3"/><path d="M7.5 7.5a6.5 6.5 0 0 0 0 9M16.5 7.5a6.5 6.5 0 0 1 0 9M4.5 4.5a11 11 0 0 0 0 15M19.5 4.5a11 11 0 0 1 0 15"/>',
   chev:'<path d="M6 9l6 6 6-6"/>',
   chart:'<path d="M4 20V10M11 20V4M18 20v-7"/><path d="M3 20h18"/>',
+  book:'<path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H11v16H5.5A1.5 1.5 0 0 1 4 18.5v-13zM20 5.5A1.5 1.5 0 0 0 18.5 4H13v16h5.5a1.5 1.5 0 0 0 1.5-1.5v-13z"/>',
+  more:'<circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/>',
   trash:'<path d="M4 7h16M9 7V4.5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1V7M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13M10 11v6M14 11v6"/>'
 };
 
@@ -911,16 +998,61 @@ const VIEWS={
   dashboard:{label:'Dashboard',icon:'chart',title:()=>'Dashboard',sub:()=>'Andamento e engajamento das publicações — semana, mês e ano.',render:viewDashboard},
   ideias:{label:'Ideias',icon:'bulb',title:()=>'Banco de ideias',sub:()=>'Qualquer pessoa da equipe sugere. As mais votadas viram cartões.',render:viewIdeias},
   escalas:{label:'Escalas',icon:'cam',title:()=>'Escalas de cobertura',sub:()=>'Quem vai fotografar, filmar e transmitir cada celebração.',render:viewEscalas},
+  guia:{label:'Guia',icon:'book',title:()=>'Guia da transmissão',sub:()=>'Roteiro de câmeras por momento da missa e o passo a passo pra entrar ao vivo.',render:()=>transmissaoGuiaHtml()},
   equipe:{label:'Equipe',icon:'users',title:()=>equipeAba==='time'?'Time da Pascom':'Equipe de '+SETOR_NAME[currentSetor],sub:()=>equipeAba==='time'?'Todo mundo que serve na Pascom, setor por setor.':'Quem serve neste setor: coordenação, Coordenação Geral e voluntários.',render:viewEquipe},
   materiais:{label:'Materiais',icon:'folder',title:()=>'Materiais e modelos',sub:()=>'Tudo o que a equipe precisa para produzir com o mesmo padrão.',render:viewMateriais},
-  lixeira:{label:'Lixeira',icon:'trash',title:()=>'Lixeira',sub:()=>'Cartões, ideias e escalas excluídos. Dá pra restaurar quando quiser.',render:viewLixeira},
+  lixeira:{label:'Lixeira',icon:'trash',title:()=>'Lixeira',sub:()=>ehSetorDeConteudo()?'Cartões, ideias e escalas excluídos. Dá pra restaurar quando quiser.':'Escalas excluídas. Dá pra restaurar quando quiser.',render:viewLixeira},
   assistente:{label:'Assistente',icon:'spark',title:()=>'Assistente da equipe',sub:()=>'Peça pra criar eventos, sugerir ideias ou popular o calendário — em português mesmo.',render:viewAssistente},
   // Fora do menu (hidden): abre pelo cartão com o seu nome no rodapé da barra lateral.
   perfil:{label:'Meu perfil',icon:'users',hidden:true,title:()=>'Meu perfil',sub:()=>'Sua foto, seus dados e os setores dos quais você faz parte.',render:viewPerfil}
 };
 
 /* ---------- Painel ---------- */
+/* Escala no Painel: o que mais importa pra quem abre o app no celular é "quando eu sirvo" e
+   "onde ainda falta gente no meu setor". */
+const hojeISO=()=>{const a=new Date();return a.getFullYear()+'-'+String(a.getMonth()+1).padStart(2,'0')+'-'+String(a.getDate()).padStart(2,'0');};
+const doSetorAtual=s=>s.setor===currentSetor||s.setor===null;
+function dbadgeHtml(iso){const d=parse(iso);return '<div class="dbadge"><b>'+d.getDate()+'</b><span>'+d.toLocaleDateString('pt-BR',{month:'short'}).replace('.','')+'</span></div>';}
+function minhasEscalas(){
+  const h=hojeISO();
+  return state.events.filter(e=>e.date>=h).flatMap(e=>e.slots.filter(s=>s.who===state.me).map(s=>({e:e,s:s})))
+    .sort((a,b)=>(a.e.date+a.e.time).localeCompare(b.e.date+b.e.time));
+}
+function eventosComVagaNoSetor(){
+  const h=hojeISO();
+  return state.events.filter(e=>e.date>=h&&e.slots.some(s=>doSetorAtual(s)&&!s.who))
+    .sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
+}
+function minhasEscalasPanelHtml(){
+  const minhas=minhasEscalas().slice(0,5);
+  return '<section class="panel"><h2>Suas próximas escalas</h2><div class="rows">'+
+    (minhas.length?minhas.map(x=>'<button class="row" data-action="nav" data-view="escalas">'+dbadgeHtml(x.e.date)+
+      '<div class="rt">'+esc(x.e.title)+'<small class="rt-sub">'+cap(parse(x.e.date).toLocaleDateString('pt-BR',{weekday:'long'}))+', '+x.e.time+'</small></div><span class="pill ok">'+esc(x.s.label)+'</span></button>').join('')
+      :'<div class="empty">Você ainda não está em nenhuma escala. <button type="button" class="link-btn" data-action="nav" data-view="escalas">Ver vagas</button></div>')+
+  '</div></section>';
+}
+function vagasPanelHtml(){
+  const evs=eventosComVagaNoSetor().slice(0,5);
+  return '<section class="panel"><h2>Vagas abertas em '+esc(SETOR_NAME[currentSetor])+'</h2><div class="rows">'+
+    (evs.length?evs.map(e=>{const n=e.slots.filter(s=>doSetorAtual(s)&&!s.who).length;
+      return '<button class="row" data-action="nav" data-view="escalas">'+dbadgeHtml(e.date)+'<div class="rt">'+esc(e.title)+'<small class="rt-sub">'+cap(parse(e.date).toLocaleDateString('pt-BR',{weekday:'long'}))+', '+e.time+'</small></div><span class="pill warn">'+n+(n>1?' vagas':' vaga')+'</span></button>';}).join('')
+      :'<div class="empty">Nenhuma vaga aberta em '+esc(SETOR_NAME[currentSetor])+' por enquanto.</div>')+
+  '</div></section>';
+}
+// Painel de Datashow e Transmissões: tudo gira em torno da escala.
+function viewPainelEscala(){
+  const prox=state.events.filter(e=>e.date>=hojeISO()&&e.slots.some(doSetorAtual)).sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time))[0];
+  let hero='';
+  if(prox){
+    const d=parse(prox.date), vag=prox.slots.filter(s=>doSetorAtual(s)&&!s.who).length, euVou=prox.slots.some(s=>s.who===state.me);
+    hero='<section class="hero hero-escala"><div><small class="hero-k">Próxima missa de '+esc(SETOR_NAME[currentSetor])+'</small><h2>'+cap(d.toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long'}))+', '+prox.time+'</h2>'+
+      '<p>'+esc(prox.title)+' · '+(euVou?'você está escalado(a)':vag?vag+(vag>1?' vagas abertas':' vaga aberta'):'escala completa')+'</p></div>'+
+      '<div class="hero-act"><button class="btn gold" data-action="nav" data-view="escalas">Ver escala</button></div></section>';
+  }
+  return hero+'<div class="cols"><div>'+minhasEscalasPanelHtml()+vagasPanelHtml()+'</div><div>'+timePainelHtml()+'</div></div>';
+}
 function viewPainel(){
+  if(!ehSetorDeConteudo()) return viewPainelEscala();
   const cards=visibleCards();
   const d13=next13(), n=diff(d13);
   const planned=cards.filter(c=>c.pub===d13).length;
@@ -941,6 +1073,7 @@ function viewPainel(){
     '<div class="hero-act"><button class="btn gold" data-action="newOn" data-date="'+d13+'">Planejar conteúdo</button><button class="btn light" data-action="goDate" data-date="'+d13+'">Ver no calendário</button></div></section>'+
   '<div class="strip"><div><b>'+prod+'</b><span>em produção</span></div><div><b>'+rev+'</b><span>aguardando revisão</span></div><div><b>'+ag+'</b><span>agendados</span></div><div class="'+(late?'alert':'')+'"><b>'+late+'</b><span>com prazo vencido</span></div></div>'+
   '<div class="cols"><div>'+
+    minhasEscalasPanelHtml()+
     '<section class="panel"><h2>Próximas publicações</h2><div class="rows">'+
       (up.length?up.map(c=>{const d=parse(c.pub);return '<button class="row" data-action="open" data-id="'+c.id+'"><div class="dbadge"><b>'+d.getDate()+'</b><span>'+d.toLocaleDateString('pt-BR',{weekday:'short'}).replace('.','')+'</span></div><div class="rt">'+esc(c.title)+'</div>'+fmtChip(c)+stagePill(c)+'</button>';}).join(''):'<div class="empty">Nada agendado. Crie um cartão no quadro de produção.</div>')+
     '</div></section>'+
@@ -1041,8 +1174,7 @@ function viewTransmissaoQuadro(){
     '<div id="boardArea">'+transmissaoBoardHtml()+'</div>';
 }
 function transmissaoGuiaHtml(){
-  return '<p class="tip" style="margin-bottom:14px">Consulta rápida pra quem está operando a transmissão — roteiro de câmeras por momento da missa e o passo a passo pra ir ao vivo.</p>'+
-    '<div class="two">'+
+  return '<div class="two">'+
       '<div class="tpl"><h4 style="font-size:17px">Roteiro de câmeras por momento da missa</h4><ol class="checklist">'+
         ROTEIRO_MISSA.map(p=>'<li><b>'+esc(p[0])+'.</b> '+esc(p[1])+'</li>').join('')+
       '</ol></div>'+
@@ -1282,6 +1414,7 @@ let editSlotKey=null; // 'idEvento:idFuncao' da função sendo renomeada
 // coordenador de setor, só nas funções do próprio setor.
 const podeEditarFuncao=s=>s.setor?coordenaSetor(s.setor):isCoordenadorGeral();
 let escalaAba='setor'; // 'setor' | 'completa'
+let escalaFiltro='todas'; // 'todas' | 'vagas' | 'minhas'
 const mesAtualStr=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');};
 const shiftMes=(m,n)=>{const p=m.split('-').map(Number);const d=new Date(p[0],p[1]-1+n,1);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');};
 const nomeMes=m=>{const p=m.split('-').map(Number);return cap(new Date(p[0],p[1]-1,1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'}));};
@@ -1314,12 +1447,21 @@ function viewEscalas(){
     // não as missas fixas de outro setor (ex.: a Missa das 16h de sábado, que é só do Datashow).
     .filter(e=>e.slots.some(doSetor)||(podeEditarSetor&&!/^missa das \d{1,2}h(\d{2})?$/i.test((e.title||'').trim())))
     .sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
-  const acoes=pdfBarHtml(currentSetor)+'<div class="filters" style="margin-bottom:16px">'+
+  // Filtro rápido: todas / só onde ainda falta gente / só onde eu estou.
+  const comVaga=e=>e.slots.some(s=>doSetor(s)&&!s.who), minha=e=>e.slots.some(s=>s.who===state.me);
+  const n={todas:evs.length,vagas:evs.filter(comVaga).length,minhas:evs.filter(minha).length};
+  const filtrados=escalaFiltro==='vagas'?evs.filter(comVaga):escalaFiltro==='minhas'?evs.filter(minha):evs;
+  const chips='<div class="dash-tabs chips-esc">'+[['todas','Todas'],['vagas','Com vaga'],['minhas','Minhas']].map(x=>
+    '<button type="button" class="dash-tab'+(escalaFiltro===x[0]?' active':'')+'" data-action="escalaFiltro" data-filtro="'+x[0]+'">'+x[1]+' <span class="chip-n">'+n[x[0]]+'</span></button>').join('')+'</div>';
+  const coord=(podeCriar||isCoordenadorGeral())?'<div class="filters" style="margin-bottom:12px">'+
     (podeCriar?'<button class="btn primary" data-action="novaEscala">+ Evento extra com escala</button>':'')+
-    (isCoordenadorGeral()?'<button class="btn" data-action="gerarEscalasMes">Gerar missas do mês</button>':'')+
-    '<span class="tip">Todo mês a escala começa nova, sem ninguém escalado: a Missa das 10h de cada domingo e, só pro Datashow, a Missa das 16h de cada sábado entram sozinhas, já com as funções de cada setor.'+(podeEditarSetor?' Você pode renomear, remover ou adicionar funções de '+esc(SETOR_NAME[currentSetor])+' em cada missa.':'')+(podeCriar?' Se tiver outro evento que precise de gente, marque como evento extra.':'')+'</span></div>';
-  if(!evs.length) return escalaTabsHtml()+acoes+'<div class="empty">Nenhuma escala aberta pra '+esc(SETOR_NAME[currentSetor])+' por enquanto.</div>';
-  return escalaTabsHtml()+acoes+'<div class="evs">'+evs.map(e=>{
+    (isCoordenadorGeral()?'<button class="btn" data-action="gerarEscalasMes">Gerar missas do mês</button>':'')+'</div>':'';
+  const como='<details class="como"><summary>Como funciona a escala</summary><p>Todo mês a escala começa nova, sem ninguém escalado: a Missa das 10h de cada domingo e, só pro Datashow, a Missa das 16h de cada sábado entram sozinhas, já com as funções de cada setor. Toque em <b>Eu vou</b> na vaga que você quer.'+(podeEditarSetor?' Como coordenação, você pode renomear, remover ou adicionar funções de '+esc(SETOR_NAME[currentSetor])+' em cada missa.':'')+(podeCriar?' Se tiver outro evento que precise de gente, marque como evento extra.':'')+'</p></details>';
+  const acoes=chips+coord+como;
+  const rodape=pdfBarHtml(currentSetor);
+  const vazio=escalaFiltro==='minhas'?'Você ainda não está em nenhuma escala de '+esc(SETOR_NAME[currentSetor])+'.':escalaFiltro==='vagas'?'Nenhuma vaga aberta em '+esc(SETOR_NAME[currentSetor])+' agora.':'Nenhuma escala aberta pra '+esc(SETOR_NAME[currentSetor])+' por enquanto.';
+  if(!filtrados.length) return escalaTabsHtml()+acoes+'<div class="empty">'+vazio+'</div>'+rodape;
+  return escalaTabsHtml()+acoes+'<div class="evs">'+filtrados.map(e=>{
     const slots=e.slots.filter(doSetor);
     const open=slots.filter(s=>!s.who).length, d=parse(e.date);
     const joined=e.slots.some(s=>s.who===state.me);
@@ -1343,21 +1485,22 @@ function viewEscalas(){
       }).join(''):'<div class="slot"><span class="muted">Nenhuma função de '+esc(SETOR_NAME[currentSetor])+' neste evento ainda.</span></div>')+
       (podeEditarSetor?'<div style="padding:0 16px 12px"><button type="button" class="btn small" style="margin-top:8px" data-action="toggleAddSlot" data-ev="'+e.id+'">'+(addSlotEventoId===e.id?'Cancelar':'+ função de '+esc(SETOR_NAME[currentSetor]))+'</button></div>'+addSlotFormHtml(e.id):'')+
     '</article>';
-  }).join('')+'</div>';
+  }).join('')+'</div>'+rodape;
 }
 // Navegação de mês + download do PDF: setor = só a escala daquele setor; null = todos os setores juntos.
 function pdfBarHtml(setor){
-  return '<div class="filters pdf-bar" style="margin-bottom:16px;align-items:center">'+
-    (setor?'<span class="note" style="margin:0">Baixar a escala de '+esc(SETOR_NAME[setor])+':</span>':'')+
-    '<button class="btn small" data-action="escalaMes" data-delta="-1" aria-label="Mês anterior">‹</button>'+
-    '<b style="min-width:150px;text-align:center">'+esc(nomeMes(escalaMes))+'</b>'+
-    '<button class="btn small" data-action="escalaMes" data-delta="1" aria-label="Próximo mês">›</button>'+
-    '<span style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap">'+
+  const dl='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>';
+  return '<div class="pdf-bar'+(setor?' pdf-bar-setor':'')+'">'+
+    (setor?'<span class="pdf-k">Escala em PDF</span>':'')+
+    '<div class="mes-nav"><button class="btn small" data-action="escalaMes" data-delta="-1" aria-label="Mês anterior">‹</button>'+
+    '<b>'+esc(nomeMes(escalaMes))+'</b>'+
+    '<button class="btn small" data-action="escalaMes" data-delta="1" aria-label="Próximo mês">›</button></div>'+
+    '<div class="pdf-acoes">'+
       (setor
-        ?'<button class="btn primary" data-action="baixarEscalaPdf" data-setor="'+setor+'">Baixar PDF de '+esc(SETOR_NAME[setor])+'</button>'
-        :'<button class="btn" data-action="baixarEscalaPdf" data-setor="'+currentSetor+'">Só '+esc(SETOR_NAME[currentSetor])+'</button>'+
-         '<button class="btn primary" data-action="baixarEscalaPdf">Baixar PDF (todos os setores)</button>')+
-    '</span></div>';
+        ?'<button class="btn primary" data-action="baixarEscalaPdf" data-setor="'+setor+'">'+dl+'Baixar PDF de '+esc(SETOR_NAME[setor])+'</button>'
+        :'<button class="btn" data-action="baixarEscalaPdf" data-setor="'+currentSetor+'">'+dl+'Só '+esc(SETOR_NAME[currentSetor])+'</button>'+
+         '<button class="btn primary" data-action="baixarEscalaPdf">'+dl+'PDF completo</button>')+
+    '</div></div>';
 }
 function viewEscalaCompleta(){
   const dados=escalaCompletaCache[escalaMes];
@@ -2031,8 +2174,13 @@ function lixeiraItemHtml(tipo,item,titulo,dataInfo){
 function viewLixeira(){
   if(lixeira.cartoes===null||lixeira.setor!==currentSetor) return '<div class="empty">'+(lixeira.loading?'Carregando...':'Sem dados ainda.')+'</div>';
   const cartoes=lixeira.cartoes, ideias=lixeira.ideias, eventos=lixeira.eventos;
-  const vazio=!cartoes.length&&!ideias.length&&!eventos.length;
+  const conteudo=ehSetorDeConteudo();
+  const vazio=!eventos.length&&(!conteudo||(!cartoes.length&&!ideias.length));
   if(vazio) return '<div class="empty">Lixeira vazia por aqui. Nada excluído neste espaço.</div>';
+  const escalasHtml='<section class="panel"><h2>Escalas ('+eventos.length+')</h2><p class="note" style="margin-top:0">Escalas são compartilhadas entre todos os setores.</p><div class="rows">'+
+      (eventos.length?eventos.map(e=>lixeiraItemHtml('evento',e,e.title,e.date?fmtShort(e.date):'')).join(''):'<div class="empty">Nada aqui.</div>')+
+    '</div></section>';
+  if(!conteudo) return escalasHtml;
   return ''+
     '<section class="panel"><h2>Cartões ('+cartoes.length+')</h2><div class="rows">'+
       (cartoes.length?cartoes.map(c=>lixeiraItemHtml('cartao',c,c.title,null)).join(''):'<div class="empty">Nada aqui.</div>')+
@@ -2078,21 +2226,50 @@ function renderSide(){
   $('#side').innerHTML=
     '<div class="brand"><svg width="38" height="38" viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="18.5" fill="none" stroke="#E2BA5C" stroke-width="1.5"/><path d="M20 6L23.4 16.6 34 20 23.4 23.4 20 34 16.6 23.4 6 20 16.6 16.6Z" fill="#E2BA5C"/></svg><div><b>Pascom Fátima</b><small>Santuário Nossa Senhora de Fátima, Santo Amaro</small></div></div>'+
     setorSwitchHtml()+
-    '<div class="nav">'+Object.keys(VIEWS).filter(k=>!VIEWS[k].hidden).map(k=>'<button data-action="nav" data-view="'+k+'"'+(k===view?' aria-current="page"':'')+'><svg viewBox="0 0 24 24" aria-hidden="true">'+ICONS[VIEWS[k].icon]+'</svg><span>'+VIEWS[k].label+'</span></button>').join('')+'</div>'+
+    '<div class="nav">'+Object.keys(VIEWS).filter(viewDisponivel).map(k=>'<button data-action="nav" data-view="'+k+'"'+(k===view?' aria-current="page"':'')+'><svg viewBox="0 0 24 24" aria-hidden="true">'+ICONS[VIEWS[k].icon]+'</svg><span>'+VIEWS[k].label+'</span></button>').join('')+'</div>'+
     '<div class="side-foot">'+(m?'<button type="button" class="side-me'+(view==='perfil'?' active':'')+'" data-action="abrirPerfil" title="Meu perfil">'+avatar(m.id)+'<span><b>'+esc(m.nome)+'</b><small>'+esc(ROLE_NAME[m.role])+' · Meu perfil</small></span></button>':'')+
     '<button data-action="logout">Sair</button></div>';
+}
+/* Produção, Dashboard e Ideias só existem pra Redes sociais e Jovens (quem produz conteúdo);
+   Datashow e Transmissões trabalham pela escala. O Guia é só de Transmissões. */
+const SETORES_CONTEUDO=['redes_sociais','jovens'];
+const VIEWS_POR_SETOR={quadro:SETORES_CONTEUDO,dashboard:SETORES_CONTEUDO,ideias:SETORES_CONTEUDO,guia:['transmissoes_videos']};
+const ehSetorDeConteudo=()=>SETORES_CONTEUDO.indexOf(currentSetor)>-1;
+const viewDisponivel=k=>!!VIEWS[k]&&!VIEWS[k].hidden&&(!VIEWS_POR_SETOR[k]||VIEWS_POR_SETOR[k].indexOf(currentSetor)>-1);
+// Abas principais da barra de baixo no celular (o resto fica em "Mais").
+function abasPrincipais(){
+  if(currentSetor==='transmissoes_videos') return ['painel','escalas','guia','equipe'];
+  if(currentSetor==='datashow') return ['painel','escalas','calendario','equipe'];
+  return ['painel','quadro','escalas','equipe'];
 }
 const SETOR_SCOPED_VIEWS=['painel','quadro','calendario','ideias','lixeira'];
 function renderTop(){
   const v=VIEWS[view];
   const badge=SETOR_SCOPED_VIEWS.indexOf(view)>-1?' <span class="pill" style="vertical-align:middle;font-weight:600">'+esc(SETOR_NAME[currentSetor])+'</span>':'';
-  const novoBtn=currentSetor==='datashow'
-    ? '<button class="btn primary" data-action="newDatashow">+ Nova missa</button>'
-    : currentSetor==='transmissoes_videos'
-    ? '<button class="btn primary" data-action="newTransmissao">+ Nova transmissão</button>'
-    : '<button class="btn primary" data-action="new">+ Novo cartão</button>';
+  // "+ Novo cartão" só nas telas de conteúdo de Redes sociais/Jovens. No celular ele vira um
+  // botão flutuante no canto, acima da barra de abas (ver CSS .top-actions).
+  const novoBtn=ehSetorDeConteudo()&&['painel','quadro','calendario'].indexOf(view)>-1
+    ? '<button class="btn primary fab" data-action="new" aria-label="Novo cartão">+ Novo cartão</button>'
+    : '';
   $('#top').innerHTML='<div><h1>'+esc(v.title())+badge+'</h1><p>'+esc(v.sub())+'</p></div>'+
-    '<div class="top-actions">'+novoBtn+'</div>';
+    (novoBtn?'<div class="top-actions">'+novoBtn+'</div>':'');
+}
+/* Celular: barra do topo mostra o espaço atual (toque pra trocar) e a sua foto (perfil);
+   barra de baixo tem as abas principais do setor + "Mais" (abre a gaveta com o resto). */
+function renderMobileBars(){
+  const m=me();
+  $('#mbar').innerHTML=
+    '<button type="button" class="mbar-setor" data-action="abrirTrocaSetor" aria-label="Trocar de espaço">'+
+      '<span class="ico"><svg viewBox="0 0 24 24" aria-hidden="true">'+ICONS[SETOR_ICON[currentSetor]]+'</svg></span>'+
+      '<span class="tx"><small>Espaço</small><b>'+esc(SETOR_NAME[currentSetor])+'</b></span>'+
+      '<svg class="chev" viewBox="0 0 24 24" aria-hidden="true">'+ICONS.chev+'</svg>'+
+    '</button>'+
+    (m?'<button type="button" class="mbar-me" data-action="abrirPerfil" aria-label="Meu perfil">'+avatar(m.id)+'</button>':'');
+  const abas=abasPrincipais(), noMais=abas.indexOf(view)<0;
+  $('#tabbar').innerHTML=abas.map(k=>
+    '<button type="button" data-action="nav" data-view="'+k+'"'+(k===view?' aria-current="page"':'')+'><svg viewBox="0 0 24 24" aria-hidden="true">'+ICONS[VIEWS[k].icon]+'</svg><span>'+esc(VIEWS[k].label)+'</span></button>'
+  ).join('')+
+  '<button type="button" data-action="toggleMobileNav"'+(noMais||mobileNavOpen?' aria-current="page"':'')+'><svg viewBox="0 0 24 24" aria-hidden="true">'+ICONS.more+'</svg><span>Mais</span></button>';
 }
 function render(){
   if(!authToken||authMode==='redefinir'){
@@ -2102,8 +2279,9 @@ function render(){
   }
   $('#authScreen').hidden=true; $('#authScreen').innerHTML='';
   $('#app').hidden=false;
+  if(!VIEWS[view]||(!VIEWS[view].hidden&&!viewDisponivel(view))) view='painel';
   const main=$('.main'), ms=main.scrollTop, b=$('.board'), bs=b?b.scrollLeft:0;
-  renderSide(); renderTop();
+  renderSide(); renderTop(); renderMobileBars();
   $('#side').classList.toggle('open',mobileNavOpen);
   $('#mbarBackdrop').classList.toggle('open',mobileNavOpen);
   $('#view').innerHTML=VIEWS[view].render();
@@ -2264,7 +2442,8 @@ document.addEventListener('click',e=>{
   const a=t.dataset.action, id=t.dataset.id;
   switch(a){
     case 'nav': view=t.dataset.view; mobileNavOpen=false; render(); if(view==='assistente'&&chatLog.length) scrollChatToBottom(); else $('.main').scrollTop=0; if(view==='dashboard'){ if(!dashboardCache[dashboardPeriodo]) carregarDashboard(); if(metasCache===null) carregarMetas(); } if(view==='quadro'&&currentSetor==='datashow'&&datashowCache===null) carregarDatashow(); if(view==='quadro'&&currentSetor==='transmissoes_videos'&&transmissaoCache===null) carregarTransmissoes(); if(view==='lixeira'&&(lixeira.cartoes===null||lixeira.setor!==currentSetor)) carregarLixeira(); break;
-    case 'toggleMobileNav': mobileNavOpen=!mobileNavOpen; render(); break;
+    case 'toggleMobileNav': mobileNavOpen=!mobileNavOpen; setorMenuOpen=false; render(); break;
+    case 'abrirTrocaSetor': mobileNavOpen=true; setorMenuOpen=true; render(); break;
     case 'closeMobileNav': mobileNavOpen=false; render(); break;
     case 'dashPeriodo': dashboardPeriodo=t.dataset.periodo; render(); if(!dashboardCache[dashboardPeriodo]) carregarDashboard(); break;
     case 'sincronizarInstagram': sincronizarInstagram(); break;
@@ -2272,7 +2451,7 @@ document.addEventListener('click',e=>{
     case 'salvarMeta': salvarMeta(); break;
     case 'excluirMeta': excluirMeta(t.dataset.id); break;
     case 'toggleSetorMenu': setorMenuOpen=!setorMenuOpen; renderSide(); break;
-    case 'setSetor': currentSetor=t.dataset.setor; setorMenuOpen=false; mobileNavOpen=false; render(); $('.main').scrollTop=0; if(view==='quadro'&&currentSetor==='datashow'&&datashowCache===null) carregarDatashow(); if(view==='quadro'&&currentSetor==='transmissoes_videos'&&transmissaoCache===null) carregarTransmissoes(); if(view==='lixeira'&&(lixeira.cartoes===null||lixeira.setor!==currentSetor)) carregarLixeira(); break;
+    case 'setSetor': currentSetor=t.dataset.setor; lembrarSetor(); setorMenuOpen=false; mobileNavOpen=false; render(); $('.main').scrollTop=0; if(view==='quadro'&&currentSetor==='datashow'&&datashowCache===null) carregarDatashow(); if(view==='quadro'&&currentSetor==='transmissoes_videos'&&transmissaoCache===null) carregarTransmissoes(); if(view==='lixeira'&&(lixeira.cartoes===null||lixeira.setor!==currentSetor)) carregarLixeira(); break;
     case 'chatEnviar': {
       const inp=$('#chat-input'); if(!inp) break;
       const texto=inp.value; inp.value='';
@@ -2296,6 +2475,7 @@ document.addEventListener('click',e=>{
     case 'novaEscala': abrirNovaEscala(); break;
     case 'adicionarSlotForm': sincronizarSlotFormDoDOM(); escalaFormSlots.push({rotulo:'',tipo:null}); reabrirEscalaModal(); break;
     case 'escalaAba': escalaAba=t.dataset.aba; addSlotEventoId=null; render(); break;
+    case 'escalaFiltro': escalaFiltro=t.dataset.filtro; render(); break;
     case 'escalaMes': escalaMes=shiftMes(escalaMes,Number(t.dataset.delta)); render(); break;
     case 'baixarEscalaPdf': baixarEscalaPdf(t.dataset.setor||null); break;
     case 'equipeAba': equipeAba=t.dataset.aba; render(); break;
