@@ -219,6 +219,7 @@ p{margin:0}
 .slot:last-child{border-bottom:0}
 .slot .sl{width:110px;font-weight:600;font-size:14px}
 .slot .sw{flex:1;font-size:14px;display:flex;align-items:center;gap:8px}
+.slot-grp{padding:8px 16px 4px;font-size:11.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--ink3);border-bottom:1px solid var(--line)}
 .team{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:22px 26px}
 .mem{display:flex;gap:14px}
 .mem h3{font-size:17px}
@@ -539,7 +540,7 @@ function memberFromApi(u){
     id:String(u.id), nome:u.nome, funcao:u.funcao||'', role:ROLE_FROM_API[u.role]||'voluntario',
     setor:u.setor?SETOR_FROM_API[u.setor]:null,
     disp:u.disponibilidade||'Não informado', h:(u.avatarHue!=null?u.avatarHue:(Number(u.id)*53)%360),
-    email:u.email
+    email:u.email, poderesGeral:!!u.poderesCoordenadorGeral
   };
 }
 function checksFromApi(checklist){
@@ -592,7 +593,7 @@ function ideiaFromApi(i){
 function eventoFromApi(e){
   return {
     id:String(e.id), title:e.titulo, date:e.data, time:(e.horario||'').slice(0,5), place:e.local, big:!!e.eventoGrande,
-    slots:(e.slots||[]).map(s=>({id:String(s.id), label:s.rotulo, tipo:s.tipo, who:s.voluntarioId!=null?String(s.voluntarioId):null})),
+    slots:(e.slots||[]).map(s=>({id:String(s.id), label:s.rotulo, tipo:s.tipo, setor:s.setor?SETOR_FROM_API[s.setor]:null, who:s.voluntarioId!=null?String(s.voluntarioId):null})),
     excluidoEm:e.excluidoEm||null, motivoExclusao:e.motivoExclusao||null, detalheExclusao:e.detalheExclusao||null
   };
 }
@@ -645,7 +646,7 @@ async function carregarTudo(meId){
 }
 
 async function doLogin(){
-  const email=$('#au-email').value.trim(), senha=$('#au-senha').value;
+  const email=$('#au-email').value.trim().toLowerCase(), senha=$('#au-senha').value;
   if(!email||!senha){ authError='Preencha e-mail e senha.'; renderAuth(); return; }
   try{
     const data=await api('/usuarios/login',{method:'POST',body:JSON.stringify({email:email,senha:senha})});
@@ -655,7 +656,7 @@ async function doLogin(){
   }catch(e){ authError=e.message||'Não foi possível entrar.'; renderAuth(); }
 }
 async function doCadastro(){
-  const nome=$('#au-nome').value.trim(), email=$('#au-email').value.trim(), senha=$('#au-senha').value;
+  const nome=$('#au-nome').value.trim(), email=$('#au-email').value.trim().toLowerCase(), senha=$('#au-senha').value;
   const funcao=$('#au-funcao').value.trim();
   const role=$('#au-role').value;
   const setor=$('#au-setor').value;
@@ -677,7 +678,7 @@ function logout(){
   authMode='login'; authError=''; renderAuth();
 }
 async function doEsqueciSenha(){
-  const email=$('#au-email').value.trim();
+  const email=$('#au-email').value.trim().toLowerCase();
   if(!email){ authError='Digite seu e-mail.'; authOk=''; renderAuth(); return; }
   try{
     await api('/usuarios/esqueci-senha',{method:'POST',body:JSON.stringify({email:email})});
@@ -756,9 +757,12 @@ let mobileNavOpen=false;
 
 const mem=id=>MEMBERS.find(m=>m.id===id);
 const me=()=>mem(state.me);
-const isApprover=()=>{const m=me();return !!m&&(m.role==='coordenador_geral'||m.role==='coordenador');};
-const EMAIL_DESENVOLVEDORA='bibia.oliveira.kurihara@gmail.com';
-const isCoordenadorGeral=()=>{const m=me();return !!m&&(m.role==='coordenador_geral'||m.email===EMAIL_DESENVOLVEDORA);};
+// As regras de verdade ficam no backend; aqui é só pra esconder botões que dariam erro.
+const isCoordenadorGeral=()=>{const m=me();return !!m&&(m.role==='coordenador_geral'||m.poderesGeral);};
+const isApprover=()=>{const m=me();return !!m&&(m.role==='coordenador'||isCoordenadorGeral());};
+const coordenaSetor=s=>{const m=me();return !!m&&(isCoordenadorGeral()||(m.role==='coordenador'&&m.setor===s));};
+// Pode tirar alguém da escala: a própria pessoa, o Coordenador Geral, ou o coordenador da equipe (setor) dela.
+const podeTirarDaEscala=whoId=>{const m=me(),w=mem(whoId);return !!m&&(whoId===state.me||isCoordenadorGeral()||(m.role==='coordenador'&&!!w&&!!m.setor&&w.setor===m.setor));};
 const card=id=>state.cards.find(c=>c.id===id);
 const visibleCards=()=>state.cards.filter(c=>c.setor===currentSetor);
 const visibleIdeas=()=>state.ideas.filter(i=>i.setor===currentSetor);
@@ -944,7 +948,7 @@ function viewTransmissaoQuadro(){
   '</div>';
   if(transmissaoAba==='guia') return tabs+transmissaoGuiaHtml();
   if(transmissaoCache===null) return tabs+'<div class="empty">'+(transmissaoLoading?'Carregando...':'Sem dados ainda.')+'</div>';
-  return tabs+'<div class="filters" style="margin-bottom:12px"><button class="btn" data-action="gerarTransmissoesMes">Gerar domingos do mês</button><span class="tip">Cria (sem duplicar) a transmissão da Missa das 10h pra cada domingo. Missas solenes e a Benção do Santíssimo (quintas, ~19h30) você adiciona pelo "+".</span></div>'+
+  return tabs+'<div class="filters" style="margin-bottom:12px">'+(coordenaSetor('transmissoes_videos')?'<button class="btn" data-action="gerarTransmissoesMes">Gerar domingos do mês</button>':'')+'<span class="tip">Cria (sem duplicar) a transmissão da Missa das 10h pra cada domingo. Missas solenes e a Benção do Santíssimo (quintas, ~19h30) você adiciona pelo "+".</span></div>'+
     '<div id="boardArea">'+transmissaoBoardHtml()+'</div>';
 }
 function transmissaoGuiaHtml(){
@@ -1119,7 +1123,7 @@ function metaHtml(m){
 function viewDashboard(){
   const tabs='<div class="dash-tabs">'+DASH_PERIODOS.map(t=>
     '<button type="button" class="dash-tab'+(dashboardPeriodo===t[0]?' active':'')+'" data-action="dashPeriodo" data-periodo="'+t[0]+'">'+t[1]+'</button>'
-  ).join('')+'<button type="button" class="btn small" style="margin-left:auto" data-action="sincronizarInstagram"'+(dashboardSincronizando?' disabled':'')+'>'+(dashboardSincronizando?'Sincronizando...':'Sincronizar agora')+'</button></div>';
+  ).join('')+(isApprover()?'<button type="button" class="btn small" style="margin-left:auto" data-action="sincronizarInstagram" title="Atualiza sozinho a cada 6h; manualmente, no máximo 1 vez a cada 30 min."'+(dashboardSincronizando?' disabled':'')+'>'+(dashboardSincronizando?'Sincronizando...':'Sincronizar agora')+'</button>':'')+'</div>';
 
   const dados=dashboardCache[dashboardPeriodo];
   const corpoDash=!dados
@@ -1184,34 +1188,101 @@ function viewIdeias(){
 /* ---------- Escalas ---------- */
 const SLOT_TIPO_NOME={FOTO:'Foto',VIDEO:'Vídeo',STORIES_AO_VIVO:'Stories ao vivo',TRANSMISSAO:'Transmissão'};
 let addSlotEventoId=null; // id do evento com o mini-form de "+ função" aberto
+let escalaAba='setor'; // 'setor' | 'completa'
+const mesAtualStr=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');};
+const shiftMes=(m,n)=>{const p=m.split('-').map(Number);const d=new Date(p[0],p[1]-1+n,1);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');};
+const nomeMes=m=>{const p=m.split('-').map(Number);return cap(new Date(p[0],p[1]-1,1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'}));};
+let escalaMes=mesAtualStr();
+let escalaCompletaCache={}; // { 'AAAA-MM': dto | {erro} }
+let escalaCompletaLoading=false;
+function invalidarEscalaCompleta(){ escalaCompletaCache={}; }
 function addSlotFormHtml(eventoId){
   if(addSlotEventoId!==eventoId) return '';
-  return '<div class="fgrid" style="align-items:end;margin-top:8px">'+
-    '<label class="fld"><span>Nome da função</span><input id="as-rotulo" placeholder="Ex.: Transmissão"></label>'+
-    '<label class="fld"><span>Tipo</span><select id="as-tipo">'+Object.keys(SLOT_TIPO_NOME).map(t=>'<option value="'+t+'">'+SLOT_TIPO_NOME[t]+'</option>').join('')+'</select></label>'+
+  return '<div class="fgrid" style="align-items:end;margin-top:8px;padding:0 16px 12px">'+
+    '<label class="fld"><span>Nome da função ('+esc(SETOR_NAME[currentSetor])+')</span><input id="as-rotulo" placeholder="Ex.: Câmera 2"></label>'+
     '<button type="button" class="btn small primary" data-action="salvarSlotExistente" data-ev="'+eventoId+'">Adicionar</button>'+
   '</div>';
 }
+function escalaTabsHtml(){
+  return '<div class="dash-tabs">'+
+    '<button type="button" class="dash-tab'+(escalaAba==='setor'?' active':'')+'" data-action="escalaAba" data-aba="setor">Escala de '+esc(SETOR_NAME[currentSetor])+'</button>'+
+    '<button type="button" class="dash-tab'+(escalaAba==='completa'?' active':'')+'" data-action="escalaAba" data-aba="completa">Escala completa</button>'+
+  '</div>';
+}
 function viewEscalas(){
-  const evs=state.events.slice().sort((a,b)=>a.date.localeCompare(b.date));
-  const podeGerir=isCoordenadorGeral();
-  const acoes=podeGerir?'<div class="filters" style="margin-bottom:16px"><button class="btn primary" data-action="novaEscala">+ Nova escala</button><button class="btn" data-action="gerarEscalasMes">Gerar domingos do mês</button><span class="tip">"Gerar domingos do mês" cria (sem duplicar) uma Missa das 10h pra cada domingo, já com Foto/Vídeo/Stories.</span></div>':'';
-  if(!evs.length) return acoes+'<div class="empty">Nenhum evento cadastrado ainda.'+(podeGerir?' Crie uma escala ou gere os domingos do mês acima.':' Fale com a Coordenação.')+'</div>';
-  return acoes+'<div class="evs">'+evs.map(e=>{
-    const open=e.slots.filter(s=>!s.who).length, d=parse(e.date);
+  if(escalaAba==='completa') return escalaTabsHtml()+viewEscalaCompleta();
+  const agora=new Date(), hoje=agora.getFullYear()+'-'+String(agora.getMonth()+1).padStart(2,'0')+'-'+String(agora.getDate()).padStart(2,'0');
+  const podeCriar=isApprover();
+  const podeEditarSetor=coordenaSetor(currentSetor);
+  const doSetor=s=>s.setor===currentSetor||s.setor===null;
+  const evs=state.events
+    .filter(e=>e.date>=hoje)
+    .filter(e=>e.slots.some(doSetor)||podeEditarSetor)
+    .sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
+  const acoes='<div class="filters" style="margin-bottom:16px">'+
+    (podeCriar?'<button class="btn primary" data-action="novaEscala">+ Evento extra com escala</button>':'')+
+    (isCoordenadorGeral()?'<button class="btn" data-action="gerarEscalasMes">Gerar domingos do mês</button>':'')+
+    '<span class="tip">Os domingos (Missa das 10h) entram sozinhos na escala todo mês.'+(podeCriar?' Se tiver outro evento que precise de gente, marque como evento extra.':'')+'</span></div>';
+  if(!evs.length) return escalaTabsHtml()+acoes+'<div class="empty">Nenhuma escala aberta pra '+esc(SETOR_NAME[currentSetor])+' por enquanto.</div>';
+  return escalaTabsHtml()+acoes+'<div class="evs">'+evs.map(e=>{
+    const slots=e.slots.filter(doSetor);
+    const open=slots.filter(s=>!s.who).length, d=parse(e.date);
     const joined=e.slots.some(s=>s.who===state.me);
-    return '<article class="ev'+(e.big?' big':'')+'"><div class="ev-h"><div class="dbadge"><b>'+d.getDate()+'</b><span>'+d.toLocaleDateString('pt-BR',{month:'short'}).replace('.','')+'</span></div><div style="flex:1;min-width:120px"><h3>'+esc(e.title)+'</h3><small>'+cap(d.toLocaleDateString('pt-BR',{weekday:'long'}))+', '+e.time+' no '+esc(e.place)+'</small></div><div class="ev-h-actions"><span class="pill '+(open?'warn':'ok')+'">'+(open?open+(open>1?' vagas':' vaga'):'Completa')+'</span>'+
-      (podeGerir?'<button class="btn small danger" data-action="excluirEvento" data-id="'+e.id+'" title="Excluir escala">Excluir</button>':'')+'</div></div>'+
-      e.slots.map(s=>{
+    return '<article class="ev'+(e.big?' big':'')+'"><div class="ev-h"><div class="dbadge"><b>'+d.getDate()+'</b><span>'+d.toLocaleDateString('pt-BR',{month:'short'}).replace('.','')+'</span></div><div style="flex:1;min-width:120px"><h3>'+esc(e.title)+'</h3><small>'+cap(d.toLocaleDateString('pt-BR',{weekday:'long'}))+', '+e.time+' no '+esc(e.place)+'</small></div><div class="ev-h-actions">'+(slots.length?'<span class="pill '+(open?'warn':'ok')+'">'+(open?open+(open>1?' vagas':' vaga'):'Completa')+'</span>':'')+
+      (isCoordenadorGeral()?'<button class="btn small danger" data-action="excluirEvento" data-id="'+e.id+'" title="Excluir escala">Excluir</button>':'')+'</div></div>'+
+      (slots.length?slots.map(s=>{
         let act='';
         if(!s.who) act=joined?'':'<button class="btn small primary" data-action="join" data-ev="'+e.id+'" data-slot="'+s.id+'">Eu vou</button>';
-        else if(s.who===state.me||isApprover()) act='<button class="btn small" data-action="leave" data-ev="'+e.id+'" data-slot="'+s.id+'">'+(s.who===state.me?'Sair':'Liberar')+'</button>';
+        else if(podeTirarDaEscala(s.who)) act='<button class="btn small" data-action="leave" data-ev="'+e.id+'" data-slot="'+s.id+'">'+(s.who===state.me?'Sair':'Tirar da escala')+'</button>';
         const whoMem=s.who?mem(s.who):null;
         return '<div class="slot"><span class="sl">'+esc(s.label)+'</span><span class="sw">'+(whoMem?avatar(s.who)+esc(whoMem.nome):'<span class="muted">Vaga aberta</span>')+'</span>'+act+'</div>';
-      }).join('')+
-      (podeGerir?'<button type="button" class="btn small" style="margin-top:8px" data-action="toggleAddSlot" data-ev="'+e.id+'">'+(addSlotEventoId===e.id?'Cancelar':'+ função pra essa missa')+'</button>'+addSlotFormHtml(e.id):'')+
+      }).join(''):'<div class="slot"><span class="muted">Nenhuma função de '+esc(SETOR_NAME[currentSetor])+' neste evento ainda.</span></div>')+
+      (podeEditarSetor?'<div style="padding:0 16px 12px"><button type="button" class="btn small" style="margin-top:8px" data-action="toggleAddSlot" data-ev="'+e.id+'">'+(addSlotEventoId===e.id?'Cancelar':'+ função de '+esc(SETOR_NAME[currentSetor]))+'</button></div>'+addSlotFormHtml(e.id):'')+
     '</article>';
   }).join('')+'</div>';
+}
+function viewEscalaCompleta(){
+  const dados=escalaCompletaCache[escalaMes];
+  if(!dados&&!escalaCompletaLoading) setTimeout(()=>carregarEscalaCompleta(escalaMes),0);
+  const cab='<div class="filters" style="margin-bottom:16px;align-items:center">'+
+    '<button class="btn small" data-action="escalaMes" data-delta="-1" aria-label="Mês anterior">‹</button>'+
+    '<b style="min-width:150px;text-align:center">'+esc(nomeMes(escalaMes))+'</b>'+
+    '<button class="btn small" data-action="escalaMes" data-delta="1" aria-label="Próximo mês">›</button>'+
+    '<button class="btn primary" style="margin-left:auto" data-action="baixarEscalaPdf">Baixar PDF</button></div>';
+  if(!dados) return cab+'<div class="empty">Carregando escala...</div>';
+  if(dados.erro) return cab+'<div class="empty">'+esc(dados.erro)+'</div>';
+  const doms=(dados.domingos||[]).map(x=>Number(x.slice(8,10)));
+  const resumo='<p class="note" style="margin-bottom:14px">'+doms.length+' domingos neste mês ('+doms.join(', ')+'). Aqui aparece todo mundo que vai servir, de todos os setores.</p>';
+  if(!dados.eventos.length) return cab+resumo+'<div class="empty">Nenhuma escala cadastrada neste mês ainda.</div>';
+  return cab+resumo+'<div class="evs">'+dados.eventos.map(e=>{
+    const d=parse(e.data);
+    return '<article class="ev'+(e.eventoGrande?' big':'')+'"><div class="ev-h"><div class="dbadge"><b>'+d.getDate()+'</b><span>'+d.toLocaleDateString('pt-BR',{month:'short'}).replace('.','')+'</span></div><div style="flex:1;min-width:120px"><h3>'+esc(e.titulo)+'</h3><small>'+cap(d.toLocaleDateString('pt-BR',{weekday:'long'}))+', '+(e.horario||'').slice(0,5)+' no '+esc(e.local)+'</small></div><div class="ev-h-actions"><span class="pill '+(e.vagasAbertas?'warn':'ok')+'">'+(e.vagasAbertas?e.vagasAbertas+(e.vagasAbertas>1?' vagas':' vaga'):'Completa')+'</span></div></div>'+
+      e.setores.map(g=>'<div class="slot-grp">'+esc(g.nomeSetor)+'</div>'+g.funcoes.map(f=>{
+        const quem=f.voluntarioId!=null?String(f.voluntarioId):null;
+        return '<div class="slot"><span class="sl">'+esc(f.rotulo)+'</span><span class="sw">'+(f.voluntarioNome?(mem(quem)?avatar(quem):'')+esc(f.voluntarioNome):'<span class="muted">Vaga aberta</span>')+'</span></div>';
+      }).join('')).join('')+
+    '</article>';
+  }).join('')+'</div>';
+}
+async function carregarEscalaCompleta(mes){
+  if(escalaCompletaLoading) return;
+  escalaCompletaLoading=true;
+  try{ escalaCompletaCache[mes]=await api('/escalas/completa?mes='+mes); }
+  catch(e){ escalaCompletaCache[mes]={erro:e.message}; }
+  escalaCompletaLoading=false;
+  if(view==='escalas'&&escalaAba==='completa') render();
+}
+async function baixarEscalaPdf(){
+  try{
+    const headers={}; if(authToken) headers['Authorization']='Bearer '+authToken;
+    const res=await fetch(API_BASE+'/escalas/completa/pdf?mes='+escalaMes,{headers:headers});
+    if(!res.ok){ let msg='Não foi possível gerar o PDF.'; try{ const b=await res.json(); if(b&&b.erro) msg=b.erro; }catch(_){ } throw new Error(msg); }
+    const blob=await res.blob();
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a'); a.href=url; a.download='escala-'+escalaMes+'.pdf';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),1000);
+  }catch(e){ toast(e.message,'warn'); }
 }
 let escalaFormSlots=[];
 function sincronizarSlotFormDoDOM(){
@@ -1221,31 +1292,34 @@ function sincronizarSlotFormDoDOM(){
   }));
 }
 function escalaModal(){
-  return '<div class="modal" role="dialog" aria-modal="true" aria-label="Nova escala">'+
-    '<div class="m-head"><h3>Nova escala</h3><button class="x" data-action="close" aria-label="Fechar">×</button></div>'+
+  return '<div class="modal" role="dialog" aria-modal="true" aria-label="Evento extra com escala">'+
+    '<div class="m-head"><h3>Evento extra com escala</h3><button class="x" data-action="close" aria-label="Fechar">×</button></div>'+
     '<div class="m-body">'+
-      '<label class="fld"><span>Título</span><input id="es-titulo" placeholder="Ex.: Missa das 10h" value="Missa das 10h"></label>'+
+      '<p class="note" style="margin-bottom:10px">Os domingos já entram sozinhos. Use isto pra outro evento do mês que precise de voluntários — ele aparece na escala de cada setor e na escala completa. As outras coordenações adicionam as funções delas depois.</p>'+
+      '<label class="fld"><span>Título</span><input id="es-titulo" placeholder="Ex.: Festa de Nossa Senhora"></label>'+
       '<div class="fgrid">'+
         '<label class="fld"><span>Data</span><input id="es-data" type="date"></label>'+
         '<label class="fld"><span>Horário</span><input id="es-horario" type="time" value="10:00"></label>'+
         '<label class="fld"><span>Local</span><input id="es-local" value="Igreja Matriz"></label>'+
       '</div>'+
       '<label class="chk" style="margin-top:8px"><input type="checkbox" id="es-grande"><span>Evento grande/especial</span></label>'+
-      '<fieldset class="fset" style="margin-top:14px"><legend>Funções que precisam de voluntário</legend>'+
+      '<fieldset class="fset" style="margin-top:14px"><legend>Funções de '+esc(SETOR_NAME[currentSetor])+' que precisam de voluntário</legend>'+
         escalaFormSlots.map((s,i)=>
           '<div class="fgrid" style="align-items:end;margin-bottom:8px">'+
-            '<label class="fld"><span>Nome da função</span><input id="es-slot-rotulo-'+i+'" value="'+esc(s.rotulo)+'"></label>'+
-            '<label class="fld"><span>Tipo</span><select id="es-slot-tipo-'+i+'">'+Object.keys(SLOT_TIPO_NOME).map(t=>'<option value="'+t+'"'+(t===s.tipo?' selected':'')+'>'+SLOT_TIPO_NOME[t]+'</option>').join('')+'</select></label>'+
+            '<label class="fld"><span>Nome da função</span><input id="es-slot-rotulo-'+i+'" value="'+esc(s.rotulo)+'" placeholder="Ex.: Foto"></label>'+
             '<button type="button" class="btn small danger" data-action="removerSlotForm" data-i="'+i+'">Remover</button>'+
           '</div>'
         ).join('')+
         '<button type="button" class="btn small" data-action="adicionarSlotForm">+ Adicionar função</button>'+
       '</fieldset>'+
     '</div>'+
-    '<div class="m-foot"><span class="sp"></span><button class="btn" data-action="close">Cancelar</button><button class="btn primary" data-action="salvarEscala">Criar escala</button></div></div>';
+    '<div class="m-foot"><span class="sp"></span><button class="btn" data-action="close">Cancelar</button><button class="btn primary" data-action="salvarEscala">Criar evento</button></div></div>';
 }
 function abrirNovaEscala(){
-  escalaFormSlots=[{rotulo:'Foto',tipo:'FOTO'},{rotulo:'Vídeo',tipo:'VIDEO'},{rotulo:'Stories ao vivo',tipo:'STORIES_AO_VIVO'}];
+  escalaFormSlots=currentSetor==='redes_sociais'
+    ?[{rotulo:'Foto',tipo:'FOTO'},{rotulo:'Vídeo',tipo:'VIDEO'},{rotulo:'Stories ao vivo',tipo:'STORIES_AO_VIVO'}]
+    :currentSetor==='transmissoes_videos'?[{rotulo:'Transmissão',tipo:'TRANSMISSAO'}]
+    :[{rotulo:currentSetor==='datashow'?'Datashow':'',tipo:null}];
   const o=$('#overlay'); o.innerHTML=escalaModal(); o.hidden=false;
 }
 function reabrirEscalaModal(){ $('#overlay').innerHTML=escalaModal(); }
@@ -1261,10 +1335,11 @@ async function salvarEscala(){
   try{
     const dto=await api('/eventos',{method:'POST',body:JSON.stringify({
       titulo:titulo,data:data,horario:horario,local:local,eventoGrande:grande,
-      slots:slots.map(s=>({rotulo:s.rotulo.trim(),tipo:s.tipo}))
+      slots:slots.map(s=>({rotulo:s.rotulo.trim(),tipo:s.tipo||null,setor:currentSetor.toUpperCase()}))
     })});
     state.events.push(eventoFromApi(dto));
-    closeModal(); render(); toast('Escala criada!');
+    invalidarEscalaCompleta();
+    closeModal(); render(); toast('Evento criado na escala!');
   }catch(e){ toast(e.message,'warn'); }
 }
 async function gerarEscalasMes(){
@@ -1273,16 +1348,17 @@ async function gerarEscalasMes(){
     toast(r.eventosCriados>0?r.eventosCriados+' escala(s) de domingo criada(s)!':'Já estava tudo criado esse mês.');
     const eventos=await api('/eventos');
     state.events=eventos.map(eventoFromApi);
+    invalidarEscalaCompleta();
     render();
   }catch(e){ toast(e.message,'warn'); }
 }
 async function salvarSlotExistente(eventoId){
   const rotulo=$('#as-rotulo').value.trim();
-  const tipo=$('#as-tipo').value;
   if(!rotulo){toast('Dê um nome pra função.','warn');return;}
   try{
-    const dto=await api('/eventos/'+eventoId+'/slots',{method:'POST',body:JSON.stringify({rotulo:rotulo,tipo:tipo})});
+    const dto=await api('/eventos/'+eventoId+'/slots',{method:'POST',body:JSON.stringify({rotulo:rotulo,tipo:null,setor:currentSetor.toUpperCase()})});
     Object.assign(state.events.find(x=>x.id===eventoId),eventoFromApi(dto));
+    invalidarEscalaCompleta();
     addSlotEventoId=null;
     render(); toast('Função adicionada!');
   }catch(e){ toast(e.message,'warn'); }
@@ -1420,7 +1496,7 @@ function datashowModal(m){
       '<label class="fld"><span>Lista de músicas</span><textarea id="dm-musicas" rows="4" placeholder="Cole aqui a lista que a pastoral da música mandar">'+esc(m.musicas)+'</textarea></label>'+
       '<label class="fld" style="margin-top:10px"><span>Avisos de outras pastorais</span><textarea id="dm-avisos" rows="3" placeholder="Avisos, leituras especiais, momentos combinados...">'+esc(m.avisos)+'</textarea></label>'+
     '</div>'+
-    '<div class="m-foot">'+(m.id?'<button class="btn danger" data-action="delDatashow">Excluir missa</button>':'')+'<span class="sp"></span><button class="btn" data-action="close">Cancelar</button><button class="btn primary" data-action="saveDatashow">Salvar missa</button></div></div>';
+    '<div class="m-foot">'+(m.id&&coordenaSetor('datashow')?'<button class="btn danger" data-action="delDatashow">Excluir missa</button>':'')+'<span class="sp"></span><button class="btn" data-action="close">Cancelar</button><button class="btn primary" data-action="saveDatashow">Salvar missa</button></div></div>';
 }
 function closeModal(){const o=$('#overlay');o.hidden=true;o.innerHTML='';modalId=null;}
 function openDatashow(id){
@@ -1489,7 +1565,7 @@ function transmissaoModal(t){
       '<label class="fld" style="margin-top:10px"><span>Link da transmissão</span><input id="tm-link" value="'+esc(t.link)+'" placeholder="https://..."></label>'+
       '<label class="fld" style="margin-top:10px"><span>Capa (link do Canva/Drive)</span><input id="tm-capa" value="'+esc(t.capa)+'" placeholder="https://..."></label>'+
     '</div>'+
-    '<div class="m-foot">'+(t.id?'<button class="btn danger" data-action="delTransmissao">Excluir</button>':'')+'<span class="sp"></span><button class="btn" data-action="close">Cancelar</button><button class="btn primary" data-action="saveTransmissao">Salvar</button></div></div>';
+    '<div class="m-foot">'+(t.id&&coordenaSetor('transmissoes_videos')?'<button class="btn danger" data-action="delTransmissao">Excluir</button>':'')+'<span class="sp"></span><button class="btn" data-action="close">Cancelar</button><button class="btn primary" data-action="saveTransmissao">Salvar</button></div></div>';
 }
 function openTransmissao(id){
   modalId=id||null;
@@ -1863,6 +1939,7 @@ async function joinSlot(evId,slotId){
   try{
     const dto=await api('/eventos/'+evId+'/slots/'+slotId+'/inscrever',{method:'POST'});
     Object.assign(ev,eventoFromApi(dto));
+    invalidarEscalaCompleta();
     render(); toast('Presença confirmada em '+ev.title+'.');
   }catch(e){ toast(e.message,'warn'); }
 }
@@ -1871,6 +1948,7 @@ async function leaveSlot(evId,slotId){
   try{
     const dto=await api('/eventos/'+evId+'/slots/'+slotId+'/desinscrever',{method:'POST'});
     Object.assign(ev,eventoFromApi(dto));
+    invalidarEscalaCompleta();
     render(); toast('Vaga liberada.');
   }catch(e){ toast(e.message,'warn'); }
 }
@@ -1915,7 +1993,10 @@ document.addEventListener('click',e=>{
     case 'restaurar': restaurarItem(t.dataset.tipo,t.dataset.id); break;
     case 'openDatashow': openDatashow(id); break;
     case 'novaEscala': abrirNovaEscala(); break;
-    case 'adicionarSlotForm': sincronizarSlotFormDoDOM(); escalaFormSlots.push({rotulo:'',tipo:'FOTO'}); reabrirEscalaModal(); break;
+    case 'adicionarSlotForm': sincronizarSlotFormDoDOM(); escalaFormSlots.push({rotulo:'',tipo:null}); reabrirEscalaModal(); break;
+    case 'escalaAba': escalaAba=t.dataset.aba; addSlotEventoId=null; render(); break;
+    case 'escalaMes': escalaMes=shiftMes(escalaMes,Number(t.dataset.delta)); render(); break;
+    case 'baixarEscalaPdf': baixarEscalaPdf(); break;
     case 'removerSlotForm': sincronizarSlotFormDoDOM(); escalaFormSlots.splice(Number(t.dataset.i),1); reabrirEscalaModal(); break;
     case 'salvarEscala': salvarEscala(); break;
     case 'gerarEscalasMes': gerarEscalasMes(); break;

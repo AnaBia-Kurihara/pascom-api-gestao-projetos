@@ -48,6 +48,10 @@ public class InstagramService {
     private static final String GRAPH_BASE_URL = "https://graph.instagram.com/v21.0";
     private static final String METRICAS = "likes,comments,saved,shares,reach";
     private static final int MAX_PAGINAS_SYNC = 10; // até ~500 posts (limit=50/página) numa sincronização
+    private static final long INTERVALO_MINIMO_SYNC_MANUAL_MIN = 30;
+
+    /** Impede duas sincronizações rodando ao mesmo tempo (ex.: o agendamento e um clique manual). */
+    private final java.util.concurrent.atomic.AtomicBoolean sincronizando = new java.util.concurrent.atomic.AtomicBoolean(false);
 
     private final ContaInstagramRepository contaRepository;
     private final PostagemInstagramRepository postagemRepository;
@@ -104,8 +108,44 @@ public class InstagramService {
      */
     @Transactional
     public int sincronizarPosts() {
+        if (!sincronizando.compareAndSet(false, true)) {
+            throw new IllegalStateException("Já existe uma sincronização do Instagram em andamento. Aguarde ela terminar.");
+        }
+        try {
+            return executarSincronizacao();
+        } finally {
+            sincronizando.set(false);
+        }
+    }
+
+    /**
+     * Disparo manual (botão "Sincronizar agora"): só coordenação, e no máximo uma vez a cada
+     * {@link #INTERVALO_MINIMO_SYNC_MANUAL_MIN} minutos — cada sincronização faz centenas de
+     * chamadas à Graph API, e o limite de chamadas da Meta é por app.
+     */
+    @Transactional
+    public int sincronizarManualmente(Usuario solicitante) {
+        if (!solicitante.isCoordenacao()) {
+            throw new IllegalStateException("Apenas coordenadores podem disparar a sincronização do Instagram. Ela já roda sozinha a cada 6 horas.");
+        }
+        ContaInstagram conta = contaRepository.findById(ContaInstagram.ID_UNICO)
+                .orElseThrow(() -> new IllegalStateException("Nenhuma conta do Instagram conectada."));
+        LocalDateTime ultima = conta.getUltimaSincronizacaoEm();
+        if (ultima != null) {
+            LocalDateTime liberaEm = ultima.plusMinutes(INTERVALO_MINIMO_SYNC_MANUAL_MIN);
+            if (LocalDateTime.now().isBefore(liberaEm)) {
+                long faltam = Math.max(1, java.time.Duration.between(LocalDateTime.now(), liberaEm).toMinutes());
+                throw new IllegalStateException("O Instagram foi sincronizado há pouco. Tente de novo em " + faltam + " minuto(s).");
+            }
+        }
+        return sincronizarPosts();
+    }
+
+    private int executarSincronizacao() {
         ContaInstagram conta = contaRepository.findById(ContaInstagram.ID_UNICO).orElse(null);
         if (conta == null) return 0;
+        conta.setUltimaSincronizacaoEm(LocalDateTime.now());
+        contaRepository.save(conta);
         String token = criptografiaService.decriptar(conta.getAccessTokenCriptografado());
 
         List<MediaItem> todos = new ArrayList<>();

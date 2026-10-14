@@ -17,7 +17,7 @@ public class AutenticacaoService implements UserDetailsService {
 
     @Override
     public UserDetails loadUserByUsername(String email) {
-        return usuarioRepository.findByEmail(email)
+        return usuarioRepository.findByEmail(br.org.pascom.model.Usuario.normalizarEmail(email))
                 .orElseThrow(() -> new UsernameNotFoundException("Usuário não encontrado."));
     }
 }

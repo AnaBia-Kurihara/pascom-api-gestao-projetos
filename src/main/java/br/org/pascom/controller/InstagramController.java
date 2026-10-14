@@ -45,8 +45,8 @@ public class InstagramController {
 
     /** Dispara na hora uma leitura completa dos posts da conta (a mesma que roda sozinha a cada 6h). */
     @PostMapping("/sincronizar")
-    public ResponseEntity<Map<String, Integer>> sincronizar() {
-        int novos = instagramService.sincronizarPosts();
+    public ResponseEntity<Map<String, Integer>> sincronizar(@AuthenticationPrincipal Usuario solicitante) {
+        int novos = instagramService.sincronizarManualmente(solicitante);
         return ResponseEntity.ok(Map.of("postsNovos", novos));
     }
 

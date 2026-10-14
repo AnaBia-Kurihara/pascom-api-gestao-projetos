@@ -2,11 +2,13 @@ package br.org.pascom.controller;
 
 import br.org.pascom.dto.TransmissaoRequestDTO;
 import br.org.pascom.dto.TransmissaoResponseDTO;
+import br.org.pascom.model.Usuario;
 import br.org.pascom.model.enums.EtapaTransmissao;
 import br.org.pascom.service.TransmissaoService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.YearMonth;
@@ -44,15 +46,16 @@ public class TransmissaoController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deletar(@PathVariable Long id) {
-        transmissaoService.deletar(id);
+    public ResponseEntity<Void> deletar(@PathVariable Long id, @AuthenticationPrincipal Usuario solicitante) {
+        transmissaoService.deletar(id, solicitante);
         return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/gerar-mes")
-    public ResponseEntity<Map<String, Integer>> gerarDoMes(@RequestParam(required = false) String mes) {
+    public ResponseEntity<Map<String, Integer>> gerarDoMes(@RequestParam(required = false) String mes,
+                                                           @AuthenticationPrincipal Usuario solicitante) {
         YearMonth alvo = mes != null ? YearMonth.parse(mes) : YearMonth.now();
-        int criados = transmissaoService.gerarTransmissoesDominicaisDoMes(alvo);
+        int criados = transmissaoService.gerarTransmissoesDominicaisDoMes(alvo, solicitante);
         return ResponseEntity.ok(Map.of("transmissoesCriadas", criados));
     }
 }

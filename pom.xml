@@ -70,6 +70,12 @@
             <version>2.4.240</version>
             <scope>runtime</scope>
         </dependency>
+        <!-- Geração do PDF da escala completa (fork LGPL/MPL do iText 2, sem dependências extras) -->
+        <dependency>
+            <groupId>com.github.librepdf</groupId>
+            <artifactId>openpdf</artifactId>
+            <version>1.3.30</version>
+        </dependency>
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>

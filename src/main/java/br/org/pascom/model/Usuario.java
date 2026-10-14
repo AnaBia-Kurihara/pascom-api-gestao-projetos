@@ -63,21 +63,48 @@ public class Usuario implements UserDetails {
     @JsonIgnore
     private LocalDateTime resetSenhaExpiraEm;
 
-    // E-mail da desenvolvedora da aplicação — por pedido dela, tem sempre os mesmos poderes
-    // de Coordenador Geral em todo o sistema, mesmo cadastrada como Coordenadora de um setor.
-    private static final String EMAIL_DESENVOLVEDORA = "bibia.oliveira.kurihara@gmail.com";
-
-    /** true para quem é COORDENADOR_GERAL de verdade, ou para a desenvolvedora da aplicação. */
+    /**
+     * Flag de administrador (ex.: a desenvolvedora da aplicação): dá os mesmos poderes de
+     * Coordenador Geral em todo o sistema, independente do papel/setor cadastrado. Fica só no
+     * banco — nunca é definida pela API pública; é ligada na inicialização a partir da env var
+     * ADMIN_EMAILS (ver InicializacaoDados) ou direto no banco.
+     */
+    @Column(name = "admin_sistema", columnDefinition = "boolean default false")
     @JsonIgnore
-    public boolean temPoderesDeCoordenadorGeral() {
-        return role == Role.COORDENADOR_GERAL
-                || (email != null && email.equalsIgnoreCase(EMAIL_DESENVOLVEDORA));
+    private Boolean admin;
+
+    /** Padrão único de e-mail no sistema: sem espaços nas pontas e sempre em minúsculas. */
+    public static String normalizarEmail(String email) {
+        return email == null ? null : email.trim().toLowerCase(java.util.Locale.ROOT);
     }
 
-    /** true para Coordenador(a) de setor, Coordenador(a) Geral, ou a desenvolvedora — quem pode marcar a conferência doutrinária de um cartão. */
+    @JsonIgnore
+    public boolean isAdmin() {
+        return Boolean.TRUE.equals(admin);
+    }
+
+    /** true para quem é COORDENADOR_GERAL de verdade, ou para quem tem a flag admin. */
+    @JsonIgnore
+    public boolean temPoderesDeCoordenadorGeral() {
+        return role == Role.COORDENADOR_GERAL || isAdmin();
+    }
+
+    /** true para Coordenador(a) de setor, Coordenador(a) Geral ou admin. */
+    @JsonIgnore
+    public boolean isCoordenacao() {
+        return role == Role.COORDENADOR || temPoderesDeCoordenadorGeral();
+    }
+
+    /** true se a pessoa coordena o setor informado (ou tem poderes de Coordenador Geral, que coordena todos). */
+    @JsonIgnore
+    public boolean coordenaSetor(Setor alvo) {
+        return temPoderesDeCoordenadorGeral() || (role == Role.COORDENADOR && setor != null && setor == alvo);
+    }
+
+    /** Quem pode marcar a conferência doutrinária de um cartão. */
     @JsonIgnore
     public boolean podeConferirDoutrina() {
-        return role == Role.COORDENADOR || temPoderesDeCoordenadorGeral();
+        return isCoordenacao();
     }
 
     @Override

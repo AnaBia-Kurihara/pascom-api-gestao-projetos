@@ -2,11 +2,13 @@ package br.org.pascom.controller;
 
 import br.org.pascom.dto.MissaDatashowRequestDTO;
 import br.org.pascom.dto.MissaDatashowResponseDTO;
+import br.org.pascom.model.Usuario;
 import br.org.pascom.model.enums.EtapaDatashow;
 import br.org.pascom.service.DatashowService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -42,8 +44,8 @@ public class DatashowController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deletar(@PathVariable Long id) {
-        datashowService.deletar(id);
+    public ResponseEntity<Void> deletar(@PathVariable Long id, @AuthenticationPrincipal Usuario solicitante) {
+        datashowService.deletar(id, solicitante);
         return ResponseEntity.noContent().build();
     }
 }

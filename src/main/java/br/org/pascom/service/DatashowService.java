@@ -5,6 +5,7 @@ import br.org.pascom.dto.MissaDatashowResponseDTO;
 import br.org.pascom.model.MissaDatashow;
 import br.org.pascom.model.Usuario;
 import br.org.pascom.model.enums.EtapaDatashow;
+import br.org.pascom.model.enums.Setor;
 import br.org.pascom.repository.MissaDatashowRepository;
 import br.org.pascom.repository.UsuarioRepository;
 import org.springframework.stereotype.Service;
@@ -50,8 +51,12 @@ public class DatashowService {
         return MissaDatashowResponseDTO.from(missaRepository.save(missa));
     }
 
+    /** Exclusão definitiva — só coordenação do Datashow (ou Coordenador Geral). */
     @Transactional
-    public void deletar(Long id) {
+    public void deletar(Long id, Usuario solicitante) {
+        if (!solicitante.coordenaSetor(Setor.DATASHOW)) {
+            throw new IllegalStateException("Apenas a coordenação do Datashow (ou o Coordenador Geral) pode excluir uma missa.");
+        }
         missaRepository.delete(buscarPorId(id));
     }
 

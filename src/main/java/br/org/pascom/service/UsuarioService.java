@@ -46,7 +46,8 @@ public class UsuarioService {
 
     @Transactional
     public UsuarioResponseDTO cadastrar(UsuarioCadastroDTO dados) {
-        if (usuarioRepository.findByEmail(dados.email()).isPresent()) {
+        String email = Usuario.normalizarEmail(dados.email());
+        if (usuarioRepository.findByEmail(email).isPresent()) {
             throw new IllegalStateException("Já existe uma conta com este e-mail.");
         }
 
@@ -60,7 +61,7 @@ public class UsuarioService {
 
         Usuario usuario = Usuario.builder()
                 .nome(dados.nome())
-                .email(dados.email())
+                .email(email)
                 .senha(passwordEncoder.encode(dados.senha()))
                 .funcao(dados.funcao())
                 .disponibilidade(dados.disponibilidade())
@@ -75,7 +76,7 @@ public class UsuarioService {
 
     public LoginResponseDTO login(String email, String senha) {
         Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(email, senha));
+                new UsernamePasswordAuthenticationToken(Usuario.normalizarEmail(email), senha));
 
         Usuario usuario = (Usuario) authentication.getPrincipal();
         String token = tokenService.gerarToken(usuario);
@@ -98,7 +99,7 @@ public class UsuarioService {
     @Transactional
     public void esqueciSenha(String email) {
         // Não revela se o e-mail existe ou não — sempre "sucesso" do ponto de vista de quem pediu.
-        usuarioRepository.findByEmail(email).ifPresent(usuario -> {
+        usuarioRepository.findByEmail(Usuario.normalizarEmail(email)).ifPresent(usuario -> {
             usuario.setResetSenhaToken(UUID.randomUUID().toString());
             usuario.setResetSenhaExpiraEm(LocalDateTime.now().plusHours(1));
             usuarioRepository.save(usuario);
@@ -125,14 +126,16 @@ public class UsuarioService {
     public GoogleAuthResponseDTO autenticarComGoogle(GoogleAuthDTO dados) {
         GoogleTokenService.GoogleClaims claims = googleTokenService.verificar(dados.idToken());
 
-        var existente = usuarioRepository.findByEmail(claims.email());
+        String email = Usuario.normalizarEmail(claims.email());
+
+        var existente = usuarioRepository.findByEmail(email);
         if (existente.isPresent()) {
             return new GoogleAuthResponseDTO(false, null, null, loginResponse(existente.get()));
         }
 
         if (dados.role() == null) {
             // Conta nova: o front ainda precisa perguntar papel + setor antes de criar de verdade.
-            return new GoogleAuthResponseDTO(true, claims.nome(), claims.email(), null);
+            return new GoogleAuthResponseDTO(true, claims.nome(), email, null);
         }
 
         if (dados.role() == Role.COORDENADOR_GERAL && usuarioRepository.existsByRole(Role.COORDENADOR_GERAL)) {
@@ -144,7 +147,7 @@ public class UsuarioService {
 
         Usuario usuario = Usuario.builder()
                 .nome(claims.nome())
-                .email(claims.email())
+                .email(email)
                 // Contas via Google não usam senha própria — gera uma aleatória só pra satisfazer a coluna.
                 .senha(passwordEncoder.encode(UUID.randomUUID().toString()))
                 .funcao(dados.funcao())

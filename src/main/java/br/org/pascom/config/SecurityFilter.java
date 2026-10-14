@@ -33,7 +33,7 @@ public class SecurityFilter extends OncePerRequestFilter {
         if (token != null) {
             String email = tokenService.validarTokenERetornarEmail(token);
             if (email != null) {
-                UserDetails usuario = usuarioRepository.findByEmail(email).orElse(null);
+                UserDetails usuario = usuarioRepository.findByEmail(br.org.pascom.model.Usuario.normalizarEmail(email)).orElse(null);
                 if (usuario != null) {
                     var authentication = new UsernamePasswordAuthenticationToken(usuario, null, usuario.getAuthorities());
                     SecurityContextHolder.getContext().setAuthentication(authentication);

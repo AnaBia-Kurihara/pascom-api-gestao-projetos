@@ -48,7 +48,7 @@ public class EventoController {
         if (!solicitante.temPoderesDeCoordenadorGeral()) {
             throw new IllegalStateException("Apenas o Coordenador Geral pode gerar as escalas do mês.");
         }
-        YearMonth alvo = mes != null ? YearMonth.parse(mes) : YearMonth.now();
+        YearMonth alvo = mes != null ? YearMonth.parse(mes) : YearMonth.now(java.time.ZoneId.of(br.org.pascom.service.CalendarioService.FUSO));
         int criados = eventoService.gerarEscalasDominicaisDoMes(alvo);
         return ResponseEntity.ok(Map.of("eventosCriados", criados));
     }
@@ -59,8 +59,9 @@ public class EventoController {
     }
 
     @PostMapping("/{eventoId}/slots/{slotId}/desinscrever")
-    public ResponseEntity<EventoDTO> desinscrever(@PathVariable Long eventoId, @PathVariable Long slotId) {
-        return ResponseEntity.ok(eventoService.desinscreverVoluntario(eventoId, slotId));
+    public ResponseEntity<EventoDTO> desinscrever(@PathVariable Long eventoId, @PathVariable Long slotId,
+                                                  @AuthenticationPrincipal Usuario solicitante) {
+        return ResponseEntity.ok(eventoService.desinscreverVoluntario(eventoId, slotId, solicitante));
     }
 
     @GetMapping("/lixeira")

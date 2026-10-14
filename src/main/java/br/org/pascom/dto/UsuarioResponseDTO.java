@@ -12,12 +12,15 @@ public record UsuarioResponseDTO(
         Setor setor,
         String funcao,
         String disponibilidade,
-        Integer avatarHue
+        Integer avatarHue,
+        /** true pra COORDENADOR_GERAL ou admin — o front usa isso em vez de comparar e-mail. */
+        boolean poderesCoordenadorGeral
 ) {
     public static UsuarioResponseDTO from(Usuario u) {
         return new UsuarioResponseDTO(
                 u.getId(), u.getNome(), u.getEmail(), u.getRole(), u.getSetor(),
-                u.getFuncao(), u.getDisponibilidade(), u.getAvatarHue()
+                u.getFuncao(), u.getDisponibilidade(), u.getAvatarHue(),
+                u.temPoderesDeCoordenadorGeral()
         );
     }
 

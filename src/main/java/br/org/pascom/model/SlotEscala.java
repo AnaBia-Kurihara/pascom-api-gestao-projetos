@@ -1,5 +1,6 @@
 package br.org.pascom.model;
 
+import br.org.pascom.model.enums.Setor;
 import br.org.pascom.model.enums.SlotTipo;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank; // ← faltava esta linha
@@ -21,8 +22,13 @@ public class SlotEscala {
     @NotBlank
     private String rotulo;
 
+    /** Opcional: só as funções "clássicas" de cobertura (Foto, Vídeo...) têm um tipo; o rótulo é o que aparece pra equipe. */
     @Enumerated(EnumType.STRING)
     private SlotTipo tipo;
+
+    /** Setor responsável por essa função. Null = função geral, aberta a qualquer setor. */
+    @Enumerated(EnumType.STRING)
+    private Setor setor;
 
     @ManyToOne
     @JoinColumn(name = "voluntario_id")

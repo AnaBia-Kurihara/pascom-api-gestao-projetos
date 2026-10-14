@@ -43,4 +43,7 @@ public class ContaInstagram {
     private LocalDateTime conectadoEm;
 
     private LocalDateTime tokenExpiraEm;
+
+    /** Quando a última sincronização (automática ou manual) começou — usado pra limitar disparos manuais. */
+    private LocalDateTime ultimaSincronizacaoEm;
 }

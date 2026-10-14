@@ -251,7 +251,7 @@ public class AgenteService {
                 + "está acontecendo dentro do espaço do setor " + setorAtual + " — toda ideia que você salvar (criar_ideia) "
                 + "entra automaticamente nesse setor, não precisa perguntar qual setor usar. "
                 + "Você pode criar eventos no calendário (ferramenta criar_evento) — eventos são compartilhados entre todos "
-                + "os setores, mas só o Coordenador Geral tem permissão de criar; se a ferramenta devolver um erro de "
+                + "os setores, mas só coordenadores (de setor ou o Coordenador Geral) têm permissão de criar; se a ferramenta devolver um erro de "
                 + "permissão, explique isso com gentileza e não insista. Você pode sugerir e salvar ideias de conteúdo "
                 + "(criar_ideia) — isso qualquer pessoa pode fazer. Antes de criar várias coisas de uma vez (ex.: várias "
                 + "datas de santos do mês), use listar_eventos pra conferir o que já existe e não duplicar. Quando o pedido "

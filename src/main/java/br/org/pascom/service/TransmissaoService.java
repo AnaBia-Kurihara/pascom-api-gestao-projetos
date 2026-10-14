@@ -5,6 +5,7 @@ import br.org.pascom.dto.TransmissaoResponseDTO;
 import br.org.pascom.model.Transmissao;
 import br.org.pascom.model.Usuario;
 import br.org.pascom.model.enums.EtapaTransmissao;
+import br.org.pascom.model.enums.Setor;
 import br.org.pascom.model.enums.TipoTransmissao;
 import br.org.pascom.repository.TransmissaoRepository;
 import br.org.pascom.repository.UsuarioRepository;
@@ -57,9 +58,24 @@ public class TransmissaoService {
         return TransmissaoResponseDTO.from(transmissaoRepository.save(t));
     }
 
+    /** Exclusão definitiva — só coordenação de Transmissões/Vídeos (ou Coordenador Geral). */
     @Transactional
-    public void deletar(Long id) {
+    public void deletar(Long id, Usuario solicitante) {
+        exigirCoordenacaoTransmissoes(solicitante, "excluir uma transmissão");
         transmissaoRepository.delete(buscarPorId(id));
+    }
+
+    /** Disparo manual da geração do mês — mesma regra da exclusão. */
+    @Transactional
+    public int gerarTransmissoesDominicaisDoMes(YearMonth mes, Usuario solicitante) {
+        exigirCoordenacaoTransmissoes(solicitante, "gerar as transmissões do mês");
+        return gerarTransmissoesDominicaisDoMes(mes);
+    }
+
+    private void exigirCoordenacaoTransmissoes(Usuario solicitante, String acao) {
+        if (!solicitante.coordenaSetor(Setor.TRANSMISSOES_VIDEOS)) {
+            throw new IllegalStateException("Apenas a coordenação de Transmissões/Vídeos (ou o Coordenador Geral) pode " + acao + ".");
+        }
     }
 
     /**
@@ -88,10 +104,10 @@ public class TransmissaoService {
     }
 
     /** Roda no dia 1 de cada mês às 6h: garante que os domingos do mês já têm transmissão planejada. */
-    @Scheduled(cron = "0 0 6 1 * *")
+    @Scheduled(cron = "0 0 6 1 * *", zone = "America/Sao_Paulo")
     public void gerarTransmissoesDoMesAgendado() {
         try {
-            gerarTransmissoesDominicaisDoMes(YearMonth.now());
+            gerarTransmissoesDominicaisDoMes(YearMonth.now(java.time.ZoneId.of("America/Sao_Paulo")));
         } catch (Exception ignorada) {
             // não deve travar a aplicação; dá pra gerar manualmente depois
         }

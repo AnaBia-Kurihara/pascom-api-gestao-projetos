@@ -50,6 +50,9 @@ api:
 app:
   # URL pública onde o front-end está servido — usada para montar o link de redefinição de senha no e-mail.
   base-url: ${APP_BASE_URL:http://localhost:8080}
+  # E-mails (separados por vírgula) que recebem a flag "admin" (poderes de Coordenador Geral) ao subir a
+  # aplicação. Fica fora do código de propósito — defina a env var ADMIN_EMAILS no Railway / localmente.
+  admin-emails: ${ADMIN_EMAILS:}
 
 ---
 # Perfil de produção (ativado com SPRING_PROFILES_ACTIVE=prod): usa Postgres de verdade
