@@ -19,6 +19,10 @@
 
     <properties>
         <java.version>17</java.version>
+        <!-- Sobrescreve o Flyway 9 gerenciado pelo Boot 3.2, que não suporta o PostgreSQL 18 do Railway.
+             Não passar da série 11.x enquanto o Boot for 3.2: o Flyway 12+ removeu cleanOnValidationError,
+             que a autoconfiguração do Boot 3.2 chama, e a aplicação nem sobe. -->
+        <flyway.version>11.20.3</flyway.version>
     </properties>
 
     <dependencies>
@@ -63,6 +67,12 @@
         <dependency>
             <groupId>org.flywaydb</groupId>
             <artifactId>flyway-core</artifactId>
+        </dependency>
+        <!-- A partir do Flyway 10 o suporte a cada banco vem num módulo separado -->
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-database-postgresql</artifactId>
+            <version>${flyway.version}</version>
         </dependency>
         <dependency>
             <groupId>com.h2database</groupId>
