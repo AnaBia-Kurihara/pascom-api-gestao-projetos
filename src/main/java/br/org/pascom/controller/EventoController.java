@@ -27,8 +27,8 @@ public class EventoController {
     }
 
     @GetMapping
-    public ResponseEntity<List<EventoDTO>> listarTodos() {
-        return ResponseEntity.ok(eventoService.listarTodos());
+    public ResponseEntity<List<EventoDTO>> listarTodos(@AuthenticationPrincipal Usuario solicitante) {
+        return ResponseEntity.ok(eventoService.listarTodos(solicitante));
     }
 
     @PostMapping
@@ -72,6 +72,29 @@ public class EventoController {
         return ResponseEntity.ok(eventoService.inscreverVoluntario(eventoId, slotId, voluntario));
     }
 
+    /** "Quero servir": candidatura a uma função do setor (a coordenação escala e publica). */
+    @PostMapping("/{eventoId}/slots/{slotId}/candidatura")
+    public ResponseEntity<EventoDTO> candidatar(@PathVariable Long eventoId, @PathVariable Long slotId,
+                                                @AuthenticationPrincipal Usuario voluntario) {
+        return ResponseEntity.ok(eventoService.candidatar(eventoId, slotId, voluntario));
+    }
+
+    @DeleteMapping("/{eventoId}/slots/{slotId}/candidatura")
+    public ResponseEntity<EventoDTO> desistir(@PathVariable Long eventoId, @PathVariable Long slotId,
+                                              @AuthenticationPrincipal Usuario voluntario) {
+        return ResponseEntity.ok(eventoService.desistirCandidatura(eventoId, slotId, voluntario));
+    }
+
+    /** Corpo: {"usuarioId": 12}. Coordenação do setor da função põe ou troca a pessoa. */
+    @PostMapping("/{eventoId}/slots/{slotId}/escalar")
+    public ResponseEntity<EventoDTO> escalar(@PathVariable Long eventoId, @PathVariable Long slotId,
+                                             @RequestBody Map<String, Long> corpo,
+                                             @AuthenticationPrincipal Usuario solicitante) {
+        Long usuarioId = corpo.get("usuarioId");
+        if (usuarioId == null) throw new IllegalArgumentException("Escolha quem vai servir.");
+        return ResponseEntity.ok(eventoService.escalar(eventoId, slotId, usuarioId, solicitante));
+    }
+
     @PostMapping("/{eventoId}/slots/{slotId}/desinscrever")
     public ResponseEntity<EventoDTO> desinscrever(@PathVariable Long eventoId, @PathVariable Long slotId,
                                                   @AuthenticationPrincipal Usuario solicitante) {
@@ -79,8 +102,8 @@ public class EventoController {
     }
 
     @GetMapping("/lixeira")
-    public ResponseEntity<List<EventoDTO>> listarLixeira() {
-        return ResponseEntity.ok(eventoService.listarLixeira());
+    public ResponseEntity<List<EventoDTO>> listarLixeira(@AuthenticationPrincipal Usuario solicitante) {
+        return ResponseEntity.ok(eventoService.listarLixeira(solicitante));
     }
 
     @PostMapping("/{id}/lixeira")

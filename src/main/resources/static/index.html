@@ -239,6 +239,18 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center;justify-conten
 .mem h3 .pill{vertical-align:middle;font-size:11px}
 .mem-link{display:inline-block;margin-top:8px;font-size:13px}
 .so-setor{font-size:12px;color:var(--ink3);white-space:nowrap}
+.slot-acts{display:flex;gap:6px;flex:none}
+.slot-mais{flex-wrap:wrap}
+.cands,.escalar-form{flex:1 1 100%;display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding-top:6px}
+.cands-k{font-size:12px;color:var(--ink3);margin-right:2px}
+.cand{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--tint);border-radius:99px;padding:3px 10px 3px 3px;font-size:12.5px;color:var(--ink)}
+.cand b{color:var(--brand);font-weight:600}
+.cand:hover{border-color:var(--brand)}
+.escalar-form select{flex:1 1 180px;min-width:0;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:7px 10px;color:var(--ink);font-size:15px}
+.cand-ok{color:var(--green);border-color:var(--green)}
+.pub-bar{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 14px;margin:0 0 14px}
+.pub-row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:4px 0}
+.aviso-montagem{background:var(--tint);border-radius:12px;padding:10px 14px;margin:0 0 14px;font-size:14px;color:var(--ink2)}
 .eq-h{font-size:18px;margin:22px 0 12px;display:flex;align-items:baseline;gap:8px}
 .eq-h:first-of-type{margin-top:6px}
 .eq-h small{font-family:var(--sans);font-size:13px;color:var(--ink3);font-weight:500}
@@ -732,7 +744,10 @@ function ideiaFromApi(i){
 function eventoFromApi(e){
   return {
     id:String(e.id), title:e.titulo, date:e.data, time:(e.horario||'').slice(0,5), place:e.local, big:!!e.eventoGrande,
-    slots:(e.slots||[]).map(s=>({id:String(s.id), label:s.rotulo, tipo:s.tipo, setor:s.setor?SETOR_FROM_API[s.setor]:null, who:s.voluntarioId!=null?String(s.voluntarioId):null})),
+    slots:(e.slots||[]).map(s=>({id:String(s.id), label:s.rotulo, tipo:s.tipo, setor:s.setor?SETOR_FROM_API[s.setor]:null, who:s.voluntarioId!=null?String(s.voluntarioId):null,
+      // Escala com candidatura: a coordenação monta em sigilo e publica por mês/setor.
+      publicada:s.publicada!==false, oculto:!!s.oculto, euCand:!!s.euMeCandidatei,
+      candidatos:s.candidatos?s.candidatos.map(c=>String(c.id)):null})),
     excluidoEm:e.excluidoEm||null, motivoExclusao:e.motivoExclusao||null, detalheExclusao:e.detalheExclusao||null
   };
 }
@@ -1033,7 +1048,7 @@ function minhasEscalas(){
 }
 function eventosComVagaNoSetor(){
   const h=hojeISO();
-  return state.events.filter(e=>e.date>=h&&e.slots.some(s=>doSetorAtual(s)&&!s.who))
+  return state.events.filter(e=>e.date>=h&&e.slots.some(s=>doSetorAtual(s)&&!s.who&&!s.oculto))
     .sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
 }
 function minhasEscalasPanelHtml(){
@@ -1047,7 +1062,7 @@ function minhasEscalasPanelHtml(){
 function vagasPanelHtml(){
   const evs=eventosComVagaNoSetor().slice(0,5);
   return '<section class="panel"><h2>Vagas abertas em '+esc(SETOR_NAME[currentSetor])+'</h2><div class="rows">'+
-    (evs.length?evs.map(e=>{const n=e.slots.filter(s=>doSetorAtual(s)&&!s.who).length;
+    (evs.length?evs.map(e=>{const n=e.slots.filter(s=>doSetorAtual(s)&&!s.who&&!s.oculto).length;
       return '<button class="row" data-action="nav" data-view="escalas">'+dbadgeHtml(e.date)+'<div class="rt">'+esc(e.title)+'<small class="rt-sub">'+cap(parse(e.date).toLocaleDateString('pt-BR',{weekday:'long'}))+', '+e.time+'</small></div><span class="pill warn">'+n+(n>1?' vagas':' vaga')+'</span></button>';}).join('')
       :'<div class="empty">Nenhuma vaga aberta em '+esc(SETOR_NAME[currentSetor])+' por enquanto.</div>')+
   '</div></section>';
@@ -1057,9 +1072,10 @@ function viewPainelEscala(){
   const prox=state.events.filter(e=>e.date>=hojeISO()&&e.slots.some(doSetorAtual)).sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time))[0];
   let hero='';
   if(prox){
-    const d=parse(prox.date), vag=prox.slots.filter(s=>doSetorAtual(s)&&!s.who).length, euVou=prox.slots.some(s=>s.who===state.me);
+    const d=parse(prox.date), vag=prox.slots.filter(s=>doSetorAtual(s)&&!s.who&&!s.oculto).length, euVou=prox.slots.some(s=>s.who===state.me);
+    const montagem=prox.slots.some(s=>doSetorAtual(s)&&s.oculto), cand=prox.slots.some(s=>s.euCand);
     hero='<section class="hero hero-escala"><div><small class="hero-k">Próxima missa de '+esc(SETOR_NAME[currentSetor])+'</small><h2>'+cap(d.toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long'}))+', '+prox.time+'</h2>'+
-      '<p>'+esc(prox.title)+' · '+(euVou?'você está escalado(a)':vag?vag+(vag>1?' vagas abertas':' vaga aberta'):'escala completa')+'</p></div>'+
+      '<p>'+esc(prox.title)+' · '+(euVou?'você está escalado(a)':montagem?(cand?'escala em montagem, você se candidatou':'escala em montagem, candidate-se'):vag?vag+(vag>1?' vagas abertas':' vaga aberta'):'escala completa')+'</p></div>'+
       '<div class="hero-act"><button class="btn gold" data-action="nav" data-view="escalas">Ver escala</button></div></section>';
   }
   return hero+'<div class="cols"><div>'+minhasEscalasPanelHtml()+vagasPanelHtml()+'</div><div>'+timePainelHtml()+'</div></div>';
@@ -1423,6 +1439,7 @@ function viewIdeias(){
 const SLOT_TIPO_NOME={FOTO:'Foto',VIDEO:'Vídeo',STORIES_AO_VIVO:'Stories ao vivo',TRANSMISSAO:'Transmissão'};
 let addSlotEventoId=null; // id do evento com o mini-form de "+ função" aberto
 let editSlotKey=null; // 'idEvento:idFuncao' da função sendo renomeada
+let escalarKey=null; // 'idEvento:idFuncao' com o seletor "Escalar" aberto
 // Mesma regra do backend (EventoService.exigirPodeEditarFuncao): Coordenação Geral mexe em tudo;
 // coordenador de setor, só nas funções do próprio setor.
 const podeEditarFuncao=s=>s.setor?coordenaSetor(s.setor):isCoordenadorGeral();
@@ -1461,7 +1478,7 @@ function viewEscalas(){
     .filter(e=>e.slots.some(doSetor)||(podeEditarSetor&&!/^missa das \d{1,2}h(\d{2})?$/i.test((e.title||'').trim())))
     .sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
   // Filtro rápido: todas / só onde ainda falta gente / só onde eu estou.
-  const comVaga=e=>e.slots.some(s=>doSetor(s)&&!s.who), minha=e=>e.slots.some(s=>s.who===state.me);
+  const comVaga=e=>e.slots.some(s=>doSetor(s)&&!s.who), minha=e=>e.slots.some(s=>s.who===state.me||s.euCand);
   const n={todas:evs.length,vagas:evs.filter(comVaga).length,minhas:evs.filter(minha).length};
   const filtrados=escalaFiltro==='vagas'?evs.filter(comVaga):escalaFiltro==='minhas'?evs.filter(minha):evs;
   const chips='<div class="dash-tabs chips-esc">'+[['todas','Todas'],['vagas','Com vaga'],['minhas','Minhas']].map(x=>
@@ -1469,26 +1486,66 @@ function viewEscalas(){
   const coord=(podeCriar||isCoordenadorGeral())?'<div class="filters" style="margin-bottom:12px">'+
     (podeCriar?'<button class="btn primary" data-action="novaEscala">+ Evento extra com escala</button>':'')+
     (isCoordenadorGeral()?'<button class="btn" data-action="gerarEscalasMes">Gerar missas do mês</button>':'')+'</div>':'';
-  const como='<details class="como"><summary>Como funciona a escala</summary><p>Todo mês a escala começa nova, sem ninguém escalado: a Missa das 10h de cada domingo e, só pro Datashow, a Missa das 16h de cada sábado entram sozinhas, já com as funções de cada setor. Toque em <b>Eu vou</b> na vaga que você quer.'+(podeEditarSetor?' Como coordenação, você pode renomear, remover ou adicionar funções de '+esc(SETOR_NAME[currentSetor])+' em cada missa.':'')+(podeCriar?' Se tiver outro evento que precise de gente, marque como evento extra.':'')+'</p></details>';
+  const como='<details class="como"><summary>Como funciona a escala</summary><p>Todo mês a escala começa nova: as missas de domingo (e, pro Datashow, as das 8h, 18h30 e a de sábado às 16h) entram sozinhas, já com as funções de cada setor. '+
+    (podeEditarSetor
+      ?'Enquanto a escala do mês está <b>em montagem</b>, só a coordenação vê quem foi escalado: veja os candidatos de cada função, toque em <b>Escalar</b> ou <b>Trocar</b> e, quando estiver pronta, <b>publique</b>. Você também pode renomear, remover ou adicionar funções de '+esc(SETOR_NAME[currentSetor])+'.'
+      :'Toque em <b>Quero servir</b> nas funções em que você pode servir. A coordenação escolhe quem fica em cada uma e, quando a escala for <b>publicada</b>, ela aparece aqui pra todo mundo.')+
+    (podeCriar?' Se tiver outro evento que precise de gente, marque como evento extra.':'')+'</p></details>';
   const naoFaz=me()&&!pertenceSetor(me(),currentSetor)?'<div class="aviso-equipe"><span>Você ainda não faz parte de <b>'+esc(SETOR_NAME[currentSetor])+'</b>, então não pode se inscrever nas vagas daqui. Se você também serve neste setor, adicione ele no seu perfil.</span><button class="btn small primary" data-action="abrirPerfil">Ir pro meu perfil</button></div>':'';
-  const acoes=naoFaz+chips+coord+como;
+  // Status de cada mês da lista (em montagem / publicada) pro setor atual.
+  const meses={};
+  evs.forEach(e=>e.slots.filter(s=>s.setor===currentSetor).forEach(s=>{const m=e.date.slice(0,7); if(!(m in meses)) meses[m]=s.publicada;}));
+  const mesesKeys=Object.keys(meses).sort();
+  const statusMeses=!mesesKeys.length?'':podeEditarSetor
+    ?'<div class="pub-bar">'+mesesKeys.map(m=>'<div class="pub-row"><span><b>'+esc(nomeMes(m))+'</b> <span class="pill '+(meses[m]?'ok':'warn')+'">'+(meses[m]?'Publicada':'Em montagem')+'</span></span>'+
+        (meses[m]?'<button class="btn small" data-action="despublicarMes" data-mes="'+m+'">Voltar pra montagem</button>':'<button class="btn small primary" data-action="publicarMes" data-mes="'+m+'">Publicar escala</button>')+'</div>').join('')+
+      '<p class="note" style="margin:6px 0 0">Enquanto está em montagem, só a coordenação vê os nomes. Publicou, a equipe vê a escala final.</p></div>'
+    :(mesesKeys.some(m=>!meses[m])?'<div class="aviso-montagem">A escala de <b>'+mesesKeys.filter(m=>!meses[m]).map(nomeMes).join(' e ')+'</b> está em montagem. Toque em <b>Quero servir</b> nas funções em que você pode; a coordenação escolhe e publica.</div>':'');
+  const acoes=naoFaz+chips+coord+statusMeses+como;
   const rodape=pdfBarHtml(currentSetor);
   const vazio=escalaFiltro==='minhas'?'Você ainda não está em nenhuma escala de '+esc(SETOR_NAME[currentSetor])+'.':escalaFiltro==='vagas'?'Nenhuma vaga aberta em '+esc(SETOR_NAME[currentSetor])+' agora.':'Nenhuma escala aberta pra '+esc(SETOR_NAME[currentSetor])+' por enquanto.';
   if(!filtrados.length) return escalaTabsHtml()+acoes+'<div class="empty">'+vazio+'</div>'+rodape;
   return escalaTabsHtml()+acoes+'<div class="evs">'+filtrados.map(e=>{
     const slots=e.slots.filter(doSetor);
-    const open=slots.filter(s=>!s.who).length, d=parse(e.date);
+    const open=slots.filter(s=>!s.who&&!s.oculto).length, d=parse(e.date);
+    const montagem=slots.length&&slots.every(s=>s.oculto);
     const joined=e.slots.some(s=>s.who===state.me);
-    return '<article class="ev'+(e.big?' big':'')+'"><div class="ev-h"><div class="dbadge"><b>'+d.getDate()+'</b><span>'+d.toLocaleDateString('pt-BR',{month:'short'}).replace('.','')+'</span></div><div style="flex:1;min-width:120px"><h3>'+esc(e.title)+'</h3><small>'+cap(d.toLocaleDateString('pt-BR',{weekday:'long'}))+', '+e.time+' no '+esc(e.place)+'</small></div><div class="ev-h-actions">'+(slots.length?'<span class="pill '+(open?'warn':'ok')+'">'+(open?open+(open>1?' vagas':' vaga'):'Completa')+'</span>':'')+
+    const pillEv=!slots.length?'':montagem?'<span class="pill">Em montagem</span>':'<span class="pill '+(open?'warn':'ok')+'">'+(open?open+(open>1?' vagas':' vaga'):'Completa')+'</span>';
+    return '<article class="ev'+(e.big?' big':'')+'"><div class="ev-h"><div class="dbadge"><b>'+d.getDate()+'</b><span>'+d.toLocaleDateString('pt-BR',{month:'short'}).replace('.','')+'</span></div><div style="flex:1;min-width:120px"><h3>'+esc(e.title)+'</h3><small>'+cap(d.toLocaleDateString('pt-BR',{weekday:'long'}))+', '+e.time+' no '+esc(e.place)+'</small></div><div class="ev-h-actions">'+pillEv+
       (isCoordenadorGeral()?'<button class="btn small danger" data-action="excluirEvento" data-id="'+e.id+'" title="Excluir escala">Excluir</button>':'')+'</div></div>'+
       (slots.length?slots.map(s=>{
-        let act='';
-        // "Eu vou" só nas vagas dos setores da pessoa (mesma regra do backend); função geral é de todos.
+        let act='', extra='';
         const podeEntrar=!s.setor||pertenceSetor(me(),s.setor);
-        if(!s.who) act=joined?'':podeEntrar?'<button class="btn small primary" data-action="join" data-ev="'+e.id+'" data-slot="'+s.id+'">Eu vou</button>':'<span class="so-setor">Só pra '+esc(SETOR_NAME[s.setor])+'</span>';
-        else if(podeTirarDaEscala(s.who)) act='<button class="btn small" data-action="leave" data-ev="'+e.id+'" data-slot="'+s.id+'">'+(s.who===state.me?'Sair':'Tirar da escala')+'</button>';
-        const whoMem=s.who?mem(s.who):null;
         const key=e.id+':'+s.id, editavel=podeEditarFuncao(s);
+        const ds=' data-ev="'+e.id+'" data-slot="'+s.id+'"';
+        const candBtn=()=>!podeEntrar?'<span class="so-setor">Só pra '+esc(SETOR_NAME[s.setor])+'</span>'
+          :s.euCand?'<button class="btn small cand-ok" data-action="desistir"'+ds+' title="Toque pra desistir">✓ Me candidatei</button>'
+          :'<button class="btn small primary" data-action="candidatar"'+ds+'>Quero servir</button>';
+        if(!s.setor){
+          // Função geral: continua com "Eu vou" direto.
+          if(!s.who) act=joined?'':'<button class="btn small primary" data-action="join"'+ds+'>Eu vou</button>';
+          else if(podeTirarDaEscala(s.who)) act='<button class="btn small" data-action="leave"'+ds+'>'+(s.who===state.me?'Sair':'Tirar da escala')+'</button>';
+        }else if(editavel){
+          // Coordenação: escala, troca ou tira; vê quem se candidatou.
+          act=s.who?'<button class="btn small" data-action="abrirEscalar"'+ds+'>Trocar</button><button class="btn small" data-action="leave"'+ds+'>Tirar</button>'
+                   :'<button class="btn small primary" data-action="abrirEscalar"'+ds+'>Escalar</button>';
+          const cands=(s.candidatos||[]).filter(id=>id!==s.who);
+          if(cands.length) extra+='<div class="cands"><span class="cands-k">Candidatos:</span>'+cands.map(id=>{const m=mem(id);return m?'<button type="button" class="cand" data-action="escalarCand" data-usuario="'+id+'"'+ds+' title="Escalar '+esc(m.nome)+'">'+avatar(id)+'<span>'+esc(m.nome.split(' ').slice(0,2).join(' '))+'</span><b>Escalar</b></button>':'';}).join('')+'</div>';
+          if(escalarKey===key){
+            const candSet=s.candidatos||[];
+            const ops=membrosDoSetor(s.setor).filter(m=>m.id!==s.who).sort((a,b)=>(candSet.indexOf(b.id)>-1)-(candSet.indexOf(a.id)>-1));
+            extra+='<div class="escalar-form"><select id="escalar-sel" aria-label="Quem vai servir">'+ops.map(m=>'<option value="'+m.id+'">'+(candSet.indexOf(m.id)>-1?'★ ':'')+esc(m.nome)+'</option>').join('')+'</select>'+
+              '<button class="btn small primary" data-action="confirmarEscalar"'+ds+'>Escalar</button><button class="btn small" data-action="fecharEscalar">Cancelar</button></div>';
+          }
+        }else if(s.oculto){
+          // Voluntário com a escala em montagem: não vê nomes, só se candidata.
+          act=candBtn();
+        }else{
+          // Escala publicada: vê quem está; ainda pode se candidatar a função livre.
+          if(s.who===state.me) act='<button class="btn small" data-action="leave"'+ds+'>Sair</button>';
+          else if(!s.who) act=candBtn();
+        }
+        const whoMem=s.who?mem(s.who):null;
         if(editavel&&editSlotKey===key){
           return '<div class="slot slot-edit"><input id="es-rename" value="'+esc(s.label)+'" maxlength="80" aria-label="Novo nome da função">'+
             '<button class="btn small primary" data-action="salvarRenomeSlot" data-ev="'+e.id+'" data-slot="'+s.id+'">Salvar</button>'+
@@ -1497,7 +1554,8 @@ function viewEscalas(){
         const ferramentas=editavel?'<span class="slot-tools">'+
           '<button type="button" class="icon-btn" data-action="renomearSlot" data-ev="'+e.id+'" data-slot="'+s.id+'" title="Renomear função" aria-label="Renomear '+esc(s.label)+'"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4zM14 6l4 4"/></svg></button>'+
           '<button type="button" class="icon-btn" data-action="removerSlot" data-ev="'+e.id+'" data-slot="'+s.id+'" title="Remover função" aria-label="Remover '+esc(s.label)+'"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></span>':'';
-        return '<div class="slot"><span class="sl">'+esc(s.label)+ferramentas+'</span><span class="sw">'+(whoMem?avatar(s.who)+esc(whoMem.nome):'<span class="muted">Vaga aberta</span>')+'</span>'+act+'</div>';
+        const quem=whoMem?avatar(s.who)+esc(whoMem.nome):s.oculto?'<span class="muted">Em montagem</span>':'<span class="muted">Vaga aberta</span>';
+        return '<div class="slot'+(extra?' slot-mais':'')+'"><span class="sl">'+esc(s.label)+ferramentas+'</span><span class="sw">'+quem+'</span><span class="slot-acts">'+act+'</span>'+extra+'</div>';
       }).join(''):'<div class="slot"><span class="muted">Nenhuma função de '+esc(SETOR_NAME[currentSetor])+' neste evento ainda.</span></div>')+
       (podeEditarSetor?'<div style="padding:0 16px 12px"><button type="button" class="btn small" style="margin-top:8px" data-action="toggleAddSlot" data-ev="'+e.id+'">'+(addSlotEventoId===e.id?'Cancelar':'+ função de '+esc(SETOR_NAME[currentSetor]))+'</button></div>'+addSlotFormHtml(e.id):'')+
     '</article>';
@@ -1532,7 +1590,7 @@ function viewEscalaCompleta(){
     return '<article class="ev'+(e.eventoGrande?' big':'')+'"><div class="ev-h"><div class="dbadge"><b>'+d.getDate()+'</b><span>'+d.toLocaleDateString('pt-BR',{month:'short'}).replace('.','')+'</span></div><div style="flex:1;min-width:120px"><h3>'+esc(e.titulo)+'</h3><small>'+cap(d.toLocaleDateString('pt-BR',{weekday:'long'}))+', '+(e.horario||'').slice(0,5)+' no '+esc(e.local)+'</small></div><div class="ev-h-actions"><span class="pill '+(e.vagasAbertas?'warn':'ok')+'">'+(e.vagasAbertas?e.vagasAbertas+(e.vagasAbertas>1?' vagas':' vaga'):'Completa')+'</span></div></div>'+
       e.setores.map(g=>'<div class="slot-grp">'+esc(g.nomeSetor)+'</div>'+g.funcoes.map(f=>{
         const quem=f.voluntarioId!=null?String(f.voluntarioId):null;
-        return '<div class="slot"><span class="sl">'+esc(f.rotulo)+'</span><span class="sw">'+(f.voluntarioNome?(mem(quem)?avatar(quem):'')+esc(f.voluntarioNome):'<span class="muted">Vaga aberta</span>')+'</span></div>';
+        return '<div class="slot"><span class="sl">'+esc(f.rotulo)+'</span><span class="sw">'+(f.voluntarioNome?(mem(quem)?avatar(quem):'')+esc(f.voluntarioNome):'<span class="muted">'+(f.oculto?'Em montagem':'Vaga aberta')+'</span>')+'</span></div>';
       }).join('')).join('')+
     '</article>';
   }).join('')+'</div>';
@@ -2452,8 +2510,24 @@ async function recarregarEventos(){
   try{
     state.events=(await api('/eventos')).map(eventoFromApi);
     invalidarEscalaCompleta();
-    if(view==='escalas'&&!editSlotKey&&!addSlotEventoId&&$('#overlay').hidden) render();
+    if(view==='escalas'&&!editSlotKey&&!addSlotEventoId&&!escalarKey&&$('#overlay').hidden) render();
   }catch(_){}
+}
+async function acaoEscala(evId,caminho,metodo,corpo,msg){
+  const ev=state.events.find(x=>x.id===evId);
+  try{
+    const dto=await api('/eventos/'+evId+'/slots/'+caminho,{method:metodo,body:corpo?JSON.stringify(corpo):undefined});
+    Object.assign(ev,eventoFromApi(dto)); invalidarEscalaCompleta(); escalarKey=null; render(); if(msg) toast(msg);
+  }catch(e){ toast(e.message,'warn'); escalarKey=null; await recarregarEventos(); }
+}
+async function publicarMes(mes,publicar){
+  const nome=nomeMes(mes);
+  if(publicar&&!confirm('Publicar a escala de '+SETOR_NAME[currentSetor]+' de '+nome+'? A equipe passa a ver quem foi escalado.')) return;
+  try{
+    await api('/escalas/'+(publicar?'publicar':'despublicar')+'?mes='+mes+'&setor='+currentSetor.toUpperCase(),{method:'POST'});
+    await recarregarEventos(); render();
+    toast(publicar?'Escala de '+nome+' publicada!':'Escala de '+nome+' voltou pra montagem.');
+  }catch(e){ toast(e.message,'warn'); }
 }
 async function leaveSlot(evId,slotId){
   const ev=state.events.find(x=>x.id===evId);
@@ -2567,6 +2641,14 @@ document.addEventListener('click',e=>{
     case 'adopt': adoptIdeia(id); break;
     case 'addIdea': addIdea(); break;
     case 'join': joinSlot(t.dataset.ev,t.dataset.slot); break;
+    case 'candidatar': acaoEscala(t.dataset.ev,t.dataset.slot+'/candidatura','POST',null,'Candidatura enviada! A coordenação monta a escala e publica.'); break;
+    case 'desistir': acaoEscala(t.dataset.ev,t.dataset.slot+'/candidatura','DELETE',null,'Candidatura retirada.'); break;
+    case 'abrirEscalar': escalarKey=t.dataset.ev+':'+t.dataset.slot; render(); break;
+    case 'fecharEscalar': escalarKey=null; render(); break;
+    case 'confirmarEscalar': {const sel=$('#escalar-sel'); if(sel&&sel.value) acaoEscala(t.dataset.ev,t.dataset.slot+'/escalar','POST',{usuarioId:Number(sel.value)},'Pessoa escalada.'); break;}
+    case 'escalarCand': acaoEscala(t.dataset.ev,t.dataset.slot+'/escalar','POST',{usuarioId:Number(t.dataset.usuario)},'Pessoa escalada.'); break;
+    case 'publicarMes': publicarMes(t.dataset.mes,true); break;
+    case 'despublicarMes': publicarMes(t.dataset.mes,false); break;
     case 'leave': leaveSlot(t.dataset.ev,t.dataset.slot); break;
     case 'copy': {
       const txt=TEMPLATES[t.dataset.key].texto;

@@ -208,7 +208,7 @@ public class AgenteService {
 
     private Map<String, Object> listarEventos() {
         LocalDate hoje = LocalDate.now();
-        List<String> resumo = eventoService.listarTodos().stream()
+        List<String> resumo = eventoService.listarTodos(null).stream()
                 .filter(e -> !e.data().isBefore(hoje))
                 .sorted(Comparator.comparing(EventoDTO::data))
                 .map(e -> e.data() + " " + e.horario() + " - " + e.titulo() + " (" + e.local() + ")")

@@ -58,6 +58,11 @@ public class InicializacaoDados {
             int criados = eventoService.garantirEscalasDoMesAtualEProximo();
             if (criados > 0) log.info("Escalas automáticas (domingos e sábados) criadas na inicialização: {}", criados);
         });
+        executarComSeguranca("publicar a escala do mês em uso", () -> {
+            if (eventoService.publicarMesAtualSeNuncaPublicou()) {
+                log.info("Primeira vez com publicação de escala: mês atual publicado pra todos os setores.");
+            }
+        });
     }
 
     private void normalizarEmails() {

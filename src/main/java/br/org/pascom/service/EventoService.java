@@ -5,15 +5,22 @@ import br.org.pascom.dto.EventoDTO;
 import br.org.pascom.dto.EventoRequestDTO;
 import br.org.pascom.dto.SlotEscalaDTO;
 import br.org.pascom.dto.SlotEscalaRequestDTO;
+import br.org.pascom.dto.UsuarioResponseDTO;
+import br.org.pascom.dto.UsuarioResumoDTO;
+import br.org.pascom.model.CandidaturaEscala;
 import br.org.pascom.model.Evento;
+import br.org.pascom.model.PublicacaoEscala;
 import br.org.pascom.model.SlotEscala;
 import br.org.pascom.model.Usuario;
 import br.org.pascom.model.enums.MotivoExclusao;
 import br.org.pascom.model.enums.Role;
 import br.org.pascom.model.enums.Setor;
 import br.org.pascom.model.enums.SlotTipo;
+import br.org.pascom.repository.CandidaturaEscalaRepository;
 import br.org.pascom.repository.EventoRepository;
+import br.org.pascom.repository.PublicacaoEscalaRepository;
 import br.org.pascom.repository.SlotEscalaRepository;
+import br.org.pascom.repository.UsuarioRepository;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,9 +31,14 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.YearMonth;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 public class EventoService {
@@ -63,7 +75,11 @@ public class EventoService {
                     new FuncaoPadrao(Setor.TRANSMISSOES_VIDEOS, "Corte da transmissão", SlotTipo.TRANSMISSAO),
                     new FuncaoPadrao(Setor.TRANSMISSOES_VIDEOS, "Auxiliar de corte", null),
                     new FuncaoPadrao(Setor.DATASHOW, "Datashow", null))),
-            // Sábado só o Datashow opera.
+            // Nas outras missas de domingo e no sábado, só o Datashow opera.
+            new MissaAutomatica(DayOfWeek.SUNDAY, "Missa das 8h", LocalTime.of(8, 0), List.of(
+                    new FuncaoPadrao(Setor.DATASHOW, "Datashow", null))),
+            new MissaAutomatica(DayOfWeek.SUNDAY, "Missa das 18h30", LocalTime.of(18, 30), List.of(
+                    new FuncaoPadrao(Setor.DATASHOW, "Datashow", null))),
             new MissaAutomatica(DayOfWeek.SATURDAY, TITULO_MISSA_SABADO, HORARIO_MISSA_SABADO, List.of(
                     new FuncaoPadrao(Setor.DATASHOW, "Datashow", null)))
     );
@@ -74,20 +90,32 @@ public class EventoService {
     private final EventoRepository eventoRepository;
     private final SlotEscalaRepository slotEscalaRepository;
     private final CalendarioService calendarioService;
+    private final CandidaturaEscalaRepository candidaturaRepository;
+    private final PublicacaoEscalaRepository publicacaoRepository;
+    private final UsuarioRepository usuarioRepository;
 
     public EventoService(EventoRepository eventoRepository, SlotEscalaRepository slotEscalaRepository,
-                         CalendarioService calendarioService) {
+                         CalendarioService calendarioService, CandidaturaEscalaRepository candidaturaRepository,
+                         PublicacaoEscalaRepository publicacaoRepository, UsuarioRepository usuarioRepository) {
         this.eventoRepository = eventoRepository;
         this.slotEscalaRepository = slotEscalaRepository;
         this.calendarioService = calendarioService;
+        this.candidaturaRepository = candidaturaRepository;
+        this.publicacaoRepository = publicacaoRepository;
+        this.usuarioRepository = usuarioRepository;
     }
 
-    public List<EventoDTO> listarTodos() {
-        return eventoRepository.findByExcluidoEmIsNull().stream().map(this::toDTO).toList();
+    /** @param viewer quem está vendo (define o que fica oculto); null = ninguém em especial, tudo em montagem fica oculto */
+    public List<EventoDTO> listarTodos(Usuario viewer) {
+        List<Evento> eventos = eventoRepository.findByExcluidoEmIsNull();
+        Visao v = visao(viewer, eventos);
+        return eventos.stream().map(e -> toDTO(e, v)).toList();
     }
 
-    public List<EventoDTO> listarLixeira() {
-        return eventoRepository.findByExcluidoEmIsNotNullOrderByExcluidoEmDesc().stream().map(this::toDTO).toList();
+    public List<EventoDTO> listarLixeira(Usuario viewer) {
+        List<Evento> eventos = eventoRepository.findByExcluidoEmIsNotNullOrderByExcluidoEmDesc();
+        Visao v = visao(viewer, eventos);
+        return eventos.stream().map(e -> toDTO(e, v)).toList();
     }
 
     /**
@@ -122,7 +150,7 @@ public class EventoService {
             evento.setSlots(slots);
         }
 
-        return toDTO(eventoRepository.save(evento));
+        return toDTO(eventoRepository.save(evento), solicitante);
     }
 
     @Transactional
@@ -135,6 +163,13 @@ public class EventoService {
 
         if (!slot.getEvento().getId().equals(eventoId)) {
             throw new IllegalArgumentException("Esse slot não pertence a este evento.");
+        }
+
+        // Antes de qualquer outra checagem, pra não revelar se a função (em montagem) já tem alguém.
+        // Função de setor é por candidatura: a coordenação escala e publica. "Eu vou" direto só
+        // nas funções gerais (sem setor).
+        if (slot.getSetor() != null) {
+            throw new IllegalStateException("Nessa função é por candidatura: toque em \"Quero servir\" e a coordenação monta a escala.");
         }
 
         if (slot.getVoluntario() != null) {
@@ -159,7 +194,7 @@ public class EventoService {
             throw new IllegalStateException("Alguém acabou de pegar essa vaga. Escolha outra.");
         }
 
-        return toDTO(eventoRepository.findById(eventoId).orElseThrow());
+        return toDTO(eventoRepository.findById(eventoId).orElseThrow(), voluntario);
     }
 
     /** Coordenador de setor só adiciona funções do próprio setor; Coordenador Geral, de qualquer setor. */
@@ -180,7 +215,7 @@ public class EventoService {
                 .build();
         slotEscalaRepository.save(slot);
 
-        return toDTO(eventoRepository.findById(eventoId).orElseThrow());
+        return toDTO(eventoRepository.findById(eventoId).orElseThrow(), solicitante);
     }
 
     /**
@@ -196,7 +231,7 @@ public class EventoService {
         }
         slot.setRotulo(rotulo.trim());
         slotEscalaRepository.save(slot);
-        return toDTO(eventoRepository.findById(eventoId).orElseThrow());
+        return toDTO(eventoRepository.findById(eventoId).orElseThrow(), solicitante);
     }
 
     /** Remove uma função da escala (mesma regra de permissão do {@link #renomearSlot}). */
@@ -204,10 +239,11 @@ public class EventoService {
     public EventoDTO removerSlot(Long eventoId, Long slotId, Usuario solicitante) {
         SlotEscala slot = slotDoEvento(eventoId, slotId);
         exigirPodeEditarFuncao(slot, solicitante);
+        candidaturaRepository.apagarDoSlot(slot);
         Evento evento = slot.getEvento();
         evento.getSlots().remove(slot);
         eventoRepository.save(evento);
-        return toDTO(eventoRepository.findById(eventoId).orElseThrow());
+        return toDTO(eventoRepository.findById(eventoId).orElseThrow(), solicitante);
     }
 
     private SlotEscala slotDoEvento(Long eventoId, Long slotId) {
@@ -227,6 +263,110 @@ public class EventoService {
         if (slot.getSetor() == null || slot.getSetor() != solicitante.getSetor()) {
             throw new IllegalStateException("Você só pode alterar as funções do seu setor.");
         }
+    }
+
+    /** "Quero servir": a pessoa se candidata a uma função do setor dela. */
+    @Transactional
+    public EventoDTO candidatar(Long eventoId, Long slotId, Usuario voluntario) {
+        SlotEscala slot = slotDoEvento(eventoId, slotId);
+        if (slot.getSetor() == null) {
+            throw new IllegalStateException("Essa é uma função geral: toque em \"Eu vou\".");
+        }
+        if (!voluntario.fazParteDoSetor(slot.getSetor())) {
+            throw new IllegalStateException("Essa função é de " + nomeSetor(slot.getSetor())
+                    + ". Se você também serve nesse setor, adicione ele no seu perfil.");
+        }
+        if (slot.getEvento().getData().isBefore(calendarioService.hoje())) {
+            throw new IllegalStateException("Essa missa já passou.");
+        }
+        Set<String> publicados = publicacaoRepository.findByMesAndSetor(
+                YearMonth.from(slot.getEvento().getData()).toString(), slot.getSetor()).isPresent()
+                ? Set.of(chavePublicacao(slot.getEvento().getData(), slot.getSetor())) : Set.of();
+        if (publicada(slot, publicados) && slot.getVoluntario() != null
+                && !slot.getVoluntario().getId().equals(voluntario.getId())) {
+            throw new IllegalStateException("Essa função já está preenchida nesta escala.");
+        }
+        if (candidaturaRepository.findBySlotIdAndUsuarioId(slotId, voluntario.getId()).isEmpty()) {
+            candidaturaRepository.save(CandidaturaEscala.builder()
+                    .slot(slot).usuario(voluntario).criadaEm(LocalDateTime.now()).build());
+        }
+        return toDTO(eventoRepository.findById(eventoId).orElseThrow(), voluntario);
+    }
+
+    @Transactional
+    public EventoDTO desistirCandidatura(Long eventoId, Long slotId, Usuario voluntario) {
+        slotDoEvento(eventoId, slotId);
+        candidaturaRepository.findBySlotIdAndUsuarioId(slotId, voluntario.getId())
+                .ifPresent(candidaturaRepository::delete);
+        return toDTO(eventoRepository.findById(eventoId).orElseThrow(), voluntario);
+    }
+
+    /**
+     * A coordenação põe (ou troca) a pessoa numa função. Só quem coordena o setor da função (ou a
+     * Coordenação Geral); a pessoa tem que fazer parte do setor e não pode estar em outra função
+     * do mesmo evento.
+     */
+    @Transactional
+    public EventoDTO escalar(Long eventoId, Long slotId, Long usuarioId, Usuario solicitante) {
+        SlotEscala slot = slotDoEvento(eventoId, slotId);
+        if (!coordenaFuncao(slot, solicitante)) {
+            throw new IllegalStateException("Só a coordenação do setor pode montar a escala dessa função.");
+        }
+        Usuario pessoa = usuarioRepository.findById(usuarioId)
+                .orElseThrow(() -> new IllegalArgumentException("Pessoa não encontrada."));
+        if (slot.getSetor() != null && !pessoa.fazParteDoSetor(slot.getSetor())) {
+            throw new IllegalStateException(pessoa.getNome() + " não faz parte de " + nomeSetor(slot.getSetor()) + ".");
+        }
+        slot.getEvento().getSlots().stream()
+                .filter(o -> !o.getId().equals(slot.getId()) && o.getVoluntario() != null
+                        && o.getVoluntario().getId().equals(pessoa.getId()))
+                .findFirst()
+                .ifPresent(o -> {
+                    throw new IllegalStateException(pessoa.getNome() + " já está em \"" + o.getRotulo() + "\" nesta missa.");
+                });
+        slot.setVoluntario(pessoa);
+        slotEscalaRepository.save(slot);
+        return toDTO(eventoRepository.findById(eventoId).orElseThrow(), solicitante);
+    }
+
+    /** Publica a escala de um setor num mês: a partir daí a equipe vê quem foi escalado. */
+    @Transactional
+    public void publicar(YearMonth mes, Setor setor, Usuario solicitante) {
+        exigirCoordenaSetor(setor, solicitante);
+        if (publicacaoRepository.findByMesAndSetor(mes.toString(), setor).isEmpty()) {
+            publicacaoRepository.save(PublicacaoEscala.builder()
+                    .mes(mes.toString()).setor(setor).publicadaEm(LocalDateTime.now()).publicadaPor(solicitante).build());
+        }
+    }
+
+    /** Volta a escala pra "em montagem" (ex.: publicou cedo demais). */
+    @Transactional
+    public void despublicar(YearMonth mes, Setor setor, Usuario solicitante) {
+        exigirCoordenaSetor(setor, solicitante);
+        publicacaoRepository.findByMesAndSetor(mes.toString(), setor).ifPresent(publicacaoRepository::delete);
+    }
+
+    private void exigirCoordenaSetor(Setor setor, Usuario solicitante) {
+        if (setor == null) throw new IllegalArgumentException("Informe o setor.");
+        if (!solicitante.coordenaSetor(setor)) {
+            throw new IllegalStateException("Só a coordenação de " + nomeSetor(setor) + " pode publicar essa escala.");
+        }
+    }
+
+    /**
+     * Na primeira vez que o sistema roda com candidatura/publicação, a escala do mês atual já
+     * estava em uso (gente escalada pelo "Eu vou"), então ela entra publicada pra não sumir da
+     * tela de ninguém. Os meses seguintes começam em montagem.
+     */
+    @Transactional
+    public boolean publicarMesAtualSeNuncaPublicou() {
+        if (publicacaoRepository.count() > 0) return false;
+        String mes = YearMonth.from(calendarioService.hoje()).toString();
+        for (Setor setor : Setor.values()) {
+            publicacaoRepository.save(PublicacaoEscala.builder()
+                    .mes(mes).setor(setor).publicadaEm(LocalDateTime.now()).build());
+        }
+        return true;
     }
 
     /**
@@ -267,7 +407,7 @@ public class EventoService {
         slot.setVoluntario(null);
         slotEscalaRepository.save(slot);
 
-        return toDTO(eventoRepository.findById(eventoId).orElseThrow());
+        return toDTO(eventoRepository.findById(eventoId).orElseThrow(), solicitante);
     }
 
     /**
@@ -369,8 +509,8 @@ public class EventoService {
 
     /** Escala completa do mês: todos os eventos com escala, com as funções agrupadas por setor. */
     @Transactional(readOnly = true)
-    public EscalaCompletaDTO escalaCompleta(YearMonth mes) {
-        return escalaCompleta(mes, null);
+    public EscalaCompletaDTO escalaCompleta(YearMonth mes, Usuario viewer) {
+        return escalaCompleta(mes, null, viewer);
     }
 
     /**
@@ -378,10 +518,11 @@ public class EventoService {
      * mostra as funções do setor e as funções gerais (as mesmas que aparecem na aba "Escala de
      * <setor>" do front), e eventos sem nenhuma dessas funções ficam de fora.
      */
-    public EscalaCompletaDTO escalaCompleta(YearMonth mes, Setor setor) {
+    public EscalaCompletaDTO escalaCompleta(YearMonth mes, Setor setor, Usuario viewer) {
         List<Evento> eventos = eventoRepository.findByDataBetweenAndExcluidoEmIsNullOrderByDataAscHorarioAsc(
                 mes.atDay(1), mes.atEndOfMonth());
 
+        Visao v = visao(viewer, eventos);
         List<Setor> ordem = new ArrayList<>();
         if (setor == null) {
             ordem.addAll(List.of(Setor.values()));
@@ -392,7 +533,7 @@ public class EventoService {
         ordem.add(null);
 
         List<EscalaCompletaDTO.EventoEscala> itens = eventos.stream()
-                .map(e -> toEventoEscala(e, ordem))
+                .map(e -> toEventoEscala(e, ordem, v))
                 .filter(e -> !e.setores().isEmpty())
                 .toList();
 
@@ -400,18 +541,19 @@ public class EventoService {
                 calendarioService.domingosDoMes(mes), itens);
     }
 
-    private EscalaCompletaDTO.EventoEscala toEventoEscala(Evento e, List<Setor> ordem) {
+    private EscalaCompletaDTO.EventoEscala toEventoEscala(Evento e, List<Setor> ordem, Visao v) {
         List<EscalaCompletaDTO.GrupoSetor> grupos = new ArrayList<>();
         int vagas = 0;
         for (Setor setor : ordem) {
             List<SlotEscalaDTO> funcoes = e.getSlots().stream()
                     .filter(s -> Objects.equals(s.getSetor(), setor))
                     .sorted(Comparator.comparing(SlotEscala::getId, Comparator.nullsLast(Comparator.naturalOrder())))
-                    .map(this::toSlotDTO)
+                    .map(sl -> toSlotDTO(sl, v))
                     .toList();
             if (!funcoes.isEmpty()) {
                 grupos.add(new EscalaCompletaDTO.GrupoSetor(setor, nomeSetor(setor), funcoes));
-                vagas += (int) funcoes.stream().filter(f -> f.voluntarioId() == null).count();
+                // Função oculta (escala em montagem) não conta como vaga aberta pra quem está vendo.
+                vagas += (int) funcoes.stream().filter(f -> f.voluntarioId() == null && !f.oculto()).count();
             }
         }
         return new EscalaCompletaDTO.EventoEscala(
@@ -451,7 +593,7 @@ public class EventoService {
         evento.setExcluidoEm(LocalDateTime.now());
         evento.setMotivoExclusao(motivo);
         evento.setDetalheExclusao(detalhe);
-        return toDTO(eventoRepository.save(evento));
+        return toDTO(eventoRepository.save(evento), solicitante);
     }
 
     @Transactional
@@ -467,22 +609,72 @@ public class EventoService {
         evento.setExcluidoEm(null);
         evento.setMotivoExclusao(null);
         evento.setDetalheExclusao(null);
-        return toDTO(eventoRepository.save(evento));
+        return toDTO(eventoRepository.save(evento), solicitante);
     }
 
-    private SlotEscalaDTO toSlotDTO(SlotEscala s) {
+    /**
+     * O que cada pessoa pode ver da escala, calculado uma vez por resposta: quais (mês, setor) já
+     * foram publicados e as candidaturas das funções envolvidas.
+     */
+    private record Visao(Usuario viewer, Set<String> publicados, Map<Long, List<CandidaturaEscala>> candidaturas) {}
+
+    private Visao visao(Usuario viewer, Collection<Evento> eventos) {
+        Set<String> publicados = publicacaoRepository.findAll().stream()
+                .map(p -> p.getMes() + "|" + p.getSetor().name())
+                .collect(Collectors.toCollection(HashSet::new));
+        List<Long> slotIds = eventos.stream().flatMap(e -> e.getSlots().stream()).map(SlotEscala::getId)
+                .filter(Objects::nonNull).toList();
+        Map<Long, List<CandidaturaEscala>> cands = slotIds.isEmpty() ? Map.of()
+                : candidaturaRepository.findBySlotIdIn(slotIds).stream()
+                    .collect(Collectors.groupingBy(c -> c.getSlot().getId()));
+        return new Visao(viewer, publicados, cands);
+    }
+
+    private static String chavePublicacao(LocalDate data, Setor setor) {
+        return YearMonth.from(data) + "|" + setor.name();
+    }
+
+    /** Função geral (sem setor) não passa por montagem/publicação. */
+    private static boolean publicada(SlotEscala s, Set<String> publicados) {
+        return s.getSetor() == null || publicados.contains(chavePublicacao(s.getEvento().getData(), s.getSetor()));
+    }
+
+    /** Quem monta a escala da função: coordenação do setor ou Coordenação Geral (função geral: só a Geral). */
+    private static boolean coordenaFuncao(SlotEscala s, Usuario u) {
+        if (u == null) return false;
+        return s.getSetor() == null ? u.temPoderesDeCoordenadorGeral() : u.coordenaSetor(s.getSetor());
+    }
+
+    private SlotEscalaDTO toSlotDTO(SlotEscala s, Visao v) {
+        boolean publicada = publicada(s, v.publicados());
+        boolean coord = coordenaFuncao(s, v.viewer());
+        boolean oculto = !publicada && !coord;
+        List<CandidaturaEscala> cands = v.candidaturas().getOrDefault(s.getId(), List.of());
+        boolean euMe = v.viewer() != null && cands.stream().anyMatch(c -> c.getUsuario().getId().equals(v.viewer().getId()));
+        List<UsuarioResumoDTO> candidatos = coord
+                ? cands.stream().map(c -> UsuarioResponseDTO.resumo(c.getUsuario())).toList()
+                : null;
+        Usuario quem = oculto ? null : s.getVoluntario();
         return new SlotEscalaDTO(
                 s.getId(),
                 s.getRotulo(),
                 s.getTipo(),
-                s.getVoluntario() != null ? s.getVoluntario().getId() : null,
-                s.getVoluntario() != null ? s.getVoluntario().getNome() : null,
-                s.getSetor()
+                quem != null ? quem.getId() : null,
+                quem != null ? quem.getNome() : null,
+                s.getSetor(),
+                publicada,
+                oculto,
+                euMe,
+                candidatos
         );
     }
 
-    private EventoDTO toDTO(Evento e) {
-        List<SlotEscalaDTO> slotsDto = e.getSlots().stream().map(this::toSlotDTO).toList();
+    private EventoDTO toDTO(Evento e, Usuario viewer) {
+        return toDTO(e, visao(viewer, List.of(e)));
+    }
+
+    private EventoDTO toDTO(Evento e, Visao v) {
+        List<SlotEscalaDTO> slotsDto = e.getSlots().stream().map(sl -> toSlotDTO(sl, v)).toList();
 
         return new EventoDTO(
                 e.getId(), e.getTitulo(), e.getData(), e.getHorario(),

@@ -72,6 +72,7 @@ public class EscalaPdfService {
     private static final Font SETOR = new Font(Font.HELVETICA, 9, Font.BOLD, AZUL_PROFUNDO);
     private static final Font FUNCAO = new Font(Font.HELVETICA, 8.5f, Font.NORMAL, TEXTO);
     private static final Font NOME = new Font(Font.HELVETICA, 9, Font.NORMAL, TEXTO);
+    private static final Font MONTAGEM = new Font(Font.HELVETICA, 8, Font.ITALIC, new Color(0x6B, 0x75, 0x90));
     private static final Font LIVRE = new Font(Font.HELVETICA, 8.5f, Font.BOLDITALIC, new Color(0x6E, 0x50, 0x0B));
     private static final Font RODAPE_VAGAS = new Font(Font.HELVETICA, 8, Font.BOLD, TEXTO_SUAVE);
     private static final Font RODAPE_OK = new Font(Font.HELVETICA, 8, Font.BOLD, new Color(0x2C, 0x7A, 0x57));
@@ -281,9 +282,10 @@ public class EscalaPdfService {
         rot.setHorizontalAlignment(Element.ALIGN_RIGHT);
         t.addCell(rot);
         for (EscalaCompletaDTO.EventoEscala ev : eventos) {
+            boolean emMontagem = ev.setores().stream().flatMap(g -> g.funcoes().stream()).anyMatch(SlotEscalaDTO::oculto);
             boolean completa = ev.vagasAbertas() == 0;
-            PdfPCell c = new PdfPCell(new Phrase(completa ? "completa" : String.valueOf(ev.vagasAbertas()),
-                    completa ? RODAPE_OK : RODAPE_VAGAS));
+            String texto = emMontagem && completa ? "em montagem" : completa ? "completa" : String.valueOf(ev.vagasAbertas());
+            PdfPCell c = new PdfPCell(new Phrase(texto, emMontagem && completa ? RODAPE_VAGAS : completa ? RODAPE_OK : RODAPE_VAGAS));
             c.setBackgroundColor(TINTA);
             c.setBorderColor(BORDA);
             c.setPadding(5);
@@ -350,6 +352,12 @@ public class EscalaPdfService {
             c.setBackgroundColor(SEM_FUNCAO);
             return c;
         }
+        // Escala em montagem e quem baixou não coordena o setor: não mostra nomes.
+        if (slots.stream().allMatch(SlotEscalaDTO::oculto)) {
+            c.setPhrase(new Phrase("em montagem", MONTAGEM));
+            c.setBackgroundColor(TINTA);
+            return c;
+        }
 
         Phrase ph = new Phrase();
         int livres = 0;
@@ -387,7 +395,9 @@ public class EscalaPdfService {
         p.add(new Chunk("    ", new Font(Font.HELVETICA, 8)).setBackground(SEM_FUNCAO));
         p.add(new Chunk("  função não acontece nesse dia       ", LEGENDA));
         p.add(new Chunk("    ", new Font(Font.HELVETICA, 8)).setBackground(DOURADO));
-        p.add(new Chunk("  evento grande/especial", LEGENDA));
+        p.add(new Chunk("  evento grande/especial       ", LEGENDA));
+        p.add(new Chunk("    ", new Font(Font.HELVETICA, 8)).setBackground(TINTA));
+        p.add(new Chunk("  em montagem (a coordenação ainda não publicou)", LEGENDA));
         return p;
     }
 
