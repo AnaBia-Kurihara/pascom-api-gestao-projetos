@@ -148,8 +148,9 @@ public class EventoService {
             throw new IllegalStateException("Você já está escalado para este evento.");
         }
 
-        slot.setVoluntario(voluntario);
-        slotEscalaRepository.save(slot);
+        if (slotEscalaRepository.ocuparSeLivre(slotId, voluntario) == 0) {
+            throw new IllegalStateException("Alguém acabou de pegar essa vaga. Escolha outra.");
+        }
 
         return toDTO(eventoRepository.findById(eventoId).orElseThrow());
     }

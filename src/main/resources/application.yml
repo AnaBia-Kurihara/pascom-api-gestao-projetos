@@ -25,6 +25,14 @@ spring:
   # de sempre, sem migração nenhuma. Ver o bloco do perfil prod, mais embaixo, pro porquê.
   flyway:
     enabled: false
+  web:
+    resources:
+      cache:
+        cachecontrol:
+          # O navegador sempre confere com o servidor se o index.html mudou (responde 304 se não
+          # mudou, então continua rápido); sem isso, depois de um deploy, dava pra ficar com o
+          # front antigo em cache.
+          no-cache: true
 
 api:
   resend:
@@ -36,6 +44,9 @@ api:
     token:
       # Em produção, defina a variável de ambiente JWT_SECRET com um valor forte e secreto.
       secret: ${JWT_SECRET:pascom-fatima-chave-secreta-de-desenvolvimento-trocar-em-producao}
+      # Quanto tempo o login vale (em horas). Como o token é assinado com JWT_SECRET, ele continua
+      # valendo depois de um deploy: atualizar o sistema não desloga ninguém.
+      validade-horas: ${JWT_VALIDADE_HORAS:168}
     instagram:
       # Chave usada para criptografar o access token do Instagram no banco.
       # Em produção, defina a variável de ambiente INSTAGRAM_TOKEN_KEY com um valor forte e secreto.

@@ -22,6 +22,10 @@ public class TokenService {
     @Value("${api.security.token.secret}")
     private String secret;
 
+    /** Quanto tempo a pessoa fica logada sem precisar entrar de novo (padrão: 7 dias). */
+    @Value("${api.security.token.validade-horas:168}")
+    private long validadeHoras;
+
     public String gerarToken(Usuario usuario) {
         return Jwts.builder()
                 .issuer(EMISSOR)
@@ -29,7 +33,7 @@ public class TokenService {
                 .claim("id", usuario.getId())
                 .claim("role", usuario.getRole().name())
                 .issuedAt(Date.from(Instant.now()))
-                .expiration(Date.from(Instant.now().plus(2, ChronoUnit.HOURS)))
+                .expiration(Date.from(Instant.now().plus(validadeHoras, ChronoUnit.HOURS)))
                 .signWith(chaveAssinatura())
                 .compact();
     }

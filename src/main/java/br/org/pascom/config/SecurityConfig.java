@@ -43,7 +43,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/usuarios/cadastro", "/api/usuarios/login",
                                 "/api/usuarios/esqueci-senha", "/api/usuarios/redefinir-senha",
-                                "/api/usuarios/google").permitAll()
+                                "/api/usuarios/google", "/api/versao").permitAll()
                         .requestMatchers("/h2-console/**").permitAll()
                         .requestMatchers("/api/**").authenticated()
                         // front-end estático (index.html, css, js) — a autenticação de verdade

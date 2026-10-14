@@ -306,6 +306,8 @@ p{margin:0}
 .cm-new input{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
 .m-foot{display:flex;gap:10px;padding:14px 20px;border-top:1px solid var(--line);align-items:center;flex-wrap:wrap}
 .m-foot .sp{flex:1}
+.update-banner{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 18px);transform:translateX(-50%);z-index:90;display:flex;align-items:center;gap:12px;background:var(--deep);color:var(--deep-ink);border:1px solid var(--gold);border-radius:12px;padding:10px 12px 10px 16px;box-shadow:0 12px 30px rgba(0,0,0,.35);font-size:14px;width:max-content;max-width:calc(100vw - 32px)}
+.update-banner[hidden]{display:none}
 .toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 24px);transform:translate(-50%,20px);background:var(--ink);color:var(--bg);padding:11px 18px;border-radius:10px;font-size:14px;max-width:min(520px,92vw);opacity:0;pointer-events:none;transition:opacity .18s,transform .18s;z-index:60;text-align:center}
 .toast.show{opacity:1;transform:translate(-50%,0)}
 .toast.warn{background:var(--gold);color:#1B1400}
@@ -417,6 +419,7 @@ p{margin:0}
     <b>Pascom Fátima</b>
   </div>
   <div class="mbar-backdrop" id="mbarBackdrop" data-action="closeMobileNav"></div>
+  <div class="update-banner" id="updateBanner" role="status" hidden><span>Saiu uma atualização do sistema.</span><button type="button" class="btn small gold" data-action="recarregarPagina">Atualizar agora</button></div>
   <nav class="side" id="side" aria-label="Navegação principal"></nav>
   <main class="main">
     <header class="top" id="top"></header>
@@ -2228,7 +2231,18 @@ async function joinSlot(evId,slotId){
     Object.assign(ev,eventoFromApi(dto));
     invalidarEscalaCompleta();
     render(); toast('Presença confirmada em '+ev.title+'.');
-  }catch(e){ toast(e.message,'warn'); }
+  }catch(e){
+    toast(e.message,'warn');
+    // Provavelmente outra pessoa pegou a vaga antes: recarrega pra mostrar quem está nela agora.
+    await recarregarEventos();
+  }
+}
+async function recarregarEventos(){
+  try{
+    state.events=(await api('/eventos')).map(eventoFromApi);
+    invalidarEscalaCompleta();
+    if(view==='escalas'&&!editSlotKey&&!addSlotEventoId&&$('#overlay').hidden) render();
+  }catch(_){}
 }
 async function leaveSlot(evId,slotId){
   const ev=state.events.find(x=>x.id===evId);
@@ -2348,6 +2362,7 @@ document.addEventListener('click',e=>{
     case 'toLogin': authMode='login'; authError=''; authOk=''; pendingGoogle=null; renderAuth(); break;
     case 'toEsqueciSenha': authMode='esqueci'; authError=''; authOk=''; renderAuth(); break;
     case 'logout': logout(); break;
+    case 'recarregarPagina': location.reload(); break;
   }
 });
 document.addEventListener('change',e=>{
@@ -2402,7 +2417,30 @@ document.addEventListener('drop',e=>{const b=e.target.closest&&e.target.closest(
 /* =====================================================================
    10. INICIALIZAÇÃO
    ===================================================================== */
+/* Atualizações com gente usando: o login continua valendo depois do deploy (o token não depende
+   do servidor que o emitiu), mas a página aberta fica com o front antigo até recarregar. Então o
+   front confere /api/versao de tempos em tempos e, quando muda, mostra um aviso pra atualizar
+   (sem recarregar à força, pra ninguém perder o que estava digitando). */
+let versaoCarregada=null;
+async function conferirVersao(){
+  try{
+    const r=await fetch(API_BASE+'/versao',{cache:'no-store'});
+    if(!r.ok) return;
+    const v=(await r.json()).versao;
+    if(!versaoCarregada){ versaoCarregada=v; return; }
+    if(v!==versaoCarregada) $('#updateBanner').hidden=false;
+  }catch(_){}
+}
+setInterval(conferirVersao,2*60*1000);
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState!=='visible') return;
+  conferirVersao();
+  // Voltou pra aba: traz a escala atualizada (outras pessoas podem ter se inscrito nesse meio tempo).
+  if(authToken&&state.me) recarregarEventos();
+});
+
 async function init(){
+  conferirVersao();
   try{
     const params=new URLSearchParams(window.location.search);
     const tk=params.get('resetToken');
