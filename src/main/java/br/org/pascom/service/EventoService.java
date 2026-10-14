@@ -174,9 +174,9 @@ public class EventoService {
         }
 
         boolean ehElaMesma = escalado.getId().equals(solicitante.getId());
+        // "Equipe dela" inclui quem entrou no setor do coordenador como setor extra, pelo perfil.
         boolean coordenaEquipeDela = solicitante.temPoderesDeCoordenadorGeral()
-                || (solicitante.getRole() == Role.COORDENADOR && solicitante.getSetor() != null
-                    && solicitante.getSetor() == escalado.getSetor());
+                || (solicitante.getRole() == Role.COORDENADOR && escalado.fazParteDoSetor(solicitante.getSetor()));
 
         if (!ehElaMesma && !coordenaEquipeDela) {
             throw new IllegalStateException(solicitante.getRole() == Role.COORDENADOR
@@ -271,22 +271,39 @@ public class EventoService {
     /** Escala completa do mês: todos os eventos com escala, com as funções agrupadas por setor. */
     @Transactional(readOnly = true)
     public EscalaCompletaDTO escalaCompleta(YearMonth mes) {
+        return escalaCompleta(mes, null);
+    }
+
+    /**
+     * Escala do mês. Com {@code setor} preenchido, vira a escala só daquele setor: cada evento
+     * mostra as funções do setor e as funções gerais (as mesmas que aparecem na aba "Escala de
+     * <setor>" do front), e eventos sem nenhuma dessas funções ficam de fora.
+     */
+    public EscalaCompletaDTO escalaCompleta(YearMonth mes, Setor setor) {
         List<Evento> eventos = eventoRepository.findByDataBetweenAndExcluidoEmIsNullOrderByDataAscHorarioAsc(
                 mes.atDay(1), mes.atEndOfMonth());
 
+        List<Setor> ordem = new ArrayList<>();
+        if (setor == null) {
+            ordem.addAll(List.of(Setor.values()));
+        } else {
+            ordem.add(setor);
+        }
+        // Funções gerais (sem setor) sempre por último.
+        ordem.add(null);
+
         List<EscalaCompletaDTO.EventoEscala> itens = eventos.stream()
-                .filter(e -> !e.getSlots().isEmpty())
-                .map(this::toEventoEscala)
+                .map(e -> toEventoEscala(e, ordem))
+                .filter(e -> !e.setores().isEmpty())
                 .toList();
 
-        return new EscalaCompletaDTO(mes.toString(), calendarioService.domingosDoMes(mes), itens);
+        return new EscalaCompletaDTO(mes.toString(), setor, setor == null ? null : nomeSetor(setor),
+                calendarioService.domingosDoMes(mes), itens);
     }
 
-    private EscalaCompletaDTO.EventoEscala toEventoEscala(Evento e) {
+    private EscalaCompletaDTO.EventoEscala toEventoEscala(Evento e, List<Setor> ordem) {
         List<EscalaCompletaDTO.GrupoSetor> grupos = new ArrayList<>();
-        // Ordem fixa: setores na ordem do enum, e as funções gerais (sem setor) por último.
-        List<Setor> ordem = new ArrayList<>(List.of(Setor.values()));
-        ordem.add(null);
+        int vagas = 0;
         for (Setor setor : ordem) {
             List<SlotEscalaDTO> funcoes = e.getSlots().stream()
                     .filter(s -> Objects.equals(s.getSetor(), setor))
@@ -295,9 +312,9 @@ public class EventoService {
                     .toList();
             if (!funcoes.isEmpty()) {
                 grupos.add(new EscalaCompletaDTO.GrupoSetor(setor, nomeSetor(setor), funcoes));
+                vagas += (int) funcoes.stream().filter(f -> f.voluntarioId() == null).count();
             }
         }
-        int vagas = (int) e.getSlots().stream().filter(s -> s.getVoluntario() == null).count();
         return new EscalaCompletaDTO.EventoEscala(
                 e.getId(), e.getTitulo(), e.getData(), e.getHorario(), e.getLocal(),
                 Boolean.TRUE.equals(e.getEventoGrande()),

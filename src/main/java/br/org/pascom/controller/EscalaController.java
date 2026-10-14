@@ -1,6 +1,7 @@
 package br.org.pascom.controller;
 
 import br.org.pascom.dto.EscalaCompletaDTO;
+import br.org.pascom.model.enums.Setor;
 import br.org.pascom.service.CalendarioService;
 import br.org.pascom.service.EscalaPdfService;
 import br.org.pascom.service.EventoService;
@@ -16,10 +17,12 @@ import org.springframework.web.bind.annotation.RestController;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 /**
- * Calendário de domingos + escala completa (todos os setores juntos), em JSON e em PDF.
+ * Calendário de domingos + escala do mês em JSON e em PDF: completa (todos os setores juntos)
+ * ou, com ?setor=X, só a escala daquele setor (+ funções gerais).
  * Aberto a qualquer usuário autenticado — qualquer pessoa da equipe pode ver e baixar.
  */
 @RestController
@@ -45,18 +48,21 @@ public class EscalaController {
     }
 
     @GetMapping("/completa")
-    public ResponseEntity<EscalaCompletaDTO> completa(@RequestParam(required = false) String mes) {
-        return ResponseEntity.ok(eventoService.escalaCompleta(calendarioService.parseMes(mes)));
+    public ResponseEntity<EscalaCompletaDTO> completa(@RequestParam(required = false) String mes,
+                                                      @RequestParam(required = false) Setor setor) {
+        return ResponseEntity.ok(eventoService.escalaCompleta(calendarioService.parseMes(mes), setor));
     }
 
     @GetMapping(value = "/completa/pdf", produces = MediaType.APPLICATION_PDF_VALUE)
-    public ResponseEntity<byte[]> completaPdf(@RequestParam(required = false) String mes) {
+    public ResponseEntity<byte[]> completaPdf(@RequestParam(required = false) String mes,
+                                              @RequestParam(required = false) Setor setor) {
         YearMonth alvo = calendarioService.parseMes(mes);
-        byte[] pdf = escalaPdfService.gerar(eventoService.escalaCompleta(alvo));
+        byte[] pdf = escalaPdfService.gerar(eventoService.escalaCompleta(alvo, setor));
+        String nome = "escala-" + (setor == null ? "completa" : setor.name().toLowerCase(Locale.ROOT).replace('_', '-')) + "-" + alvo + ".pdf";
         return ResponseEntity.ok()
                 .contentType(MediaType.APPLICATION_PDF)
                 .header(HttpHeaders.CONTENT_DISPOSITION,
-                        ContentDisposition.attachment().filename("escala-" + alvo + ".pdf").build().toString())
+                        ContentDisposition.attachment().filename(nome).build().toString())
                 .body(pdf);
     }
 }

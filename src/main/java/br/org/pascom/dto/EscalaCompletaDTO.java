@@ -12,6 +12,9 @@ import java.util.List;
  */
 public record EscalaCompletaDTO(
         String mes,
+        /** null = todos os setores juntos; preenchido = escala só desse setor (+ funções gerais). */
+        Setor setor,
+        String nomeSetor,
         List<LocalDate> domingos,
         List<EventoEscala> eventos
 ) {

@@ -14,7 +14,9 @@ import org.springframework.security.core.userdetails.UserDetails;
 
 import java.time.LocalDateTime;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Entity
 @Table(name = "tb_usuarios")
@@ -52,9 +54,28 @@ public class Usuario implements UserDetails {
     @Enumerated(EnumType.STRING)
     private Setor setor;
 
+    /**
+     * Outros setores dos quais a pessoa também participa, além do {@link #setor} principal
+     * escolhido no cadastro (ela mesma adiciona pelo perfil). Só dá participação na equipe, não
+     * poderes de coordenação: coordenador continua coordenando só o setor principal. EAGER de
+     * propósito: o usuário é carregado no SecurityFilter, fora de qualquer sessão do Hibernate.
+     */
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "tb_usuario_setores_extras", joinColumns = @JoinColumn(name = "usuario_id"))
+    @Enumerated(EnumType.STRING)
+    @Column(name = "setor", nullable = false)
+    private Set<Setor> setoresExtras;
+
     private String funcao;
     private String disponibilidade;
     private Integer avatarHue;
+
+    /**
+     * Quando a foto de perfil foi trocada pela última vez (null = sem foto). A imagem em si fica
+     * em {@link FotoUsuario}, numa tabela separada, pra não ser carregada a cada request
+     * autenticado; isto aqui serve de "versão" pro front saber quando buscar de novo.
+     */
+    private LocalDateTime fotoAtualizadaEm;
 
     @Column(unique = true)
     @JsonIgnore
@@ -99,6 +120,22 @@ public class Usuario implements UserDetails {
     @JsonIgnore
     public boolean coordenaSetor(Setor alvo) {
         return temPoderesDeCoordenadorGeral() || (role == Role.COORDENADOR && setor != null && setor == alvo);
+    }
+
+    public Set<Setor> getSetoresExtras() {
+        if (setoresExtras == null) setoresExtras = new HashSet<>();
+        return setoresExtras;
+    }
+
+    /**
+     * true se a pessoa faz parte da equipe do setor: é o setor principal dela, um dos setores
+     * extras, ou ela é a Coordenadora Geral (que faz parte de todos). A flag admin não conta
+     * aqui: dá poderes, mas não coloca a pessoa na equipe de todos os setores.
+     */
+    @JsonIgnore
+    public boolean fazParteDoSetor(Setor alvo) {
+        if (alvo == null) return false;
+        return role == Role.COORDENADOR_GERAL || setor == alvo || getSetoresExtras().contains(alvo);
     }
 
     /** Quem pode marcar a conferência doutrinária de um cartão. */

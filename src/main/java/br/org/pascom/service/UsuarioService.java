@@ -3,10 +3,14 @@ package br.org.pascom.service;
 import br.org.pascom.dto.GoogleAuthDTO;
 import br.org.pascom.dto.GoogleAuthResponseDTO;
 import br.org.pascom.dto.LoginResponseDTO;
+import br.org.pascom.dto.PerfilUpdateDTO;
 import br.org.pascom.dto.UsuarioCadastroDTO;
 import br.org.pascom.dto.UsuarioResponseDTO;
+import br.org.pascom.model.FotoUsuario;
 import br.org.pascom.model.Usuario;
 import br.org.pascom.model.enums.Role;
+import br.org.pascom.model.enums.Setor;
+import br.org.pascom.repository.FotoUsuarioRepository;
 import br.org.pascom.repository.UsuarioRepository;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -16,7 +20,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -28,16 +34,19 @@ public class UsuarioService {
     private final TokenService tokenService;
     private final EmailService emailService;
     private final GoogleTokenService googleTokenService;
+    private final FotoUsuarioRepository fotoUsuarioRepository;
 
     public UsuarioService(UsuarioRepository usuarioRepository, PasswordEncoder passwordEncoder,
                            AuthenticationManager authenticationManager, TokenService tokenService,
-                           EmailService emailService, GoogleTokenService googleTokenService) {
+                           EmailService emailService, GoogleTokenService googleTokenService,
+                           FotoUsuarioRepository fotoUsuarioRepository) {
         this.usuarioRepository = usuarioRepository;
         this.passwordEncoder = passwordEncoder;
         this.authenticationManager = authenticationManager;
         this.tokenService = tokenService;
         this.emailService = emailService;
         this.googleTokenService = googleTokenService;
+        this.fotoUsuarioRepository = fotoUsuarioRepository;
     }
 
     public List<UsuarioResponseDTO> listarTodos() {
@@ -94,6 +103,88 @@ public class UsuarioService {
 
         usuario.setRole(novoRole);
         return UsuarioResponseDTO.from(usuarioRepository.save(usuario));
+    }
+
+    /**
+     * A própria pessoa atualiza nome, função, disponibilidade e os setores extras dos quais também
+     * faz parte. Papel e setor principal não mudam por aqui (papel só o Coordenador Geral altera).
+     */
+    @Transactional
+    public UsuarioResponseDTO atualizarPerfil(PerfilUpdateDTO dados, Usuario solicitante) {
+        Usuario usuario = buscar(solicitante.getId());
+
+        usuario.setNome(dados.nome().trim());
+        usuario.setFuncao(textoOuNull(dados.funcao()));
+        usuario.setDisponibilidade(textoOuNull(dados.disponibilidade()));
+
+        EnumSet<Setor> extras = EnumSet.noneOf(Setor.class);
+        // Coordenador Geral já faz parte de todos os setores; o principal não precisa repetir.
+        if (dados.setoresExtras() != null && usuario.getRole() != Role.COORDENADOR_GERAL) {
+            dados.setoresExtras().stream()
+                    .filter(s -> s != null && s != usuario.getSetor())
+                    .forEach(extras::add);
+        }
+        usuario.getSetoresExtras().clear();
+        usuario.getSetoresExtras().addAll(extras);
+
+        return UsuarioResponseDTO.from(usuarioRepository.save(usuario));
+    }
+
+    /** Troca a foto de perfil de quem está logado. Aceita só JPEG, PNG ou WebP de verdade (confere os bytes). */
+    @Transactional
+    public UsuarioResponseDTO salvarFoto(byte[] dados, Usuario solicitante) {
+        if (dados == null || dados.length == 0) {
+            throw new IllegalArgumentException("Envie uma imagem.");
+        }
+        if (dados.length > FotoUsuario.TAMANHO_MAXIMO) {
+            throw new IllegalArgumentException("A foto passou de 1 MB. Escolha uma imagem menor.");
+        }
+        String tipo = detectarTipoImagem(dados);
+        if (tipo == null) {
+            throw new IllegalArgumentException("Formato de imagem não suportado. Use JPG, PNG ou WebP.");
+        }
+
+        Usuario usuario = buscar(solicitante.getId());
+        fotoUsuarioRepository.save(new FotoUsuario(usuario.getId(), dados, tipo));
+        usuario.setFotoAtualizadaEm(LocalDateTime.now());
+        return UsuarioResponseDTO.from(usuarioRepository.save(usuario));
+    }
+
+    @Transactional
+    public UsuarioResponseDTO removerFoto(Usuario solicitante) {
+        Usuario usuario = buscar(solicitante.getId());
+        fotoUsuarioRepository.deleteById(usuario.getId());
+        usuario.setFotoAtualizadaEm(null);
+        return UsuarioResponseDTO.from(usuarioRepository.save(usuario));
+    }
+
+    public Optional<FotoUsuario> buscarFoto(Long usuarioId) {
+        return fotoUsuarioRepository.findById(usuarioId);
+    }
+
+    /** Identifica a imagem pelos primeiros bytes, sem confiar no Content-Type que o cliente mandou. */
+    static String detectarTipoImagem(byte[] b) {
+        if (b.length >= 3 && (b[0] & 0xFF) == 0xFF && (b[1] & 0xFF) == 0xD8 && (b[2] & 0xFF) == 0xFF) {
+            return "image/jpeg";
+        }
+        if (b.length >= 8 && (b[0] & 0xFF) == 0x89 && b[1] == 'P' && b[2] == 'N' && b[3] == 'G'
+                && b[4] == 0x0D && b[5] == 0x0A && b[6] == 0x1A && b[7] == 0x0A) {
+            return "image/png";
+        }
+        if (b.length >= 12 && b[0] == 'R' && b[1] == 'I' && b[2] == 'F' && b[3] == 'F'
+                && b[8] == 'W' && b[9] == 'E' && b[10] == 'B' && b[11] == 'P') {
+            return "image/webp";
+        }
+        return null;
+    }
+
+    private Usuario buscar(Long id) {
+        return usuarioRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado."));
+    }
+
+    private static String textoOuNull(String s) {
+        return s == null || s.isBlank() ? null : s.trim();
     }
 
     @Transactional

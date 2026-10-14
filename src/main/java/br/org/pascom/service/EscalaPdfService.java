@@ -22,7 +22,10 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.TextStyle;
 import java.util.Locale;
 
-/** Gera o PDF da escala completa do mês (todos os setores juntos), pra qualquer pessoa baixar/imprimir. */
+/**
+ * Gera o PDF da escala do mês pra qualquer pessoa baixar/imprimir: a completa (todos os setores
+ * juntos) ou a de um setor só, conforme {@link EscalaCompletaDTO#setor()}.
+ */
 @Service
 public class EscalaPdfService {
 
@@ -53,18 +56,24 @@ public class EscalaPdfService {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         Document doc = new Document(PageSize.A4, 36, 36, 40, 40);
         try {
+            boolean doSetor = escala.setor() != null;
+            String titulo = (doSetor ? "Escala de " + escala.nomeSetor() : "Escala completa")
+                    + " — " + nomeMes + " de " + mes.getYear();
             PdfWriter.getInstance(doc, out);
-            doc.addTitle("Escala completa - " + nomeMes + " de " + mes.getYear());
+            doc.addTitle(titulo.replace(" — ", " - "));
             doc.open();
 
-            doc.add(new Paragraph("Escala completa — " + nomeMes + " de " + mes.getYear(), TITULO));
-            Paragraph sub = new Paragraph("Pascom Santuário N. Sra. de Fátima · todos os setores · "
+            doc.add(new Paragraph(titulo, TITULO));
+            Paragraph sub = new Paragraph("Pascom Santuário N. Sra. de Fátima · "
+                    + (doSetor ? "funções de " + escala.nomeSetor() + " e funções gerais" : "todos os setores") + " · "
                     + escala.domingos().size() + " domingos no mês", SUBTITULO);
             sub.setSpacingAfter(14);
             doc.add(sub);
 
             if (escala.eventos().isEmpty()) {
-                doc.add(new Paragraph("Nenhuma escala cadastrada para este mês ainda.", VAGA));
+                doc.add(new Paragraph(doSetor
+                        ? "Nenhuma escala de " + escala.nomeSetor() + " cadastrada para este mês ainda."
+                        : "Nenhuma escala cadastrada para este mês ainda.", VAGA));
             }
 
             for (EscalaCompletaDTO.EventoEscala ev : escala.eventos()) {

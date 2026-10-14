@@ -104,6 +104,11 @@ p{margin:0}
 .btn[disabled]{opacity:.45;cursor:not-allowed}
 .av{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:50%;font-size:11px;font-weight:700;color:#fff;flex:none}
 .av.lg{width:44px;height:44px;font-size:15px}
+.av.xl{width:76px;height:76px;font-size:25px}
+.av.xxl{width:120px;height:120px;font-size:38px}
+.av{overflow:hidden}
+.av img{width:100%;height:100%;object-fit:cover;display:block}
+.av.has-foto{background:var(--tint)!important}
 .av-empty{background:transparent;border:1.5px dashed var(--ink3);color:var(--ink3)}
 .fmt{display:inline-block;font-size:12px;font-weight:600;padding:2px 8px;border-radius:5px;color:var(--fc);background:color-mix(in srgb,var(--fc) 14%,transparent)}
 .f-reels{--fc:var(--f-reels)} .f-carrossel{--fc:var(--f-carrossel)} .f-stories{--fc:var(--f-stories)} .f-foto{--fc:var(--f-foto)}
@@ -225,6 +230,42 @@ p{margin:0}
 .mem h3{font-size:17px}
 .mem .fn{color:var(--ink2);font-size:14px}
 .mem ul{margin:8px 0 0;padding-left:18px;color:var(--ink2);font-size:13px}
+.mem h3 .pill{vertical-align:middle;font-size:11px}
+.eq-h{font-size:18px;margin:22px 0 12px;display:flex;align-items:baseline;gap:8px}
+.eq-h:first-of-type{margin-top:6px}
+.eq-h small{font-family:var(--sans);font-size:13px;color:var(--ink3);font-weight:500}
+.aviso-equipe{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:var(--gold-soft);color:var(--gold-ink);border-radius:12px;padding:12px 16px;margin-bottom:18px;font-size:14px}
+.aviso-equipe span{flex:1 1 260px}
+.time-top{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:6px}
+.time-chips{flex-wrap:wrap;margin-bottom:0}
+.chip-n{opacity:.7;font-size:12px;margin-left:2px}
+.time-busca{background:var(--panel);border:1px solid var(--line);border-radius:99px;padding:8px 14px;color:var(--ink);min-width:0;flex:1 1 200px;max-width:280px}
+.time-sec{margin-top:24px}
+.time-sec h2{display:flex;align-items:center;gap:10px;font-size:18px;margin-bottom:12px}
+.time-sec h2 small{font-family:var(--sans);font-size:13px;color:var(--ink3);font-weight:500}
+.time-sec h2 .ico{width:30px;height:30px;border-radius:8px;background:var(--tint);display:grid;place-items:center;color:var(--brand);flex:none}
+.time-sec h2 .ico svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.time-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px}
+.pessoa{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 12px 14px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:6px;transition:transform .15s,box-shadow .15s;min-width:0}
+.pessoa:hover{transform:translateY(-2px);box-shadow:0 8px 22px rgba(20,32,61,.10)}
+.pessoa .av{margin-bottom:4px}
+.pessoa b{font-size:14.5px;line-height:1.25;overflow-wrap:anywhere}
+.pessoa .fn{font-size:12.5px;color:var(--ink2);line-height:1.3;overflow-wrap:anywhere}
+.pessoa.coord{border-color:var(--gold)}
+.pessoa.eu{box-shadow:inset 0 0 0 2px var(--brand)}
+.perfil{display:flex;flex-direction:column;gap:18px;max-width:640px}
+.perfil-card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 20px;display:flex;flex-direction:column;gap:12px}
+.perfil-card h2{font-size:18px}
+.perfil-foto{flex-direction:row;align-items:center;gap:20px;flex-wrap:wrap}
+.perfil-foto>div{flex:1 1 220px}
+.side-foot .side-me{display:flex;align-items:center;gap:10px;width:100%;margin:0 0 8px;border:0;background:rgba(255,255,255,.06);padding:8px;border-radius:10px;text-align:left;color:#fff}
+.side-foot .side-me:hover,.side-foot .side-me.active{background:rgba(255,255,255,.13)}
+.side-me>span:not(.av){min-width:0;flex:1}
+.side-me b{display:block;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.side-me small{display:block;font-size:11px;color:var(--side-ink);opacity:.85}
+.faces{display:flex;align-items:center;flex-wrap:wrap;padding-left:8px;margin:4px 0 12px}
+.faces .av{margin-left:-8px;box-shadow:0 0 0 2px var(--bg)}
+.faces .mais{margin-left:8px;font-size:13px;color:var(--ink3)}
 .mats{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:0 28px;margin-bottom:26px}
 .mat{display:block;text-align:left;background:none;border:0;border-bottom:1px solid var(--line);padding:14px 0;width:100%}
 .mat:hover h4{text-decoration:underline}
@@ -540,7 +581,9 @@ function memberFromApi(u){
     id:String(u.id), nome:u.nome, funcao:u.funcao||'', role:ROLE_FROM_API[u.role]||'voluntario',
     setor:u.setor?SETOR_FROM_API[u.setor]:null,
     disp:u.disponibilidade||'Não informado', h:(u.avatarHue!=null?u.avatarHue:(Number(u.id)*53)%360),
-    email:u.email, poderesGeral:!!u.poderesCoordenadorGeral
+    email:u.email, poderesGeral:!!u.poderesCoordenadorGeral,
+    extras:(u.setoresExtras||[]).map(x=>SETOR_FROM_API[x]).filter(Boolean),
+    foto:u.fotoVersao||null
   };
 }
 function checksFromApi(checklist){
@@ -762,7 +805,9 @@ const isCoordenadorGeral=()=>{const m=me();return !!m&&(m.role==='coordenador_ge
 const isApprover=()=>{const m=me();return !!m&&(m.role==='coordenador'||isCoordenadorGeral());};
 const coordenaSetor=s=>{const m=me();return !!m&&(isCoordenadorGeral()||(m.role==='coordenador'&&m.setor===s));};
 // Pode tirar alguém da escala: a própria pessoa, o Coordenador Geral, ou o coordenador da equipe (setor) dela.
-const podeTirarDaEscala=whoId=>{const m=me(),w=mem(whoId);return !!m&&(whoId===state.me||isCoordenadorGeral()||(m.role==='coordenador'&&!!w&&!!m.setor&&w.setor===m.setor));};
+// Faz parte da equipe do setor: setor principal, um dos setores extras (escolhidos no perfil) ou Coordenação Geral.
+const pertenceSetor=(m,s)=>!!m&&(m.role==='coordenador_geral'||m.setor===s||(m.extras||[]).indexOf(s)>-1);
+const podeTirarDaEscala=whoId=>{const m=me(),w=mem(whoId);return !!m&&(whoId===state.me||isCoordenadorGeral()||(m.role==='coordenador'&&!!w&&!!m.setor&&pertenceSetor(w,m.setor)));};
 const card=id=>state.cards.find(c=>c.id===id);
 const visibleCards=()=>state.cards.filter(c=>c.setor===currentSetor);
 const visibleIdeas=()=>state.ideas.filter(i=>i.setor===currentSetor);
@@ -784,12 +829,36 @@ function moveRule(c,to){
 /* =====================================================================
    5. COMPONENTES PEQUENOS
    ===================================================================== */
-function avatar(id,big){
-  if(!id) return '<span class="av av-empty'+(big?' lg':'')+'" title="Sem responsável">?</span>';
+/* Fotos de perfil: a API exige o token, então não dá pra usar <img src> direto na URL. Cada foto
+   é baixada uma vez (por versão) e vira um blob: URL; quando chega, troca as iniciais de todos os
+   avatares daquela pessoa que já estão na tela, sem re-renderizar a página inteira. */
+const FOTO_URL={}, fotoPendente={};
+function fotoUrl(m){
+  if(!m||!m.foto) return null;
+  const k=m.id+':'+m.foto;
+  if(FOTO_URL[k]) return FOTO_URL[k];
+  if(!fotoPendente[k]){ fotoPendente[k]=true; carregarFoto(m.id,k); }
+  return null;
+}
+async function carregarFoto(id,k){
+  try{
+    const res=await fetch(API_BASE+'/usuarios/'+id+'/foto?v='+encodeURIComponent(k.split(':')[1]),{headers:authToken?{'Authorization':'Bearer '+authToken}:{}});
+    if(!res.ok) return; // fica marcada como pendente: não tenta de novo até recarregar a página
+    FOTO_URL[k]=URL.createObjectURL(await res.blob());
+    const m=mem(id);
+    if(!m||m.id+':'+m.foto!==k) return;
+    $$('[data-av="'+id+'"]').forEach(el=>{ el.innerHTML='<img src="'+FOTO_URL[k]+'" alt="">'; el.classList.add('has-foto'); });
+  }catch(e){}
+}
+const iniciais=nome=>String(nome||'?').replace('Pe. ','P').split(' ').filter(Boolean).map(x=>x[0]).slice(0,2).join('').toUpperCase();
+// size: falsy = pequeno, true = 'lg', ou 'xl' / 'xxl'
+function avatar(id,size){
+  const cls='av'+(size===true?' lg':size?' '+size:'');
+  if(!id) return '<span class="'+cls+' av-empty" title="Sem responsável">?</span>';
   const m=mem(id);
-  if(!m) return '<span class="av av-empty'+(big?' lg':'')+'" title="Pessoa não encontrada">?</span>';
-  const ini=m.nome.replace('Pe. ','P').split(' ').map(x=>x[0]).slice(0,2).join('').toUpperCase();
-  return '<span class="av'+(big?' lg':'')+'" style="background:hsl('+m.h+' 48% 40%)" title="'+esc(m.nome)+'">'+esc(ini)+'</span>';
+  if(!m) return '<span class="'+cls+' av-empty" title="Pessoa não encontrada">?</span>';
+  const url=fotoUrl(m);
+  return '<span class="'+cls+(url?' has-foto':'')+'" data-av="'+esc(m.id)+'" style="background:hsl('+m.h+' 48% 40%)" title="'+esc(m.nome)+'">'+(url?'<img src="'+url+'" alt="">':esc(iniciais(m.nome)))+'</span>';
 }
 const fmtChip=c=>'<span class="fmt f-'+c.fmt+'">'+FORMATS[c.fmt]+'</span>';
 function stagePill(c){
@@ -832,10 +901,12 @@ const VIEWS={
   dashboard:{label:'Dashboard',icon:'chart',title:()=>'Dashboard',sub:()=>'Andamento e engajamento das publicações — semana, mês e ano.',render:viewDashboard},
   ideias:{label:'Ideias',icon:'bulb',title:()=>'Banco de ideias',sub:()=>'Qualquer pessoa da equipe sugere. As mais votadas viram cartões.',render:viewIdeias},
   escalas:{label:'Escalas',icon:'cam',title:()=>'Escalas de cobertura',sub:()=>'Quem vai fotografar, filmar e transmitir cada celebração.',render:viewEscalas},
-  equipe:{label:'Equipe',icon:'users',title:()=>'Equipe',sub:()=>'Funções, disponibilidade e carga de trabalho de cada pessoa.',render:viewEquipe},
+  equipe:{label:'Equipe',icon:'users',title:()=>equipeAba==='time'?'Time da Pascom':'Equipe de '+SETOR_NAME[currentSetor],sub:()=>equipeAba==='time'?'Todo mundo que serve na Pascom, setor por setor.':'Quem serve neste setor: coordenação, Coordenação Geral e voluntários.',render:viewEquipe},
   materiais:{label:'Materiais',icon:'folder',title:()=>'Materiais e modelos',sub:()=>'Tudo o que a equipe precisa para produzir com o mesmo padrão.',render:viewMateriais},
   lixeira:{label:'Lixeira',icon:'trash',title:()=>'Lixeira',sub:()=>'Cartões, ideias e escalas excluídos. Dá pra restaurar quando quiser.',render:viewLixeira},
-  assistente:{label:'Assistente',icon:'spark',title:()=>'Assistente da equipe',sub:()=>'Peça pra criar eventos, sugerir ideias ou popular o calendário — em português mesmo.',render:viewAssistente}
+  assistente:{label:'Assistente',icon:'spark',title:()=>'Assistente da equipe',sub:()=>'Peça pra criar eventos, sugerir ideias ou popular o calendário — em português mesmo.',render:viewAssistente},
+  // Fora do menu (hidden): abre pelo cartão com o seu nome no rodapé da barra lateral.
+  perfil:{label:'Meu perfil',icon:'users',hidden:true,title:()=>'Meu perfil',sub:()=>'Sua foto, seus dados e os setores dos quais você faz parte.',render:viewPerfil}
 };
 
 /* ---------- Painel ---------- */
@@ -851,7 +922,7 @@ function viewPainel(){
   const mine=cards.filter(c=>c.owner===state.me&&c.stage!=='publicado').sort((a,b)=>(a.due||'9').localeCompare(b.due||'9'));
   const head=n===0?'Hoje é dia 13, dia de Fátima.':'O próximo dia 13 chega em '+n+(n===1?' dia.':' dias.');
   const sub=planned?planned+(planned>1?' conteúdos planejados':' conteúdo planejado')+' para essa data.':'Ainda não há conteúdo planejado para essa data.';
-  const loads=MEMBERS.filter(m=>m.role!=='coordenador_geral'&&m.setor===currentSetor).map(m=>{
+  const loads=MEMBERS.filter(m=>m.role!=='coordenador_geral'&&pertenceSetor(m,currentSetor)).map(m=>{
     const k=cards.filter(c=>c.owner===m.id&&c.stage!=='publicado').length;
     return '<div class="load"><span>'+esc(m.nome)+'</span><div class="bar"><i class="'+(k>=4?'hi':'')+'" style="width:'+Math.min(100,k*25)+'%"></i></div><b>'+k+'</b></div>';
   }).join('');
@@ -867,9 +938,17 @@ function viewPainel(){
       (mine.length?mine.map(c=>'<button class="row" data-action="open" data-id="'+c.id+'"><div class="rt">'+esc(c.title)+'</div><span style="font-size:13px">'+dueText(c)+'</span>'+stagePill(c)+'</button>').join(''):'<div class="empty">Nada com você agora. Que tal escolher uma pauta no banco de ideias?</div>')+
     '</div></section>'+
   '</div><div>'+
+    timePainelHtml()+
     '<section class="panel"><h2>Carga da equipe</h2>'+loads+'<p class="note">Cartões em andamento por pessoa. A barra fica vermelha a partir de 4.</p></section>'+
     '<section class="panel"><h2>Instagram</h2><p class="note">A conta do santuário está conectada e o sistema lê os posts automaticamente. Veja curtidas, alcance e metas de crescimento na aba <b>Dashboard</b>.</p></section>'+
   '</div></div>';
+}
+
+function timePainelHtml(){
+  const MAX=14, todos=MEMBERS.slice().sort((a,b)=>(b.foto?1:0)-(a.foto?1:0)||a.nome.localeCompare(b.nome,'pt-BR'));
+  return '<section class="panel"><h2>Time da Pascom</h2>'+
+    '<div class="faces">'+todos.slice(0,MAX).map(m=>avatar(m.id,true)).join('')+(todos.length>MAX?'<span class="mais">+'+(todos.length-MAX)+'</span>':'')+'</div>'+
+    '<button type="button" class="btn small" data-action="verTime">Ver o time inteiro, por setor</button></section>';
 }
 
 /* ---------- Quadro (Kanban) ---------- */
@@ -1219,7 +1298,7 @@ function viewEscalas(){
     .filter(e=>e.date>=hoje)
     .filter(e=>e.slots.some(doSetor)||podeEditarSetor)
     .sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
-  const acoes='<div class="filters" style="margin-bottom:16px">'+
+  const acoes=pdfBarHtml(currentSetor)+'<div class="filters" style="margin-bottom:16px">'+
     (podeCriar?'<button class="btn primary" data-action="novaEscala">+ Evento extra com escala</button>':'')+
     (isCoordenadorGeral()?'<button class="btn" data-action="gerarEscalasMes">Gerar domingos do mês</button>':'')+
     '<span class="tip">Os domingos (Missa das 10h) entram sozinhos na escala todo mês.'+(podeCriar?' Se tiver outro evento que precise de gente, marque como evento extra.':'')+'</span></div>';
@@ -1241,14 +1320,24 @@ function viewEscalas(){
     '</article>';
   }).join('')+'</div>';
 }
-function viewEscalaCompleta(){
-  const dados=escalaCompletaCache[escalaMes];
-  if(!dados&&!escalaCompletaLoading) setTimeout(()=>carregarEscalaCompleta(escalaMes),0);
-  const cab='<div class="filters" style="margin-bottom:16px;align-items:center">'+
+// Navegação de mês + download do PDF: setor = só a escala daquele setor; null = todos os setores juntos.
+function pdfBarHtml(setor){
+  return '<div class="filters pdf-bar" style="margin-bottom:16px;align-items:center">'+
+    (setor?'<span class="note" style="margin:0">Baixar a escala de '+esc(SETOR_NAME[setor])+':</span>':'')+
     '<button class="btn small" data-action="escalaMes" data-delta="-1" aria-label="Mês anterior">‹</button>'+
     '<b style="min-width:150px;text-align:center">'+esc(nomeMes(escalaMes))+'</b>'+
     '<button class="btn small" data-action="escalaMes" data-delta="1" aria-label="Próximo mês">›</button>'+
-    '<button class="btn primary" style="margin-left:auto" data-action="baixarEscalaPdf">Baixar PDF</button></div>';
+    '<span style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap">'+
+      (setor
+        ?'<button class="btn primary" data-action="baixarEscalaPdf" data-setor="'+setor+'">Baixar PDF de '+esc(SETOR_NAME[setor])+'</button>'
+        :'<button class="btn" data-action="baixarEscalaPdf" data-setor="'+currentSetor+'">Só '+esc(SETOR_NAME[currentSetor])+'</button>'+
+         '<button class="btn primary" data-action="baixarEscalaPdf">Baixar PDF (todos os setores)</button>')+
+    '</span></div>';
+}
+function viewEscalaCompleta(){
+  const dados=escalaCompletaCache[escalaMes];
+  if(!dados&&!escalaCompletaLoading) setTimeout(()=>carregarEscalaCompleta(escalaMes),0);
+  const cab=pdfBarHtml(null);
   if(!dados) return cab+'<div class="empty">Carregando escala...</div>';
   if(dados.erro) return cab+'<div class="empty">'+esc(dados.erro)+'</div>';
   const doms=(dados.domingos||[]).map(x=>Number(x.slice(8,10)));
@@ -1272,14 +1361,14 @@ async function carregarEscalaCompleta(mes){
   escalaCompletaLoading=false;
   if(view==='escalas'&&escalaAba==='completa') render();
 }
-async function baixarEscalaPdf(){
+async function baixarEscalaPdf(setor){
   try{
     const headers={}; if(authToken) headers['Authorization']='Bearer '+authToken;
-    const res=await fetch(API_BASE+'/escalas/completa/pdf?mes='+escalaMes,{headers:headers});
+    const res=await fetch(API_BASE+'/escalas/completa/pdf?mes='+escalaMes+(setor?'&setor='+setor.toUpperCase():''),{headers:headers});
     if(!res.ok){ let msg='Não foi possível gerar o PDF.'; try{ const b=await res.json(); if(b&&b.erro) msg=b.erro; }catch(_){ } throw new Error(msg); }
     const blob=await res.blob();
     const url=URL.createObjectURL(blob);
-    const a=document.createElement('a'); a.href=url; a.download='escala-'+escalaMes+'.pdf';
+    const a=document.createElement('a'); a.href=url; a.download='escala-'+(setor?setor.replace(/_/g,'-'):'completa')+'-'+escalaMes+'.pdf';
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(()=>URL.revokeObjectURL(url),1000);
   }catch(e){ toast(e.message,'warn'); }
@@ -1364,15 +1453,170 @@ async function salvarSlotExistente(eventoId){
   }catch(e){ toast(e.message,'warn'); }
 }
 
-/* ---------- Equipe ---------- */
+/* ---------- Equipe (do setor) e Time da Pascom (todos) ---------- */
+let equipeAba='setor'; // 'setor' | 'time'
+let timeFiltro='todos'; // 'todos' ou id do setor
+let timeBusca='';
+function equipeTabsHtml(){
+  return '<div class="dash-tabs">'+
+    '<button type="button" class="dash-tab'+(equipeAba==='setor'?' active':'')+'" data-action="equipeAba" data-aba="setor">Equipe de '+esc(SETOR_NAME[currentSetor])+'</button>'+
+    '<button type="button" class="dash-tab'+(equipeAba==='time'?' active':'')+'" data-action="equipeAba" data-aba="time">Time da Pascom</button>'+
+  '</div>';
+}
+// Coordenação Geral primeiro, depois quem coordena o setor, depois o resto em ordem alfabética.
+function rankNoSetor(m,s){ return m.role==='coordenador_geral'?0:(m.role==='coordenador'&&m.setor===s?1:2); }
+function membrosDoSetor(s){
+  return MEMBERS.filter(m=>pertenceSetor(m,s))
+    .sort((a,b)=>rankNoSetor(a,s)-rankNoSetor(b,s)||a.nome.localeCompare(b.nome,'pt-BR'));
+}
+function papelNoSetor(m,s){
+  if(m.role==='coordenador_geral') return 'Coordenação Geral';
+  if(m.setor===s) return m.role==='coordenador'?'Coordenação do setor':'Voluntário(a)';
+  return (m.role==='coordenador'?'Coordena '+SETOR_NAME[m.setor]:'Voluntário(a) de '+(SETOR_NAME[m.setor]||'outro setor'))+', também está aqui';
+}
 function viewEquipe(){
-  return '<div class="team">'+MEMBERS.map(m=>{
-    const cs=state.cards.filter(c=>c.owner===m.id&&c.stage!=='publicado');
-    const papel=ROLE_NAME[m.role]+(m.setor?' · '+SETOR_NAME[m.setor]:'');
-    return '<div class="mem">'+avatar(m.id,true)+'<div><h3>'+esc(m.nome)+'</h3><div class="fn">'+esc(m.funcao||'—')+'</div><div class="note" style="margin-top:2px">'+papel+', disponível: '+esc((m.disp||'').toLowerCase())+'</div>'+
-      (cs.length?'<ul>'+cs.map(c=>'<li>'+esc(c.title)+'</li>').join('')+'</ul>':'<p class="note">Sem cartões em andamento.</p>')+'</div></div>';
-  }).join('')+'</div>'+
-  '<p class="note" style="margin-top:22px">Qualquer pessoa da equipe pode criar e avançar cartões; o checklist de segurança é o que trava o agendamento e a publicação. Só o Coordenador Geral cria eventos e altera a função de outra pessoa.</p>';
+  return equipeTabsHtml()+(equipeAba==='time'?viewTime():viewEquipeSetor());
+}
+function viewEquipeSetor(){
+  const s=currentSetor, lista=membrosDoSetor(s), eu=me();
+  const coord=lista.filter(m=>rankNoSetor(m,s)<2), vol=lista.filter(m=>rankNoSetor(m,s)===2);
+  const card=m=>{
+    const cs=state.cards.filter(c=>c.owner===m.id&&c.stage!=='publicado'&&c.setor===s);
+    const r=rankNoSetor(m,s);
+    return '<div class="mem">'+avatar(m.id,true)+'<div><h3>'+esc(m.nome)+(m.id===state.me?' <span class="pill">você</span>':'')+'</h3>'+
+      '<div class="fn">'+esc(m.funcao||'—')+'</div>'+
+      '<div class="note" style="margin-top:2px"><span class="pill'+(r<2?' warn':'')+'">'+esc(papelNoSetor(m,s))+'</span> Disponível: '+esc((m.disp||'').toLowerCase())+'</div>'+
+      (cs.length?'<ul>'+cs.map(c=>'<li>'+esc(c.title)+'</li>').join('')+'</ul>':'<p class="note">Sem cartões em andamento neste setor.</p>')+'</div></div>';
+  };
+  const aviso=eu&&!pertenceSetor(eu,s)
+    ?'<div class="aviso-equipe"><span>Você ainda não faz parte da equipe de <b>'+esc(SETOR_NAME[s])+'</b>. Se você também serve aqui, adicione este setor no seu perfil.</span><button class="btn small primary" data-action="abrirPerfil">Ir pro meu perfil</button></div>'
+    :'<p class="note" style="margin:0 0 16px">Aparece aqui quem se cadastrou neste setor ou adicionou ele no perfil, junto com a coordenação do setor e a Coordenação Geral. Também serve em outro setor? <button type="button" class="link-btn" data-action="abrirPerfil">Adicione no seu perfil</button>.</p>';
+  return aviso+
+    '<h2 class="eq-h">Coordenação <small>'+coord.length+'</small></h2>'+
+    (coord.length?'<div class="team">'+coord.map(card).join('')+'</div>':'<div class="empty">Ninguém na coordenação deste setor ainda.</div>')+
+    '<h2 class="eq-h">Voluntários <small>'+vol.length+'</small></h2>'+
+    (vol.length?'<div class="team">'+vol.map(card).join('')+'</div>':'<div class="empty">Nenhum voluntário em '+esc(SETOR_NAME[s])+' ainda.</div>');
+}
+function timePessoaHtml(m,s){
+  const coordena=s&&m.role==='coordenador'&&m.setor===s;
+  const sub=s?(coordena?'Coordenação':(m.setor===s?'':'também serve aqui')):'';
+  return '<div class="pessoa'+(coordena||!s?' coord':'')+(m.id===state.me?' eu':'')+'">'+avatar(m.id,'xl')+
+    '<b>'+esc(m.nome)+'</b>'+
+    (m.funcao?'<span class="fn">'+esc(m.funcao)+'</span>':'')+
+    (sub?'<span class="pill'+(coordena?' warn':'')+'">'+esc(sub)+'</span>':'')+
+  '</div>';
+}
+function timeGridHtml(){
+  const q=timeBusca.trim().toLowerCase();
+  const casa=m=>!q||m.nome.toLowerCase().indexOf(q)>-1||(m.funcao||'').toLowerCase().indexOf(q)>-1;
+  const gerais=MEMBERS.filter(m=>m.role==='coordenador_geral'&&casa(m));
+  const secoes=SETORES.filter(x=>timeFiltro==='todos'||x.id===timeFiltro).map(x=>{
+    // A Coordenação Geral já aparece no topo, não repete em cada setor.
+    const ps=membrosDoSetor(x.id).filter(m=>m.role!=='coordenador_geral'&&casa(m));
+    return '<section class="time-sec"><h2><span class="ico"><svg viewBox="0 0 24 24" aria-hidden="true">'+ICONS[SETOR_ICON[x.id]]+'</svg></span>'+esc(x.nome)+' <small>'+ps.length+(ps.length===1?' pessoa':' pessoas')+'</small></h2>'+
+      (ps.length?'<div class="time-grid">'+ps.map(m=>timePessoaHtml(m,x.id)).join('')+'</div>':'<div class="empty">'+(q?'Ninguém com esse nome aqui.':'Ninguém neste setor ainda.')+'</div>')+
+    '</section>';
+  }).join('');
+  return (gerais.length?'<section class="time-sec"><h2><span class="ico"><svg viewBox="0 0 24 24" aria-hidden="true">'+ICONS.users+'</svg></span>Coordenação Geral</h2><div class="time-grid">'+gerais.map(m=>timePessoaHtml(m,null)).join('')+'</div></section>':'')+secoes;
+}
+function viewTime(){
+  const total=MEMBERS.length;
+  const chips=[{id:'todos',nome:'Todos'}].concat(SETORES).map(x=>{
+    const n=x.id==='todos'?total:membrosDoSetor(x.id).filter(m=>m.role!=='coordenador_geral').length;
+    return '<button type="button" class="dash-tab'+(timeFiltro===x.id?' active':'')+'" data-action="timeFiltro" data-filtro="'+x.id+'">'+esc(x.nome)+' <span class="chip-n">'+n+'</span></button>';
+  }).join('');
+  return '<div class="time-top"><div class="dash-tabs time-chips">'+chips+'</div>'+
+    '<input id="time-q" class="time-busca" type="search" placeholder="Buscar pessoa ou função" value="'+esc(timeBusca)+'" aria-label="Buscar no time"></div>'+
+    '<p class="note" style="margin:0 0 4px">'+total+(total===1?' pessoa':' pessoas')+' servindo na Pascom. Quem está em mais de um setor aparece em cada um deles.</p>'+
+    '<div id="time-grid">'+timeGridHtml()+'</div>';
+}
+
+/* ---------- Meu perfil ---------- */
+let perfilRascunho=null; // guarda o que já foi digitado quando a tela re-renderiza (ex.: ao trocar a foto)
+function viewPerfil(){
+  const m=me(); if(!m) return '';
+  const r=perfilRascunho||{nome:m.nome,funcao:m.funcao,disp:m.disp==='Não informado'?'':m.disp,extras:m.extras||[]};
+  const geral=m.role==='coordenador_geral';
+  const papel=ROLE_NAME[m.role]+(m.setor?' · '+SETOR_NAME[m.setor]:'');
+  return '<div class="perfil">'+
+    '<section class="perfil-card perfil-foto">'+avatar(m.id,'xxl')+'<div>'+
+      '<h2>'+esc(m.nome)+'</h2><p class="note" style="margin-top:2px">'+esc(papel)+'</p>'+
+      '<div class="filters" style="margin:14px 0 0">'+
+        '<button type="button" class="btn primary" data-action="escolherFoto">'+(m.foto?'Trocar foto':'Adicionar foto')+'</button>'+
+        (m.foto?'<button type="button" class="btn" data-action="removerFoto">Remover foto</button>':'')+
+        '<input id="perfil-foto" type="file" accept="image/jpeg,image/png,image/webp,image/*" hidden>'+
+      '</div>'+
+      '<p class="note">Sua foto aparece na Equipe e no Time da Pascom. Ela é cortada num quadrado, centralizada.</p>'+
+    '</div></section>'+
+    '<section class="perfil-card"><h2>Seus dados</h2>'+
+      '<label class="fld"><span>Nome</span><input id="pf-nome" value="'+esc(r.nome)+'" maxlength="120" autocomplete="name"></label>'+
+      '<label class="fld"><span>Função</span><input id="pf-funcao" value="'+esc(r.funcao||'')+'" maxlength="120" placeholder="Ex.: Edição de vídeo, fotografia"></label>'+
+      '<label class="fld"><span>Disponibilidade</span><input id="pf-disp" value="'+esc(r.disp||'')+'" maxlength="200" placeholder="Ex.: Domingos de manhã"></label>'+
+    '</section>'+
+    '<section class="perfil-card"><h2>Setores</h2>'+
+      (geral
+        ?'<p class="note" style="margin:0">Como Coordenação Geral, você já faz parte de todos os setores.</p>'
+        :'<p class="note" style="margin:0 0 10px">Setor principal: <b>'+esc(SETOR_NAME[m.setor]||'—')+'</b> (escolhido no cadastro). Marque os outros setores em que você também serve: você passa a aparecer na equipe deles.</p>'+
+         SETORES.filter(x=>x.id!==m.setor).map(x=>'<label class="chk"><input type="checkbox" data-pf-setor="'+x.id+'"'+(r.extras.indexOf(x.id)>-1?' checked':'')+'><span>'+esc(x.nome)+'</span></label>').join('')+
+         (m.role==='coordenador'?'<p class="note">Você continua coordenando só '+esc(SETOR_NAME[m.setor])+'. Nos outros setores você entra como membro da equipe.</p>':''))+
+    '</section>'+
+    '<div><button type="button" class="btn primary" data-action="salvarPerfil">Salvar perfil</button></div>'+
+  '</div>';
+}
+function capturarRascunhoPerfil(){
+  if(!$('#pf-nome')) return;
+  perfilRascunho={nome:$('#pf-nome').value,funcao:$('#pf-funcao').value,disp:$('#pf-disp').value,
+    extras:$$('[data-pf-setor]').filter(x=>x.checked).map(x=>x.dataset.pfSetor)};
+}
+function atualizarMembro(u){
+  const nm=memberFromApi(u), i=MEMBERS.findIndex(x=>x.id===nm.id);
+  if(i>-1) MEMBERS[i]=nm; else MEMBERS.push(nm);
+}
+async function salvarPerfil(){
+  capturarRascunhoPerfil();
+  const r=perfilRascunho;
+  if(!r||!r.nome.trim()){ toast('Coloque seu nome.','warn'); return; }
+  try{
+    const u=await api('/usuarios/me',{method:'PUT',body:JSON.stringify({
+      nome:r.nome.trim(), funcao:r.funcao.trim()||null, disponibilidade:r.disp.trim()||null,
+      setoresExtras:r.extras.map(x=>x.toUpperCase())
+    })});
+    atualizarMembro(u); perfilRascunho=null; render(); toast('Perfil salvo.');
+  }catch(e){ toast(e.message,'warn'); }
+}
+// Reduz no navegador pra um quadrado de até 400px em JPEG antes de enviar (foto de celular tem vários MB).
+function reduzirFoto(file){
+  return new Promise((resolve,reject)=>{
+    const url=URL.createObjectURL(file), img=new Image();
+    img.onload=()=>{
+      const lado=Math.min(img.naturalWidth,img.naturalHeight), alvo=Math.min(400,lado);
+      const c=document.createElement('canvas'); c.width=c.height=alvo;
+      const ctx=c.getContext('2d'); ctx.fillStyle='#fff'; ctx.fillRect(0,0,alvo,alvo);
+      ctx.drawImage(img,(img.naturalWidth-lado)/2,(img.naturalHeight-lado)/2,lado,lado,0,0,alvo,alvo);
+      URL.revokeObjectURL(url);
+      c.toBlob(b=>b?resolve(b):reject(new Error('Não foi possível processar a imagem.')),'image/jpeg',0.86);
+    };
+    img.onerror=()=>{ URL.revokeObjectURL(url); reject(new Error('Não consegui abrir essa imagem. Tente uma foto JPG ou PNG.')); };
+    img.src=url;
+  });
+}
+async function enviarFoto(file){
+  if(!file) return;
+  if(file.type&&file.type.indexOf('image/')!==0){ toast('Escolha um arquivo de imagem.','warn'); return; }
+  toast('Enviando foto...');
+  try{
+    const blob=await reduzirFoto(file);
+    const res=await fetch(API_BASE+'/usuarios/me/foto',{method:'PUT',headers:{'Content-Type':'image/jpeg','Authorization':'Bearer '+authToken},body:blob});
+    let body=null; try{ body=await res.json(); }catch(_){}
+    if(!res.ok) throw new Error((body&&body.erro)||'Não foi possível salvar a foto.');
+    capturarRascunhoPerfil(); atualizarMembro(body); render(); toast('Foto atualizada.');
+  }catch(e){ toast(e.message,'warn'); }
+}
+async function removerFoto(){
+  try{
+    const u=await api('/usuarios/me/foto',{method:'DELETE'});
+    capturarRascunhoPerfil(); atualizarMembro(u); render(); toast('Foto removida.');
+  }catch(e){ toast(e.message,'warn'); }
 }
 
 /* ---------- Materiais ---------- */
@@ -1789,8 +2033,9 @@ function renderSide(){
   $('#side').innerHTML=
     '<div class="brand"><svg width="38" height="38" viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="18.5" fill="none" stroke="#E2BA5C" stroke-width="1.5"/><path d="M20 6L23.4 16.6 34 20 23.4 23.4 20 34 16.6 23.4 6 20 16.6 16.6Z" fill="#E2BA5C"/></svg><div><b>Pascom Fátima</b><small>Santuário Nossa Senhora de Fátima, Santo Amaro</small></div></div>'+
     setorSwitchHtml()+
-    '<div class="nav">'+Object.keys(VIEWS).map(k=>'<button data-action="nav" data-view="'+k+'"'+(k===view?' aria-current="page"':'')+'><svg viewBox="0 0 24 24" aria-hidden="true">'+ICONS[VIEWS[k].icon]+'</svg><span>'+VIEWS[k].label+'</span></button>').join('')+'</div>'+
-    '<div class="side-foot">Conectado como <b>'+esc(m?m.nome:'')+'</b>'+(m?' ('+ROLE_NAME[m.role]+')':'')+'<br><button data-action="logout">Sair</button></div>';
+    '<div class="nav">'+Object.keys(VIEWS).filter(k=>!VIEWS[k].hidden).map(k=>'<button data-action="nav" data-view="'+k+'"'+(k===view?' aria-current="page"':'')+'><svg viewBox="0 0 24 24" aria-hidden="true">'+ICONS[VIEWS[k].icon]+'</svg><span>'+VIEWS[k].label+'</span></button>').join('')+'</div>'+
+    '<div class="side-foot">'+(m?'<button type="button" class="side-me'+(view==='perfil'?' active':'')+'" data-action="abrirPerfil" title="Meu perfil">'+avatar(m.id)+'<span><b>'+esc(m.nome)+'</b><small>'+esc(ROLE_NAME[m.role])+' · Meu perfil</small></span></button>':'')+
+    '<button data-action="logout">Sair</button></div>';
 }
 const SETOR_SCOPED_VIEWS=['painel','quadro','calendario','ideias','lixeira'];
 function renderTop(){
@@ -1996,7 +2241,14 @@ document.addEventListener('click',e=>{
     case 'adicionarSlotForm': sincronizarSlotFormDoDOM(); escalaFormSlots.push({rotulo:'',tipo:null}); reabrirEscalaModal(); break;
     case 'escalaAba': escalaAba=t.dataset.aba; addSlotEventoId=null; render(); break;
     case 'escalaMes': escalaMes=shiftMes(escalaMes,Number(t.dataset.delta)); render(); break;
-    case 'baixarEscalaPdf': baixarEscalaPdf(); break;
+    case 'baixarEscalaPdf': baixarEscalaPdf(t.dataset.setor||null); break;
+    case 'equipeAba': equipeAba=t.dataset.aba; render(); break;
+    case 'timeFiltro': timeFiltro=t.dataset.filtro; render(); break;
+    case 'verTime': view='equipe'; equipeAba='time'; render(); $('.main').scrollTop=0; break;
+    case 'abrirPerfil': view='perfil'; perfilRascunho=null; mobileNavOpen=false; render(); $('.main').scrollTop=0; break;
+    case 'salvarPerfil': salvarPerfil(); break;
+    case 'escolherFoto': {const f=$('#perfil-foto'); if(f) f.click(); break;}
+    case 'removerFoto': removerFoto(); break;
     case 'removerSlotForm': sincronizarSlotFormDoDOM(); escalaFormSlots.splice(Number(t.dataset.i),1); reabrirEscalaModal(); break;
     case 'salvarEscala': salvarEscala(); break;
     case 'gerarEscalasMes': gerarEscalasMes(); break;
@@ -2054,6 +2306,7 @@ document.addEventListener('click',e=>{
 });
 document.addEventListener('change',e=>{
   if(e.target.id==='fo'){filters.owner=e.target.value;refreshBoard();}
+  if(e.target.id==='perfil-foto'){ const f=e.target.files&&e.target.files[0]; e.target.value=''; enviarFoto(f); }
   if(e.target.id==='au-role'){
     const wrap=$('#au-setor-wrap');
     if(wrap) wrap.hidden=(e.target.value==='coordenador_geral');
@@ -2061,6 +2314,7 @@ document.addEventListener('change',e=>{
 });
 document.addEventListener('input',e=>{
   if(e.target.id==='q'){filters.q=e.target.value;refreshBoard();}
+  if(e.target.id==='time-q'){ timeBusca=e.target.value; const g=$('#time-grid'); if(g) g.innerHTML=timeGridHtml(); }
   if(e.target.id==='chat-input') chatAutoGrow(e.target);
 });
 document.addEventListener('keydown',e=>{
