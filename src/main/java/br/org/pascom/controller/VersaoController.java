@@ -20,9 +20,18 @@ public class VersaoController {
     private final String versao;
 
     public VersaoController(ObjectProvider<BuildProperties> build) {
+        // No Railway, cada deploy tem um id próprio — é a versão mais confiável (o build do Railway
+        // grava uma data fixa de 1980 nos arquivos, então o horário do build-info não muda entre deploys).
+        String deploy = System.getenv("RAILWAY_DEPLOYMENT_ID");
         BuildProperties b = build.getIfAvailable();
-        // Sem build-info (ex.: rodando pela IDE), usa o horário em que a aplicação subiu.
-        this.versao = b != null && b.getTime() != null ? b.getTime().toString() : Instant.now().toString();
+        if (deploy != null && !deploy.isBlank()) {
+            this.versao = deploy;
+        } else if (b != null && b.getTime() != null && b.getTime().isAfter(Instant.parse("2000-01-01T00:00:00Z"))) {
+            this.versao = b.getTime().toString();
+        } else {
+            // Sem nada disso (ex.: rodando pela IDE), usa o horário em que a aplicação subiu.
+            this.versao = Instant.now().toString();
+        }
     }
 
     @GetMapping("/api/versao")
