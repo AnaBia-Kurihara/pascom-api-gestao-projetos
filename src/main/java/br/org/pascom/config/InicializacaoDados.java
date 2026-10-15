@@ -54,6 +54,10 @@ public class InicializacaoDados {
         executarComSeguranca("normalizar e-mails", this::normalizarEmails);
         executarComSeguranca("aplicar ADMIN_EMAILS", this::aplicarAdmins);
         executarComSeguranca("definir setor das funções antigas", this::definirSetorDasFuncoesAntigas);
+        executarComSeguranca("ajustar a missa de sábado pras 16h30", () -> {
+            int n = eventoService.ajustarMissaDeSabado();
+            if (n > 0) log.info("Missas de sábado passadas das 16h pras 16h30: {}", n);
+        });
         executarComSeguranca("gerar escalas automáticas", () -> {
             int criados = eventoService.garantirEscalasDoMesAtualEProximo();
             if (criados > 0) log.info("Escalas automáticas (domingos e sábados) criadas na inicialização: {}", criados);

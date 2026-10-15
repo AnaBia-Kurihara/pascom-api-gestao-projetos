@@ -17,5 +17,8 @@ public record UsuarioCadastroDTO(
         Setor setor,
         String funcao,
         String disponibilidade,
-        Integer avatarHue
+        Integer avatarHue,
+        /** Aniversário (só dia e mês). */
+        Integer aniversarioDia,
+        Integer aniversarioMes
 ) {}

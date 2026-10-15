@@ -6,7 +6,7 @@
 <title>Pascom Fátima – Organização da equipe</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Young+Serif&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Young+Serif&family=Anton&family=Great+Vibes&family=Open+Sans:wght@700&display=swap" rel="stylesheet">
 <style>
 :root{
   box-sizing:border-box;
@@ -266,6 +266,26 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center;justify-conten
 .hist-item{display:flex;flex-direction:column;gap:2px;padding:9px 12px;border-bottom:1px solid var(--line);font-size:13.5px;color:var(--ink2)}
 .hist-item:last-child{border-bottom:0}
 .hist-item small{color:var(--ink3);font-size:12px}
+.aniv-campos{display:flex;gap:8px}
+.aniv-campos select{flex:1;min-width:0;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 10px;color:var(--ink);font-size:15px}
+.aniv-card{display:flex;align-items:center;gap:16px;flex-wrap:wrap;border-radius:14px;padding:16px 18px;margin:0 0 16px;background:linear-gradient(135deg,var(--gold-soft),var(--tint));border:1px solid var(--gold)}
+.aniv-card h2{font-size:19px}
+.aniv-card p{font-size:14px;color:var(--ink2);margin-top:4px}
+.aniv-card>div:last-child{flex:1 1 220px}
+.aniv-eu{background:linear-gradient(135deg,#2B57B8,#14306B);border-color:var(--gold);color:#fff}
+.aniv-eu h2{color:#fff}.aniv-eu p{color:rgba(255,255,255,.9)}
+.aniv-emoji{font-size:44px;line-height:1}
+.aniv-faces{display:flex}.aniv-faces .av{margin-left:-8px;box-shadow:0 0 0 2px var(--gold)}.aniv-faces .av:first-child{margin-left:0}
+.aniv-acoes{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.aniv-pedir{display:flex;align-items:flex-end;gap:10px 12px;flex-wrap:wrap;background:var(--panel);border:1px dashed var(--gold);border-radius:12px;padding:12px 14px;margin:0 0 16px}
+.aniv-pedir>div:first-child{flex:1 1 220px;display:flex;flex-direction:column;gap:2px;font-size:14px}
+.aniv-pedir>div:first-child span{font-size:13px;color:var(--ink3)}
+.aniv-pedir .fld>span{display:none}
+.aniv-pedir .fld{flex:1 1 200px}
+.aniv-prox{margin:-6px 0 14px}
+.aniv-pedir-geral{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--gold-soft);color:var(--gold-ink);border-radius:12px;padding:10px 14px;margin:0 0 14px;font-size:14px}
+.aniv-pedir-geral span{flex:1 1 240px}
+.post-aniv{width:100%;max-width:420px;align-self:center;border-radius:12px;box-shadow:0 8px 28px rgba(0,0,0,.25);aspect-ratio:1080/1350;background:var(--tint)}
 .lembrete-pub{display:flex;align-items:center;gap:10px 12px;flex-wrap:wrap;background:var(--gold-soft);color:var(--gold-ink);border:1px solid var(--gold);border-radius:12px;padding:12px 14px;margin:0 0 16px}
 .lembrete-pub>div{flex:1 1 240px;display:flex;flex-direction:column;gap:2px;font-size:14px}
 .lembrete-pub span{font-size:13px;opacity:.9}
@@ -611,6 +631,28 @@ const SETORES=[
   {id:'transmissoes_videos',nome:'Transmissões/Vídeos'}
 ];
 const ROLE_NAME={coordenador_geral:'Coordenador(a) Geral',coordenador:'Coordenador(a)',voluntario:'Voluntário(a)'};
+const MESES=['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+/* Campos de aniversário (só dia e mês), usados no cadastro, no Google e no perfil. */
+function aniversarioCamposHtml(prefixo,dia,mes,obrigatorio){
+  return '<div class="fld"><span>Aniversário'+(obrigatorio?'':' (dia e mês)')+'</span><div class="aniv-campos">'+
+    '<select id="'+prefixo+'-aniv-dia" aria-label="Dia do aniversário"><option value="">Dia</option>'+Array.from({length:31},(_,i)=>i+1).map(d=>'<option value="'+d+'"'+(d===dia?' selected':'')+'>'+d+'</option>').join('')+'</select>'+
+    '<select id="'+prefixo+'-aniv-mes" aria-label="Mês do aniversário"><option value="">Mês</option>'+MESES.map((m,i)=>'<option value="'+(i+1)+'"'+(i+1===mes?' selected':'')+'>'+m+'</option>').join('')+'</select>'+
+  '</div></div>';
+}
+function lerAniversario(prefixo){
+  const d=Number(($('#'+prefixo+'-aniv-dia')||{}).value||0), m=Number(($('#'+prefixo+'-aniv-mes')||{}).value||0);
+  if(!d&&!m) return {dia:null,mes:null,vazio:true};
+  if(!d||!m) return {erro:'Informe o dia e o mês do aniversário.'};
+  if(d>new Date(2024,m,0).getDate()) return {erro:'Esse dia não existe nesse mês.'};
+  return {dia:d,mes:m};
+}
+const fmtAniv=(d,m)=>d+' de '+MESES[m-1];
+// Aniversariantes de uma data (quem nasceu em 29/02 é lembrado no dia 28/02 em ano não bissexto).
+function aniversariantesEm(data){
+  const d=data.getDate(), m=data.getMonth()+1;
+  const bissexto=new Date(data.getFullYear(),1,29).getMonth()===1;
+  return MEMBERS.filter(x=>x.anivMes===m&&(x.anivDia===d||(!bissexto&&m===2&&d===28&&x.anivDia===29)));
+}
 const SETOR_NAME={redes_sociais:'Redes sociais',jovens:'Jovens',datashow:'Datashow',transmissoes_videos:'Transmissões/Vídeos'};
 const SETOR_ICON={redes_sociais:'share',jovens:'flame',datashow:'monitor',transmissoes_videos:'live'};
 // Datas fixas do calendário (exemplo: ajuste com a programação real do santuário)
@@ -710,6 +752,7 @@ function memberFromApi(u){
     setor:u.setor?SETOR_FROM_API[u.setor]:null,
     disp:u.disponibilidade||'Não informado', h:(u.avatarHue!=null?u.avatarHue:(Number(u.id)*53)%360),
     email:u.email, poderesGeral:!!u.poderesCoordenadorGeral, gestorEscalas:!!u.gestorEscalas,
+    anivDia:u.aniversarioDia||null, anivMes:u.aniversarioMes||null,
     extras:(u.setoresExtras||[]).map(x=>SETOR_FROM_API[x]).filter(Boolean),
     foto:u.fotoVersao||null
   };
@@ -842,9 +885,11 @@ async function doCadastro(){
   if(!nome||!email||!senha){ authError='Preencha nome, e-mail e senha.'; renderAuth(); return; }
   if(senha.length<6){ authError='A senha precisa ter pelo menos 6 caracteres.'; renderAuth(); return; }
   if(role!=='coordenador_geral'&&!setor){ authError='Selecione o setor.'; renderAuth(); return; }
+  const aniv=lerAniversario('au');
+  if(aniv.erro||aniv.vazio){ authError=aniv.erro||'Informe o dia e o mês do seu aniversário.'; renderAuth(); return; }
   try{
     await api('/usuarios/cadastro',{method:'POST',body:JSON.stringify({
-      nome:nome, email:email, senha:senha, funcao:funcao||null,
+      nome:nome, email:email, senha:senha, funcao:funcao||null, aniversarioDia:aniv.dia, aniversarioMes:aniv.mes,
       role:role.toUpperCase(),
       setor: role==='coordenador_geral' ? null : setor.toUpperCase()
     })});
@@ -892,9 +937,11 @@ async function doCompletarGoogle(){
   if(!pendingGoogle){ authMode='login'; renderAuth(); return; }
   const role=$('#au-role').value, setor=$('#au-setor').value;
   if(role!=='coordenador_geral'&&!setor){ authError='Selecione o setor.'; renderAuth(); return; }
+  const aniv=lerAniversario('au');
+  if(aniv.erro||aniv.vazio){ authError=aniv.erro||'Informe o dia e o mês do seu aniversário.'; renderAuth(); return; }
   try{
     const dto=await api('/usuarios/google',{method:'POST',body:JSON.stringify({
-      idToken:pendingGoogle.idToken, role:role.toUpperCase(),
+      idToken:pendingGoogle.idToken, role:role.toUpperCase(), aniversarioDia:aniv.dia, aniversarioMes:aniv.mes,
       setor: role==='coordenador_geral' ? null : setor.toUpperCase(),
       funcao: $('#au-funcao').value.trim()||null
     })});
@@ -1092,6 +1139,166 @@ function eventosComVagaNoSetor(){
   return state.events.filter(e=>e.date>=h&&(coord||!mesFechado(e.date))&&e.slots.some(s=>doSetorAtual(s)&&!s.who&&!s.oculto))
     .sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
 }
+/* Aniversários no Painel: mensagem pra todo mundo, pedido de data pra quem ainda não informou e,
+   pra coordenação, o gerador do post de parabéns (exportar a imagem é só da coordenação). */
+const podeGerarPostAniversario=()=>isApprover()||gereEscalas();
+function aniversarioPainelHtml(){
+  const m=me(); if(!m) return '';
+  const hoje=new Date(), aniv=aniversariantesEm(hoje);
+  let html='';
+  if(aniv.some(x=>x.id===m.id)){
+    html+='<section class="aniv-card aniv-eu"><div class="aniv-emoji">🎉</div><div><h2>Feliz aniversário, '+esc(m.nome.split(' ')[0])+'!</h2><p>Hoje é o seu dia! Que Nossa Senhora de Fátima te cubra de bênçãos. A Pascom inteira celebra você. 💙</p></div></section>';
+  }
+  const outros=aniv.filter(x=>x.id!==m.id);
+  if(outros.length){
+    html+='<section class="aniv-card"><div class="aniv-faces">'+outros.map(x=>avatar(x.id,true)).join('')+'</div><div><h2>🎂 Hoje é aniversário de '+outros.map(x=>esc(x.nome.split(' ').slice(0,2).join(' '))).join(', ').replace(/, ([^,]*)$/,' e $1')+'!</h2><p>Não esquece de mandar um parabéns no grupo. 🥳</p>'+
+      (podeGerarPostAniversario()?'<div class="aniv-acoes">'+outros.concat(aniv.filter(x=>x.id===m.id)).map(x=>'<button class="btn small gold" data-action="postAniversario" data-id="'+x.id+'">Gerar post de '+esc(x.nome.split(' ')[0])+'</button>').join('')+'</div>':'')+
+    '</div></section>';
+  }else if(aniv.some(x=>x.id===m.id)&&podeGerarPostAniversario()){
+    html+='<div class="aniv-acoes" style="margin:-8px 0 16px"><button class="btn small gold" data-action="postAniversario" data-id="'+m.id+'">Gerar o meu post de parabéns</button></div>';
+  }
+  if(!m.anivDia||!m.anivMes){
+    html+='<section class="aniv-pedir"><div><b>🎂 Quando é o seu aniversário?</b><span>A gente quer celebrar você no seu dia! Só dia e mês.</span></div>'+aniversarioCamposHtml('pn',null,null,true)+
+      '<button class="btn small primary" data-action="salvarAniversarioPainel">Salvar</button></section>';
+  }
+  if(podeGerarPostAniversario()){
+    const prox=[];
+    for(let i=1;i<=7;i++){ const d=new Date(hoje.getFullYear(),hoje.getMonth(),hoje.getDate()+i); aniversariantesEm(d).forEach(x=>prox.push({x:x,d:d})); }
+    if(prox.length) html+='<p class="note aniv-prox">Próximos aniversários: '+prox.map(p=>'<b>'+esc(p.x.nome.split(' ')[0])+'</b> ('+p.d.getDate()+'/'+String(p.d.getMonth()+1).padStart(2,'0')+')').join(', ')+'</p>';
+  }
+  return html;
+}
+async function salvarAniversarioPainel(){
+  const m=me(), a=lerAniversario('pn');
+  if(a.erro||a.vazio){ toast(a.erro||'Escolha o dia e o mês.','warn'); return; }
+  try{
+    const u=await api('/usuarios/me',{method:'PUT',body:JSON.stringify({nome:m.nome,funcao:m.funcao||null,disponibilidade:m.disp==='Não informado'?null:m.disp,
+      setoresExtras:(m.extras||[]).map(x=>x.toUpperCase()),aniversarioDia:a.dia,aniversarioMes:a.mes})});
+    atualizarMembro(u); render(); toast('Aniversário salvo! 🎉');
+  }catch(e){ toast(e.message,'warn'); }
+}
+
+/* ---------- Post de aniversário (canvas 1080x1350, formato de feed/WhatsApp) ---------- */
+function carregarImagem(src){ return new Promise((ok,erro)=>{const i=new Image(); i.onload=()=>ok(i); i.onerror=erro; i.src=src;}); }
+async function fotoDoMembroBlobUrl(m){
+  if(!m.foto) return null;
+  const k=m.id+':'+m.foto; if(FOTO_URL[k]) return FOTO_URL[k];
+  try{ const r=await fetch(API_BASE+'/usuarios/'+m.id+'/foto?v='+encodeURIComponent(m.foto),{headers:{Authorization:'Bearer '+authToken}}); if(!r.ok) return null;
+    FOTO_URL[k]=URL.createObjectURL(await r.blob()); return FOTO_URL[k]; }catch(_){ return null; }
+}
+function estrela(ctx,cx,cy,r){
+  const p=[[20,6],[23.4,16.6],[34,20],[23.4,23.4],[20,34],[16.6,23.4],[6,20],[16.6,16.6]];
+  ctx.beginPath(); p.forEach((q,i)=>{const x=cx+(q[0]-20)*r/14,y=cy+(q[1]-20)*r/14; i?ctx.lineTo(x,y):ctx.moveTo(x,y);}); ctx.closePath(); ctx.fill();
+}
+/* Mesmo modelo do post que a Pascom já usa nos grupos: fundo claro, "FELIZ" dourado com brilho,
+   "Aniversário"/"Parabéns!" em letra cursiva, foto em polaroide, data e nome em etiquetas marrons,
+   balões de coração e a frase de bênção. Só muda a foto, o nome e a data. */
+const MESES_ABREV=['JAN','FEV','MAR','ABR','MAI','JUN','JUL','AGO','SET','OUT','NOV','DEZ'];
+const MARROM='#8B6A3A';
+function coracao(ctx,cx,cy,t){
+  ctx.beginPath(); ctx.moveTo(cx,cy+t*0.35);
+  ctx.bezierCurveTo(cx-t*0.05,cy+t*0.30,cx-t*0.62,cy+t*0.02,cx-t*0.55,cy-t*0.28);
+  ctx.bezierCurveTo(cx-t*0.48,cy-t*0.60,cx-t*0.08,cy-t*0.62,cx,cy-t*0.30);
+  ctx.bezierCurveTo(cx+t*0.08,cy-t*0.62,cx+t*0.48,cy-t*0.60,cx+t*0.55,cy-t*0.28);
+  ctx.bezierCurveTo(cx+t*0.62,cy+t*0.02,cx+t*0.05,cy+t*0.30,cx,cy+t*0.35); ctx.closePath();
+}
+function balao(ctx,cx,cy,t,ang,c1,c2,fio){
+  ctx.save(); ctx.translate(cx,cy); ctx.rotate(ang);
+  if(fio){ ctx.strokeStyle='rgba(176,140,70,.8)'; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(0,t*0.35); ctx.bezierCurveTo(t*0.15,t*0.8,-t*0.15,t*1.1,t*0.05,t*1.6); ctx.stroke(); }
+  const g=ctx.createRadialGradient(-t*0.2,-t*0.25,t*0.05,0,0,t*0.75); g.addColorStop(0,'#FFFDF5'); g.addColorStop(0.35,c1); g.addColorStop(1,c2);
+  ctx.fillStyle=g; ctx.shadowColor='rgba(120,90,40,.25)'; ctx.shadowBlur=24; ctx.shadowOffsetY=10; coracao(ctx,0,0,t); ctx.fill();
+  ctx.restore();
+}
+function texturaDourada(w,h){
+  const c=document.createElement('canvas'); c.width=w; c.height=h; const x=c.getContext('2d');
+  const g=x.createLinearGradient(0,0,w,h); g.addColorStop(0,'#7A5A22'); g.addColorStop(0.35,'#B98E3E'); g.addColorStop(0.6,'#8C6A2C'); g.addColorStop(1,'#C9A04F');
+  x.fillStyle=g; x.fillRect(0,0,w,h);
+  // brilho: pontinhos claros e escuros, determinísticos (o post sai sempre igual)
+  let semente=7; const rnd=()=>{semente=(semente*16807)%2147483647; return semente/2147483647;};
+  for(let i=0;i<w*h/22;i++){ const px=rnd()*w, py=rnd()*h, r=rnd()*1.8+0.4, claro=rnd()>0.5;
+    x.fillStyle=claro?'rgba(255,236,170,'+(0.35+rnd()*0.5)+')':'rgba(60,40,10,'+(0.2+rnd()*0.4)+')'; x.fillRect(px,py,r,r); }
+  return c;
+}
+function etiqueta(ctx,texto,x,y,tamanho){
+  ctx.font=tamanho+'px Anton, Impact, sans-serif'; const w=ctx.measureText(texto).width+tamanho*0.9, h=tamanho*1.45;
+  ctx.fillStyle=MARROM; ctx.fillRect(x,y,w,h);
+  ctx.fillStyle='#FFFFFF'; ctx.textAlign='left'; ctx.textBaseline='middle'; ctx.fillText(texto,x+tamanho*0.45,y+h/2+tamanho*0.04); ctx.textBaseline='alphabetic';
+  return w;
+}
+function cursiva(ctx,texto,cx,cy,tamanho,ang){
+  ctx.save(); ctx.translate(cx,cy); ctx.rotate(ang); ctx.textAlign='center';
+  ctx.font=tamanho+'px "Great Vibes", "Brush Script MT", cursive';
+  ctx.lineJoin='round'; ctx.strokeStyle='#FFFFFF'; ctx.lineWidth=tamanho*0.16; ctx.strokeText(texto,0,0);
+  ctx.fillStyle=MARROM; ctx.fillText(texto,0,0); ctx.restore();
+}
+async function desenharPostAniversario(canvas,m){
+  const W=1080,H=1350, ctx=canvas.getContext('2d'); canvas.width=W; canvas.height=H;
+  try{ await Promise.all(['260px Anton','150px "Great Vibes"','700 40px "Open Sans"','600 24px "Open Sans"'].map(f=>document.fonts.load(f))); }catch(_){}
+  // fundo claro e suave
+  const g=ctx.createLinearGradient(0,0,W,H); g.addColorStop(0,'#F7F3EC'); g.addColorStop(1,'#ECE5D9'); ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+  [[200,250,320],[900,600,380],[300,1150,300],[750,1250,260]].forEach(b=>{const r=ctx.createRadialGradient(b[0],b[1],0,b[0],b[1],b[2]); r.addColorStop(0,'rgba(255,255,255,.85)'); r.addColorStop(1,'rgba(255,255,255,0)'); ctx.fillStyle=r; ctx.fillRect(0,0,W,H);});
+  // balões creme no canto de cima
+  balao(ctx,660,250,300,-0.25,'#F2E6C6','#CDB98B',true);
+  balao(ctx,960,370,300,0.3,'#F4E9CC','#D3BF92',true);
+  balao(ctx,860,140,320,0.12,'#F6ECD2','#D6C397',true);
+  // "FELIZ" x4 dourado com brilho
+  const fel=document.createElement('canvas'); fel.width=W; fel.height=H; const f=fel.getContext('2d');
+  f.font='262px Anton, Impact, sans-serif'; f.textBaseline='alphabetic'; f.fillStyle='#000';
+  // Anton é mais condensada que a letra do modelo: alarga na horizontal pra ocupar o mesmo espaço.
+  f.save(); f.scale(1.34,1); [385,580,775,970].forEach(y=>f.fillText('FELIZ',48/1.34,y)); f.restore();
+  f.globalCompositeOperation='source-in'; f.drawImage(texturaDourada(W,H),0,0);
+  ctx.drawImage(fel,0,0);
+  // data
+  const d=m.anivDia&&m.anivMes?String(m.anivDia).padStart(2,'0')+'.'+MESES_ABREV[m.anivMes-1]:'';
+  if(d) etiqueta(ctx,d,700,185,58);
+  // polaroide com a foto
+  ctx.save(); ctx.translate(838,760); ctx.rotate(0.065);
+  ctx.shadowColor='rgba(80,60,30,.28)'; ctx.shadowBlur=30; ctx.shadowOffsetY=12; ctx.fillStyle='#FFFFFF'; ctx.fillRect(-235,-265,470,530);
+  ctx.shadowColor='transparent'; ctx.fillStyle='#EDEDED'; ctx.fillRect(-205,-235,410,430);
+  const r=200; ctx.save(); ctx.beginPath(); ctx.arc(0,-20,r,0,Math.PI*2); ctx.clip();
+  const url=await fotoDoMembroBlobUrl(m);
+  if(url){ const img=await carregarImagem(url); const lado=Math.min(img.width,img.height);
+    ctx.drawImage(img,(img.width-lado)/2,(img.height-lado)/2,lado,lado,-r,-20-r,2*r,2*r); }
+  else{ ctx.fillStyle='hsl('+m.h+' 40% 55%)'; ctx.fillRect(-r,-20-r,2*r,2*r); ctx.fillStyle='#fff'; ctx.font='160px Anton, Impact, sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(iniciais(m.nome),0,-12); ctx.textBaseline='alphabetic'; }
+  ctx.restore(); ctx.restore();
+  // "Aniversário" por cima do FELIZ
+  cursiva(ctx,'Aniversário',530,440,168,-0.17);
+  // balão dourado embaixo, à esquerda
+  balao(ctx,165,820,250,-0.1,'#F1D27A','#A87E26',true);
+  // "Parabéns!" por cima da polaroide
+  cursiva(ctx,'Parabéns!',705,965,150,-0.13);
+  // nome
+  const nome=m.nome.split(' ')[0].toUpperCase();
+  ctx.font='56px Anton, Impact, sans-serif'; const wn=ctx.measureText(nome).width+50;
+  etiqueta(ctx,nome,Math.max(60,540-wn/2-60),1010,56);
+  // bênção e assinatura
+  ctx.textAlign='center'; ctx.fillStyle='#6E6650'; ctx.font='700 40px "Open Sans", sans-serif';
+  ctx.fillText('Deus abençoe seu novo ciclo e que Nossa Senhora',W/2,1158);
+  ctx.fillText('te cubra com seu manto.',W/2,1210);
+  ctx.font='600 24px "Open Sans", sans-serif'; ctx.fillStyle='#7C7464'; ctx.fillText('Família Pascom',W/2,1290);
+}
+async function abrirPostAniversario(id){
+  const m=mem(id); if(!m) return;
+  const o=$('#overlay');
+  o.innerHTML='<div class="modal" role="dialog" aria-modal="true" aria-label="Post de aniversário"><div class="m-head"><h3>Post de aniversário</h3><button class="x" data-action="close" aria-label="Fechar">×</button></div>'+
+    '<div class="m-body"><canvas id="post-aniv" class="post-aniv"></canvas><p class="note" style="margin:0">Baixe a imagem ou compartilhe direto no grupo.</p></div>'+
+    '<div class="m-foot"><span class="sp"></span><button class="btn" data-action="baixarPostAniversario" data-id="'+id+'">Baixar imagem</button>'+
+    (navigator.canShare?'<button class="btn primary" data-action="compartilharPostAniversario" data-id="'+id+'">Compartilhar</button>':'')+'</div></div>';
+  o.hidden=false;
+  await desenharPostAniversario($('#post-aniv'),m);
+}
+function postAniversarioBlob(){ return new Promise(ok=>$('#post-aniv').toBlob(ok,'image/png')); }
+async function baixarPostAniversario(id){
+  const m=mem(id), b=await postAniversarioBlob(), url=URL.createObjectURL(b), a=document.createElement('a');
+  a.href=url; a.download='aniversario-'+m.nome.split(' ')[0].toLowerCase()+'.png'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+async function compartilharPostAniversario(id){
+  const m=mem(id), b=await postAniversarioBlob(), f=new File([b],'aniversario-'+m.nome.split(' ')[0].toLowerCase()+'.png',{type:'image/png'});
+  try{
+    if(navigator.canShare&&navigator.canShare({files:[f]})) await navigator.share({files:[f],title:'Feliz aniversário, '+m.nome.split(' ')[0]+'!',text:'🎉 Feliz aniversário, '+m.nome.split(' ')[0]+'! 💙'});
+    else baixarPostAniversario(id);
+  }catch(_){}
+}
 function minhasEscalasPanelHtml(){
   const minhas=minhasEscalas().slice(0,5);
   return '<section class="panel"><h2>Suas próximas escalas</h2><div class="rows">'+
@@ -1119,7 +1326,7 @@ function viewPainelEscala(){
       '<p>'+esc(prox.title)+' · '+(euVou?'você está escalado(a)':montagem?(cand?'escala em montagem, você se candidatou':'escala em montagem, candidate-se'):vag?vag+(vag>1?' vagas abertas':' vaga aberta'):'escala completa')+'</p></div>'+
       '<div class="hero-act"><button class="btn gold" data-action="nav" data-view="escalas">Ver escala</button></div></section>';
   }
-  return lembretePublicacaoHtml()+hero+'<div class="cols"><div>'+minhasEscalasPanelHtml()+vagasPanelHtml()+'</div><div>'+timePainelHtml()+'</div></div>';
+  return aniversarioPainelHtml()+lembretePublicacaoHtml()+hero+'<div class="cols"><div>'+minhasEscalasPanelHtml()+vagasPanelHtml()+'</div><div>'+timePainelHtml()+'</div></div>';
 }
 function viewPainel(){
   if(!ehSetorDeConteudo()) return viewPainelEscala();
@@ -1139,7 +1346,7 @@ function viewPainel(){
     const k=cards.filter(c=>c.owner===m.id&&c.stage!=='publicado').length;
     return '<div class="load"><span>'+esc(m.nome)+'</span><div class="bar"><i class="'+(k>=4?'hi':'')+'" style="width:'+Math.min(100,k*25)+'%"></i></div><b>'+k+'</b></div>';
   }).join('');
-  return lembrete+
+  return aniversarioPainelHtml()+lembrete+
   '<section class="hero"><div><h2>'+head+'</h2><p>'+sub+'</p></div>'+
     '<div class="hero-act"><button class="btn gold" data-action="newOn" data-date="'+d13+'">Planejar conteúdo</button><button class="btn light" data-action="goDate" data-date="'+d13+'">Ver no calendário</button></div></section>'+
   '<div class="strip"><div><b>'+prod+'</b><span>em produção</span></div><div><b>'+rev+'</b><span>aguardando revisão</span></div><div><b>'+ag+'</b><span>agendados</span></div><div class="'+(late?'alert':'')+'"><b>'+late+'</b><span>com prazo vencido</span></div></div>'+
@@ -1516,7 +1723,7 @@ function viewEscalas(){
   const evs=state.events
     .filter(e=>e.date>=hoje)
     // Coordenação também vê eventos extras sem funções do setor (pra poder acrescentar as dela), mas
-    // não as missas fixas de outro setor (ex.: a Missa das 16h de sábado, que é só do Datashow).
+    // não as missas fixas de outro setor (ex.: a Missa das 16h30 de sábado, que é só do Datashow).
     .filter(e=>e.slots.some(doSetor)||(podeEditarSetor&&!/^missa das \d{1,2}h(\d{2})?$/i.test((e.title||'').trim())))
     .sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
   // Filtro rápido: todas / só onde ainda falta gente / só onde eu estou.
@@ -1528,7 +1735,7 @@ function viewEscalas(){
   const coord=(podeCriar||gereEscalas())?'<div class="filters" style="margin-bottom:12px">'+
     (podeCriar?'<button class="btn primary" data-action="novaEscala">+ Evento extra com escala</button>':'')+
     (gereEscalas()?'<button class="btn" data-action="gerarEscalasMes">Gerar missas do mês</button>':'')+'</div>':'';
-  const como='<details class="como"><summary>Como funciona a escala</summary><p>Todo mês a escala começa nova: as missas de domingo (e, pro Datashow, as das 8h, 18h30 e a de sábado às 16h) entram sozinhas, já com as funções de cada setor. '+
+  const como='<details class="como"><summary>Como funciona a escala</summary><p>Todo mês a escala começa nova: as missas de domingo (e, pro Datashow, as das 8h, 18h30 e a de sábado às 16h30) entram sozinhas, já com as funções de cada setor. '+
     (podeEditarSetor
       ?'Enquanto a escala do mês está <b>em montagem</b>, só a coordenação vê quem foi escalado: veja os candidatos de cada função, toque em <b>Escalar</b> ou <b>Trocar</b> e, quando estiver pronta, <b>publique</b>. Você também pode renomear, remover ou adicionar funções de '+esc(SETOR_NAME[currentSetor])+'.'
       :'Toque em <b>Quero servir</b> nas funções em que você pode servir. A coordenação escolhe quem fica em cada uma e, quando a escala for <b>publicada</b>, ela aparece aqui pra todo mundo. Quando o mês chega, a escala dele <b>fecha</b>: se precisar sair, fale com a coordenação do seu setor.')+
@@ -1837,7 +2044,9 @@ function viewTime(){
     const n=x.id==='todos'?total:membrosDoSetor(x.id).filter(m=>m.role!=='coordenador_geral').length;
     return '<button type="button" class="dash-tab'+(timeFiltro===x.id?' active':'')+'" data-action="timeFiltro" data-filtro="'+x.id+'">'+esc(x.nome)+' <span class="chip-n">'+n+'</span></button>';
   }).join('');
-  return '<div class="time-top"><div class="dash-tabs time-chips">'+chips+'</div>'+
+  const semAniv=MEMBERS.filter(x=>!x.anivDia||!x.anivMes).length;
+  const pedir=isCoordenadorGeral()&&semAniv?'<div class="aniv-pedir-geral"><span>🎂 <b>'+semAniv+'</b> '+(semAniv>1?'pessoas ainda não informaram':'pessoa ainda não informou')+' o aniversário. O app já pede no Painel de cada uma.</span><button class="btn small" data-action="pedirAniversarios">Pedir também por e-mail</button></div>':'';
+  return pedir+'<div class="time-top"><div class="dash-tabs time-chips">'+chips+'</div>'+
     '<input id="time-q" class="time-busca" type="search" placeholder="Buscar pessoa ou função" value="'+esc(timeBusca)+'" aria-label="Buscar no time"></div>'+
     '<p class="note" style="margin:0 0 4px">'+total+(total===1?' pessoa':' pessoas')+' servindo na Pascom. Quem está em mais de um setor aparece em cada um deles.</p>'+
     '<div id="time-grid">'+timeGridHtml()+'</div>';
@@ -1847,7 +2056,7 @@ function viewTime(){
 let perfilRascunho=null; // guarda o que já foi digitado quando a tela re-renderiza (ex.: ao trocar a foto)
 function viewPerfil(){
   const m=me(); if(!m) return '';
-  const r=perfilRascunho||{nome:m.nome,funcao:m.funcao,disp:m.disp==='Não informado'?'':m.disp,extras:m.extras||[]};
+  const r=perfilRascunho||{nome:m.nome,funcao:m.funcao,disp:m.disp==='Não informado'?'':m.disp,extras:m.extras||[],anivDia:m.anivDia,anivMes:m.anivMes};
   const geral=m.role==='coordenador_geral';
   const papel=ROLE_NAME[m.role]+(m.setor?' · '+SETOR_NAME[m.setor]:'');
   return '<div class="perfil">'+
@@ -1864,6 +2073,7 @@ function viewPerfil(){
       '<label class="fld"><span>Nome</span><input id="pf-nome" value="'+esc(r.nome)+'" maxlength="120" autocomplete="name"></label>'+
       '<label class="fld"><span>Função</span><input id="pf-funcao" value="'+esc(r.funcao||'')+'" maxlength="120" placeholder="Ex.: Edição de vídeo, fotografia"></label>'+
       '<label class="fld"><span>Disponibilidade</span><input id="pf-disp" value="'+esc(r.disp||'')+'" maxlength="200" placeholder="Ex.: Domingos de manhã"></label>'+
+      aniversarioCamposHtml('pf',r.anivDia,r.anivMes,false)+
     '</section>'+
     '<section class="perfil-card"><h2>Setores</h2>'+
       (geral
@@ -1878,7 +2088,8 @@ function viewPerfil(){
 function capturarRascunhoPerfil(){
   if(!$('#pf-nome')) return;
   perfilRascunho={nome:$('#pf-nome').value,funcao:$('#pf-funcao').value,disp:$('#pf-disp').value,
-    extras:$$('[data-pf-setor]').filter(x=>x.checked).map(x=>x.dataset.pfSetor)};
+    extras:$$('[data-pf-setor]').filter(x=>x.checked).map(x=>x.dataset.pfSetor),
+    anivDia:Number(($('#pf-aniv-dia')||{}).value)||null, anivMes:Number(($('#pf-aniv-mes')||{}).value)||null};
 }
 function atualizarMembro(u){
   const nm=memberFromApi(u), i=MEMBERS.findIndex(x=>x.id===nm.id);
@@ -1922,14 +2133,22 @@ async function gerarLinkSenha(id){
     o.hidden=false;
   }catch(e){ toast(e.message,'warn'); }
 }
+async function pedirAniversarios(){
+  if(!confirm('Mandar um e-mail pra quem ainda não informou o aniversário?')) return;
+  try{ const r=await api('/usuarios/pedir-aniversarios',{method:'POST'});
+    toast(r.enviados?r.enviados+' e-mail(s) enviado(s).'+(r.falhas?' '+r.falhas+' não saíram.':''):'Os e-mails não saíram: o envio só funciona depois que o domínio do e-mail for verificado no Resend. O pedido no Painel continua valendo.', r.enviados?undefined:'warn');
+  }catch(e){ toast(e.message,'warn'); }
+}
 async function salvarPerfil(){
   capturarRascunhoPerfil();
   const r=perfilRascunho;
   if(!r||!r.nome.trim()){ toast('Coloque seu nome.','warn'); return; }
+  const aniv=lerAniversario('pf');
+  if(aniv.erro){ toast(aniv.erro,'warn'); return; }
   try{
     const u=await api('/usuarios/me',{method:'PUT',body:JSON.stringify({
       nome:r.nome.trim(), funcao:r.funcao.trim()||null, disponibilidade:r.disp.trim()||null,
-      setoresExtras:r.extras.map(x=>x.toUpperCase())
+      setoresExtras:r.extras.map(x=>x.toUpperCase()), aniversarioDia:aniv.dia, aniversarioMes:aniv.mes
     })});
     atualizarMembro(u); perfilRascunho=null; render(); toast('Perfil salvo.');
   }catch(e){ toast(e.message,'warn'); }
@@ -2519,6 +2738,7 @@ function cadastroHtml(){
     '<label class="fld" style="margin-top:10px"><span>Senha (mínimo 6 caracteres)</span><input id="au-senha" type="password" autocomplete="new-password"></label>'+
     '<label class="fld" style="margin-top:10px"><span>Você é...</span><select id="au-role">'+ROLES.map(r=>'<option value="'+r.id+'">'+r.nome+'</option>').join('')+'</select></label>'+
     '<label class="fld" id="au-setor-wrap" style="margin-top:10px"><span>Setor</span><select id="au-setor">'+SETORES.map(s=>'<option value="'+s.id+'">'+s.nome+'</option>').join('')+'</select></label>'+
+    '<div style="margin-top:10px">'+aniversarioCamposHtml('au',null,null,true)+'</div>'+
     '<label class="fld" style="margin-top:10px"><span>Função (opcional)</span><input id="au-funcao" type="text" placeholder="Ex.: Edição de vídeo"></label>'+
     '<button class="btn primary" style="width:100%;margin-top:18px" data-action="doCadastro">Criar conta</button>'+
     '<div style="display:flex;align-items:center;gap:10px;margin:16px 0"><hr style="flex:1;border:none;border-top:1px solid #ddd"><span class="note">ou</span><hr style="flex:1;border:none;border-top:1px solid #ddd"></div>'+
@@ -2536,6 +2756,7 @@ function completarGoogleHtml(){
     '<label class="fld" style="margin-top:10px"><span>E-mail</span><input type="text" value="'+esc(g.email)+'" disabled></label>'+
     '<label class="fld" style="margin-top:10px"><span>Você é...</span><select id="au-role">'+ROLES.map(r=>'<option value="'+r.id+'">'+r.nome+'</option>').join('')+'</select></label>'+
     '<label class="fld" id="au-setor-wrap" style="margin-top:10px"><span>Setor</span><select id="au-setor">'+SETORES.map(s=>'<option value="'+s.id+'">'+s.nome+'</option>').join('')+'</select></label>'+
+    '<div style="margin-top:10px">'+aniversarioCamposHtml('au',null,null,true)+'</div>'+
     '<label class="fld" style="margin-top:10px"><span>Função (opcional)</span><input id="au-funcao" type="text" placeholder="Ex.: Edição de vídeo"></label>'+
     '<button class="btn primary" style="width:100%;margin-top:18px" data-action="doCompletarGoogle">Concluir cadastro</button>'+
     '<p class="note" style="margin-top:16px;text-align:center"><button type="button" class="link-btn" data-action="toLogin">Cancelar</button></p>'+
@@ -2716,6 +2937,11 @@ document.addEventListener('click',e=>{
     case 'salvarPerfil': salvarPerfil(); break;
     case 'linkSenha': gerarLinkSenha(id); break;
     case 'gerenciarPessoa': gerenciarPessoa(id); break;
+    case 'postAniversario': abrirPostAniversario(id); break;
+    case 'baixarPostAniversario': baixarPostAniversario(id); break;
+    case 'compartilharPostAniversario': compartilharPostAniversario(id); break;
+    case 'salvarAniversarioPainel': salvarAniversarioPainel(); break;
+    case 'pedirAniversarios': pedirAniversarios(); break;
     case 'salvarPapel': salvarPapel(id); break;
     case 'abrirAvisos': abrirAvisos(); break;
     case 'toggleHistorico': toggleHistorico(); break;

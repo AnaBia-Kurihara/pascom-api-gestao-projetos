@@ -68,9 +68,12 @@ public class UsuarioService {
         if (dados.role() != Role.COORDENADOR_GERAL && dados.setor() == null) {
             throw new IllegalArgumentException("Selecione o setor.");
         }
+        Usuario.validarAniversario(dados.aniversarioDia(), dados.aniversarioMes());
 
         Usuario usuario = Usuario.builder()
                 .nome(dados.nome())
+                .aniversarioDia(dados.aniversarioDia())
+                .aniversarioMes(dados.aniversarioMes())
                 .email(email)
                 .senha(passwordEncoder.encode(dados.senha()))
                 .funcao(dados.funcao())
@@ -117,6 +120,11 @@ public class UsuarioService {
         usuario.setNome(dados.nome().trim());
         usuario.setFuncao(textoOuNull(dados.funcao()));
         usuario.setDisponibilidade(textoOuNull(dados.disponibilidade()));
+        if (dados.aniversarioDia() != null || dados.aniversarioMes() != null) {
+            Usuario.validarAniversario(dados.aniversarioDia(), dados.aniversarioMes());
+            usuario.setAniversarioDia(dados.aniversarioDia());
+            usuario.setAniversarioMes(dados.aniversarioMes());
+        }
 
         EnumSet<Setor> extras = EnumSet.noneOf(Setor.class);
         // Coordenador Geral já faz parte de todos os setores; o principal não precisa repetir.
@@ -246,6 +254,29 @@ public class UsuarioService {
         return UsuarioResponseDTO.from(usuarioRepository.save(usuario));
     }
 
+    /**
+     * Coordenação Geral manda um e-mail pra quem ainda não informou o aniversário, pedindo pra
+     * preencher no perfil. Só chega de verdade quando o Resend tem um domínio verificado
+     * (RESEND_FROM); até lá o próprio app pede no Painel. Devolve quantos foram enviados/falharam.
+     */
+    public java.util.Map<String, Integer> pedirAniversarios(Usuario solicitante) {
+        if (!solicitante.temPoderesDeCoordenadorGeral()) {
+            throw new IllegalStateException("Só a Coordenação Geral pode mandar esse pedido.");
+        }
+        int enviados = 0, falhas = 0;
+        for (Usuario u : usuarioRepository.findAll()) {
+            if (u.getAniversarioDia() != null && u.getAniversarioMes() != null) continue;
+            String texto = "Oi, " + u.getNome().split(" ")[0] + "! Paz e bem.\n\n"
+                    + "Estamos registrando o aniversário de todo mundo da Pascom no app, pra celebrar cada um no seu dia. "
+                    + "Pode informar o seu (só dia e mês)? É rapidinho: entre no app, toque na sua foto no topo, "
+                    + "vá em \"Meu perfil\" e preencha \"Aniversário\".\n\n" + emailService.linkApp() + "\n\nObrigado(a)!";
+            if (emailService.enviar(u.getEmail(), "Pascom Fátima — Quando é o seu aniversário?", texto)) enviados++;
+            else falhas++;
+            try { Thread.sleep(600); } catch (InterruptedException ie) { Thread.currentThread().interrupt(); } // Resend: até 2/s
+        }
+        return java.util.Map.of("enviados", enviados, "falhas", falhas);
+    }
+
     @Transactional
     public void esqueciSenha(String email) {
         // Não revela se o e-mail existe ou não — sempre "sucesso" do ponto de vista de quem pediu.
@@ -295,8 +326,11 @@ public class UsuarioService {
             throw new IllegalArgumentException("Selecione o setor.");
         }
 
+        Usuario.validarAniversario(dados.aniversarioDia(), dados.aniversarioMes());
         Usuario usuario = Usuario.builder()
                 .nome(claims.nome())
+                .aniversarioDia(dados.aniversarioDia())
+                .aniversarioMes(dados.aniversarioMes())
                 .email(email)
                 // Contas via Google não usam senha própria — gera uma aleatória só pra satisfazer a coluna.
                 .senha(passwordEncoder.encode(UUID.randomUUID().toString()))

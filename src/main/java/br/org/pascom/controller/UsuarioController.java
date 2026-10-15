@@ -90,6 +90,12 @@ public class UsuarioController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    /** Só Coordenação Geral: e-mail pra quem ainda não informou o aniversário. */
+    @PostMapping("/pedir-aniversarios")
+    public ResponseEntity<java.util.Map<String, Integer>> pedirAniversarios(@AuthenticationPrincipal Usuario solicitante) {
+        return ResponseEntity.ok(usuarioService.pedirAniversarios(solicitante));
+    }
+
     /** Só Coordenação Geral: muda o papel e o setor principal de alguém. */
     @PatchMapping("/{id}/papel")
     public ResponseEntity<UsuarioResponseDTO> alterarPapel(@PathVariable Long id, @Valid @RequestBody PapelUpdateDTO dados,

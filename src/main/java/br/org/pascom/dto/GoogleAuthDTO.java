@@ -12,5 +12,7 @@ public record GoogleAuthDTO(
         @NotBlank(message = "Token do Google é obrigatório") String idToken,
         Role role,
         Setor setor,
-        String funcao
+        String funcao,
+        Integer aniversarioDia,
+        Integer aniversarioMes
 ) {}

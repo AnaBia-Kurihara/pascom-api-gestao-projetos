@@ -12,5 +12,8 @@ public record PerfilUpdateDTO(
         @Size(max = 120, message = "Função muito longa") String funcao,
         @Size(max = 200, message = "Disponibilidade muito longa") String disponibilidade,
         /** Outros setores dos quais a pessoa também faz parte (o principal é ignorado se vier aqui). */
-        Set<Setor> setoresExtras
+        Set<Setor> setoresExtras,
+        /** Aniversário (só dia e mês); null nos dois = não muda. */
+        Integer aniversarioDia,
+        Integer aniversarioMes
 ) {}

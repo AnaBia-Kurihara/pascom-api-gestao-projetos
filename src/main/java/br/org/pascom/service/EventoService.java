@@ -47,8 +47,10 @@ public class EventoService {
 
     public static final String TITULO_MISSA_DOMINICAL = "Missa das 10h";
     public static final LocalTime HORARIO_MISSA_DOMINICAL = LocalTime.of(10, 0);
-    public static final String TITULO_MISSA_SABADO = "Missa das 16h";
-    public static final LocalTime HORARIO_MISSA_SABADO = LocalTime.of(16, 0);
+    public static final String TITULO_MISSA_SABADO = "Missa das 16h30";
+    public static final LocalTime HORARIO_MISSA_SABADO = LocalTime.of(16, 30);
+    /** Título antigo da missa de sábado (era às 16h até out/2026). */
+    private static final String TITULO_MISSA_SABADO_ANTIGO = "Missa das 16h";
     public static final String LOCAL_PADRAO = "Igreja Matriz";
 
     /**
@@ -97,11 +99,13 @@ public class EventoService {
     private final UsuarioRepository usuarioRepository;
     private final AlteracaoEscalaRepository historicoRepository;
     private final AvisoService avisoService;
+    private final EmailService emailService;
 
     public EventoService(EventoRepository eventoRepository, SlotEscalaRepository slotEscalaRepository,
                          CalendarioService calendarioService, CandidaturaEscalaRepository candidaturaRepository,
                          PublicacaoEscalaRepository publicacaoRepository, UsuarioRepository usuarioRepository,
-                         AlteracaoEscalaRepository historicoRepository, AvisoService avisoService) {
+                         AlteracaoEscalaRepository historicoRepository, AvisoService avisoService,
+                         EmailService emailService) {
         this.eventoRepository = eventoRepository;
         this.slotEscalaRepository = slotEscalaRepository;
         this.calendarioService = calendarioService;
@@ -110,6 +114,7 @@ public class EventoService {
         this.usuarioRepository = usuarioRepository;
         this.historicoRepository = historicoRepository;
         this.avisoService = avisoService;
+        this.emailService = emailService;
     }
 
     /** @param viewer quem está vendo (define o que fica oculto); null = ninguém em especial, tudo em montagem fica oculto */
@@ -346,6 +351,7 @@ public class EventoService {
                 });
         Usuario anterior = slot.getVoluntario();
         slot.setVoluntario(pessoa);
+        if (anterior == null || !anterior.getId().equals(pessoa.getId())) slot.setLembreteEnviadoEm(null);
         String missa = descreverMissa(slot.getEvento());
         registrar(slot.getSetor(), slot.getEvento().getData(), solicitante, anterior == null
                 ? nome(solicitante) + " escalou " + pessoa.getNome() + " em " + slot.getRotulo() + ", " + missa + "."
@@ -437,6 +443,7 @@ public class EventoService {
         }
 
         slot.setVoluntario(null);
+        slot.setLembreteEnviadoEm(null);
         slotEscalaRepository.save(slot);
         String missa = descreverMissa(slot.getEvento());
         registrar(slot.getSetor(), slot.getEvento().getData(), solicitante, ehElaMesma
@@ -447,6 +454,71 @@ public class EventoService {
         }
 
         return toDTO(eventoRepository.findById(eventoId).orElseThrow(), solicitante);
+    }
+
+    // ---------- missa de sábado e lembrete de 48h ----------
+
+    /**
+     * A missa de sábado do Datashow passou das 16h pras 16h30. Os sábados já criados (de hoje em
+     * diante) mudam de horário e de título, sem perder quem já estava escalado; os que já passaram
+     * ficam como foram. Roda na subida, antes da geração automática (que procura pelo título novo).
+     */
+    @Transactional
+    public int ajustarMissaDeSabado() {
+        int n = 0;
+        for (Evento e : eventoRepository.findByDataBetweenAndExcluidoEmIsNullOrderByDataAscHorarioAsc(
+                calendarioService.hoje(), calendarioService.hoje().plusYears(1))) {
+            if (e.getData().getDayOfWeek() == DayOfWeek.SATURDAY && TITULO_MISSA_SABADO_ANTIGO.equals(e.getTitulo())) {
+                e.setTitulo(TITULO_MISSA_SABADO);
+                e.setHorario(HORARIO_MISSA_SABADO);
+                eventoRepository.save(e);
+                n++;
+            }
+        }
+        return n;
+    }
+
+    /**
+     * Lembrete do serviço, 48h antes da missa: quem está escalado (escala publicada) recebe e-mail
+     * e aviso no app. Roda a cada 15 min e manda pra toda função cuja missa começa nas próximas 48h
+     * e que ainda não recebeu lembrete (quem foi escalado em cima da hora recebe na hora). Trocou a
+     * pessoa, o lembrete vale de novo pra quem entrou.
+     */
+    @Scheduled(cron = "0 */15 * * * *", zone = CalendarioService.FUSO)
+    @Transactional
+    public void enviarLembretesDeEscala() {
+        java.time.ZoneId fuso = java.time.ZoneId.of(CalendarioService.FUSO);
+        LocalDateTime agora = LocalDateTime.now(fuso);
+        LocalDate hoje = agora.toLocalDate();
+        for (Evento e : eventoRepository.findByDataBetweenAndExcluidoEmIsNullOrderByDataAscHorarioAsc(hoje, hoje.plusDays(3))) {
+            LocalDateTime inicio = LocalDateTime.of(e.getData(), e.getHorario());
+            if (!inicio.isAfter(agora) || inicio.isAfter(agora.plusHours(48))) continue;
+            for (SlotEscala sl : e.getSlots()) {
+                if (sl.getVoluntario() == null || sl.getLembreteEnviadoEm() != null || !funcaoPublicada(sl)) continue;
+                Usuario p = sl.getVoluntario();
+                String quando = descreverMissa(e) + ", às " + e.getHorario().format(java.time.format.DateTimeFormatter.ofPattern("HH'h'mm"))
+                        .replace("h00", "h");
+                avisoService.avisar(p, "Lembrete: você serve em " + sl.getRotulo() + " na " + quando + " (" + e.getLocal() + ").");
+                emailService.enviar(p.getEmail(), "Lembrete Pascom: você serve em " + sl.getRotulo() + " — " + quando,
+                        "Oi, " + p.getNome().split(" ")[0] + "! Paz e bem.\n\n"
+                                + "Passando pra lembrar do seu serviço:\n\n"
+                                + "• Função: " + sl.getRotulo() + "\n"
+                                + "• Missa: " + quando + "\n"
+                                + "• Local: " + e.getLocal() + "\n\n"
+                                + "Chegue com 1 hora de antecedência. Vá até a Capela do Santíssimo, faça uma oração com calma "
+                                + "e prepare seu coração para a celebração.\n\n"
+                                + "Se não puder ir, avise a coordenação do seu setor o quanto antes.\n\n"
+                                + "Ver a escala: " + emailService.linkApp() + "\n\nPascom Santuário Nossa Senhora de Fátima");
+                sl.setLembreteEnviadoEm(LocalDateTime.now());
+                slotEscalaRepository.save(sl);
+                pausaEntreEmails();
+            }
+        }
+    }
+
+    /** O Resend aceita até 2 e-mails por segundo. */
+    private static void pausaEntreEmails() {
+        try { Thread.sleep(600); } catch (InterruptedException ie) { Thread.currentThread().interrupt(); }
     }
 
     // ---------- histórico e avisos ----------

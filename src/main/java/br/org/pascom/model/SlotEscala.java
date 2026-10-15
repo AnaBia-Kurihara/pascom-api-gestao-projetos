@@ -34,6 +34,9 @@ public class SlotEscala {
     @JoinColumn(name = "voluntario_id")
     private Usuario voluntario;
 
+    /** Quando o lembrete de 48h foi mandado pra quem está nessa função (null = ainda não). */
+    private java.time.LocalDateTime lembreteEnviadoEm;
+
     @ManyToOne(optional = false)
     @JoinColumn(name = "evento_id")
     private Evento evento;

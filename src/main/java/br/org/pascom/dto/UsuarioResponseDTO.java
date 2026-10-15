@@ -26,7 +26,10 @@ public record UsuarioResponseDTO(
          */
         Long fotoVersao,
         /** Gestor(a) de escalas: mexe na escala de todos os setores (ver Usuario.gereTodasAsEscalas). */
-        boolean gestorEscalas
+        boolean gestorEscalas,
+        /** Aniversário (só dia e mês); null = ainda não informado. */
+        Integer aniversarioDia,
+        Integer aniversarioMes
 ) {
     public static UsuarioResponseDTO from(Usuario u) {
         return new UsuarioResponseDTO(
@@ -36,7 +39,9 @@ public record UsuarioResponseDTO(
                 u.getSetoresExtras().stream().sorted().toList(),
                 u.getFotoAtualizadaEm() == null ? null
                         : u.getFotoAtualizadaEm().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli(),
-                Boolean.TRUE.equals(u.getGestorEscalas())
+                Boolean.TRUE.equals(u.getGestorEscalas()),
+                u.getAniversarioDia(),
+                u.getAniversarioMes()
         );
     }
 

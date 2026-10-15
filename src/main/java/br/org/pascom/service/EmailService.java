@@ -32,6 +32,33 @@ public class EmailService {
         this.restClient = RestClient.create();
     }
 
+    public String linkApp() {
+        return baseUrl;
+    }
+
+    /**
+     * Envia um e-mail simples. Não lança exceção: devolve false se falhar (sem chave, Resend
+     * recusou etc.), pra quem chamou seguir em frente — ex.: o lembrete de escala também vira
+     * aviso no app. Sem domínio verificado em RESEND_FROM, o Resend só entrega pro dono da conta.
+     */
+    public boolean enviar(String destinatario, String assunto, String texto) {
+        if (apiKey == null || apiKey.isBlank() || destinatario == null) return false;
+        try {
+            restClient.post()
+                    .uri(RESEND_URL)
+                    .header("Authorization", "Bearer " + apiKey)
+                    .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                    .body(Map.of("from", remetente, "to", List.of(destinatario), "subject", assunto, "text", texto))
+                    .retrieve()
+                    .toBodilessEntity();
+            return true;
+        } catch (RestClientException e) {
+            org.slf4j.LoggerFactory.getLogger(EmailService.class)
+                    .warn("E-mail não enviado pra {}: {}", destinatario, e.getMessage());
+            return false;
+        }
+    }
+
     public String linkRedefinicao(String token) {
         return baseUrl + "/?resetToken=" + token;
     }

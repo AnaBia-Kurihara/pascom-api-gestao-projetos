@@ -68,6 +68,10 @@ public class Usuario implements UserDetails {
 
     private String funcao;
     private String disponibilidade;
+
+    /** Aniversário: só dia e mês (sem ano), pros posts de parabéns e o aviso no Painel. */
+    private Integer aniversarioDia;
+    private Integer aniversarioMes;
     private Integer avatarHue;
 
     /**
@@ -102,6 +106,15 @@ public class Usuario implements UserDetails {
     @Column(name = "gestor_escalas", columnDefinition = "boolean default false")
     @JsonIgnore
     private Boolean gestorEscalas;
+
+    /** Confere dia/mês do aniversário (os dois juntos ou nenhum; 29/02 vale). */
+    public static void validarAniversario(Integer dia, Integer mes) {
+        if (dia == null && mes == null) return;
+        if (dia == null || mes == null) throw new IllegalArgumentException("Informe o dia e o mês do aniversário.");
+        if (mes < 1 || mes > 12) throw new IllegalArgumentException("Mês do aniversário inválido.");
+        int max = java.time.Month.of(mes).maxLength();
+        if (dia < 1 || dia > max) throw new IllegalArgumentException("Dia do aniversário inválido para esse mês.");
+    }
 
     /** Padrão único de e-mail no sistema: sem espaços nas pontas e sempre em minúsculas. */
     public static String normalizarEmail(String email) {
