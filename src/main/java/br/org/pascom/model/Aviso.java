@@ -30,4 +30,11 @@ public class Aviso {
 
     /** null = ainda não lido */
     private LocalDateTime lidoEm;
+
+    /**
+     * O que o app faz ao tocar no aviso (null = nada). Ex.: "postAniversario:12" abre o gerador do
+     * post de parabéns da pessoa 12.
+     */
+    @Column(length = 100)
+    private String acao;
 }

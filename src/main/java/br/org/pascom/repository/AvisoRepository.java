@@ -12,6 +12,7 @@ import java.util.List;
 public interface AvisoRepository extends JpaRepository<Aviso, Long> {
     List<Aviso> findTop30ByUsuarioIdOrderByCriadoEmDesc(Long usuarioId);
     long countByUsuarioIdAndLidoEmIsNull(Long usuarioId);
+    boolean existsByUsuarioIdAndAcaoAndCriadoEmGreaterThanEqual(Long usuarioId, String acao, LocalDateTime desde);
 
     @Modifying
     @Query("update Aviso a set a.lidoEm = :agora where a.usuario.id = :usuarioId and a.lidoEm is null")

@@ -33,6 +33,9 @@ spring:
           # mudou, então continua rápido); sem isso, depois de um deploy, dava pra ficar com o
           # front antigo em cache.
           no-cache: true
+        # O build do Railway grava data fixa (1980) nos arquivos: Last-Modified não serve pra saber se
+        # mudou. Quem decide é o ETag pelo conteúdo (WebConfig.etagDoFront).
+        use-last-modified: false
 
 api:
   resend:

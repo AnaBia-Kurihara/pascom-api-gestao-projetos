@@ -22,21 +22,36 @@ public class AvisoService {
 
     @Transactional
     public void avisar(Usuario usuario, String texto) {
+        avisar(usuario, texto, null);
+    }
+
+    @Transactional
+    public void avisar(Usuario usuario, String texto, String acao) {
         if (usuario == null || texto == null || texto.isBlank()) return;
         avisoRepository.save(Aviso.builder()
                 .usuario(usuario)
                 .texto(texto.length() > 500 ? texto.substring(0, 497) + "..." : texto)
+                .acao(acao)
                 .criadoEm(LocalDateTime.now())
                 .build());
     }
 
+    /** Já mandou esse aviso (mesma ação) pra pessoa desde aquele instante? Evita repetir. */
+    public boolean jaAvisou(Usuario usuario, String acao, LocalDateTime desde) {
+        return avisoRepository.existsByUsuarioIdAndAcaoAndCriadoEmGreaterThanEqual(usuario.getId(), acao, desde);
+    }
+
     public Map<String, Object> meus(Usuario usuario) {
         List<Map<String, Object>> lista = avisoRepository.findTop30ByUsuarioIdOrderByCriadoEmDesc(usuario.getId()).stream()
-                .map(a -> Map.<String, Object>of(
-                        "id", a.getId(),
-                        "texto", a.getTexto(),
-                        "criadoEm", a.getCriadoEm().toString(),
-                        "lido", a.getLidoEm() != null))
+                .map(a -> {
+                    Map<String, Object> m = new java.util.HashMap<>();
+                    m.put("id", a.getId());
+                    m.put("texto", a.getTexto());
+                    m.put("criadoEm", a.getCriadoEm().toString());
+                    m.put("lido", a.getLidoEm() != null);
+                    m.put("acao", a.getAcao());
+                    return m;
+                })
                 .toList();
         return Map.of("naoLidos", avisoRepository.countByUsuarioIdAndLidoEmIsNull(usuario.getId()), "avisos", lista);
     }

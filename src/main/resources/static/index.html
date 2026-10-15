@@ -261,6 +261,9 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center;justify-conten
 .aviso-item.novo{border-color:var(--brand);background:var(--tint)}
 .aviso-item p{font-size:14px;color:var(--ink)}
 .aviso-item small{font-size:12px;color:var(--ink3)}
+.aviso-acao{display:block;width:100%;text-align:left;cursor:pointer;font:inherit}
+.aviso-acao:hover{border-color:var(--gold)}
+.aviso-acao b{color:var(--brand)}
 .hist{margin:18px 0 0}
 .hist-lista{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:12px;background:var(--panel);max-height:360px;overflow-y:auto}
 .hist-item{display:flex;flex-direction:column;gap:2px;padding:9px 12px;border-bottom:1px solid var(--line);font-size:13.5px;color:var(--ink2)}
@@ -2658,7 +2661,14 @@ async function abrirAvisos(){
   await carregarAvisos();
   const o=$('#overlay');
   o.innerHTML='<div class="modal" role="dialog" aria-modal="true" aria-label="Avisos"><div class="m-head"><h3>Avisos</h3><button class="x" data-action="close" aria-label="Fechar">×</button></div>'+
-    '<div class="m-body avisos-lista">'+(avisos.lista.length?avisos.lista.map(a=>'<div class="aviso-item'+(a.lido?'':' novo')+'"><p>'+esc(a.texto)+'</p><small>'+esc(quandoFoi(a.criadoEm))+'</small></div>').join('')
+    '<div class="m-body avisos-lista">'+(avisos.lista.length?avisos.lista.map(a=>{
+        // Aviso com ação: "postAniversario:<id>" abre o gerador do post (só pra coordenação).
+        const pid=a.acao&&a.acao.indexOf('postAniversario:')===0?a.acao.split(':')[1]:null;
+        const clicavel=pid&&mem(pid)&&podeGerarPostAniversario();
+        return clicavel
+          ?'<button type="button" class="aviso-item aviso-acao'+(a.lido?'':' novo')+'" data-action="postAniversario" data-id="'+esc(pid)+'"><p>'+esc(a.texto)+'</p><small>'+esc(quandoFoi(a.criadoEm))+' · <b>Gerar post</b></small></button>'
+          :'<div class="aviso-item'+(a.lido?'':' novo')+'"><p>'+esc(a.texto)+'</p><small>'+esc(quandoFoi(a.criadoEm))+'</small></div>';
+      }).join('')
       :'<div class="empty">Nenhum aviso por enquanto. Quando a coordenação te escalar ou publicar a escala, aparece aqui.</div>')+'</div></div>';
   o.hidden=false;
   if(avisos.naoLidos){ try{ await api('/avisos/lidos',{method:'POST'}); avisos.naoLidos=0; avisos.lista.forEach(a=>a.lido=true); atualizarSininho(); }catch(_){} }

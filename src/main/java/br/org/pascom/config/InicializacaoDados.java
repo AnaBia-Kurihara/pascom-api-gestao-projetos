@@ -37,10 +37,13 @@ public class InicializacaoDados {
     private final UsuarioRepository usuarioRepository;
     private final SlotEscalaRepository slotEscalaRepository;
     private final EventoService eventoService;
+    private final br.org.pascom.service.AniversarioService aniversarioService;
     private final String adminEmails;
 
     public InicializacaoDados(UsuarioRepository usuarioRepository, SlotEscalaRepository slotEscalaRepository,
-                              EventoService eventoService, @Value("${app.admin-emails:}") String adminEmails) {
+                              EventoService eventoService, br.org.pascom.service.AniversarioService aniversarioService,
+                              @Value("${app.admin-emails:}") String adminEmails) {
+        this.aniversarioService = aniversarioService;
         this.usuarioRepository = usuarioRepository;
         this.slotEscalaRepository = slotEscalaRepository;
         this.eventoService = eventoService;
@@ -61,6 +64,10 @@ public class InicializacaoDados {
         executarComSeguranca("gerar escalas automáticas", () -> {
             int criados = eventoService.garantirEscalasDoMesAtualEProximo();
             if (criados > 0) log.info("Escalas automáticas (domingos e sábados) criadas na inicialização: {}", criados);
+        });
+        executarComSeguranca("avisar aniversariantes de hoje", () -> {
+            int n = aniversarioService.avisarSeJaPassouDoHorario();
+            if (n > 0) log.info("Avisos de aniversário criados na inicialização: {}", n);
         });
         executarComSeguranca("publicar a escala do mês que chegou", () -> {
             int n = eventoService.publicarMesQueChegou();
