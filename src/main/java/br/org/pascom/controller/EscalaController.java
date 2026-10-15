@@ -65,6 +65,13 @@ public class EscalaController {
         return ResponseEntity.ok().build();
     }
 
+    /** Histórico de alterações da escala de um setor: só coordenação do setor ou Geral. */
+    @GetMapping("/historico")
+    public ResponseEntity<List<Map<String, Object>>> historico(@RequestParam Setor setor,
+                                                               @AuthenticationPrincipal Usuario solicitante) {
+        return ResponseEntity.ok(eventoService.historico(setor, solicitante));
+    }
+
     @PostMapping("/despublicar")
     public ResponseEntity<Void> despublicar(@RequestParam String mes, @RequestParam Setor setor,
                                             @AuthenticationPrincipal Usuario solicitante) {

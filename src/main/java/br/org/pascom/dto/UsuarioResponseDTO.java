@@ -24,7 +24,9 @@ public record UsuarioResponseDTO(
          * Versão da foto de perfil (null = sem foto). O front busca a imagem em
          * GET /api/usuarios/{id}/foto?v=<versão>, então trocar a foto invalida o cache sozinho.
          */
-        Long fotoVersao
+        Long fotoVersao,
+        /** Gestor(a) de escalas: mexe na escala de todos os setores (ver Usuario.gereTodasAsEscalas). */
+        boolean gestorEscalas
 ) {
     public static UsuarioResponseDTO from(Usuario u) {
         return new UsuarioResponseDTO(
@@ -33,7 +35,8 @@ public record UsuarioResponseDTO(
                 u.temPoderesDeCoordenadorGeral(),
                 u.getSetoresExtras().stream().sorted().toList(),
                 u.getFotoAtualizadaEm() == null ? null
-                        : u.getFotoAtualizadaEm().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+                        : u.getFotoAtualizadaEm().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli(),
+                Boolean.TRUE.equals(u.getGestorEscalas())
         );
     }
 

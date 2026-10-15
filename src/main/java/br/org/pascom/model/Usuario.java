@@ -94,6 +94,15 @@ public class Usuario implements UserDetails {
     @JsonIgnore
     private Boolean admin;
 
+    /**
+     * Gestor(a) de escalas: mexe na escala de todos os setores (montar, trocar, tirar, publicar,
+     * editar funções, histórico, eventos extras), como a Coordenação Geral, mas só nas escalas —
+     * não muda papel de ninguém nem acessa o resto. Ligado pela Coordenação Geral em "Gerenciar".
+     */
+    @Column(name = "gestor_escalas", columnDefinition = "boolean default false")
+    @JsonIgnore
+    private Boolean gestorEscalas;
+
     /** Padrão único de e-mail no sistema: sem espaços nas pontas e sempre em minúsculas. */
     public static String normalizarEmail(String email) {
         return email == null ? null : email.trim().toLowerCase(java.util.Locale.ROOT);
@@ -136,6 +145,24 @@ public class Usuario implements UserDetails {
     public boolean fazParteDoSetor(Setor alvo) {
         if (alvo == null) return false;
         return role == Role.COORDENADOR_GERAL || setor == alvo || getSetoresExtras().contains(alvo);
+    }
+
+    /** Coordenação Geral ou gestor(a) de escalas: mexe na escala de qualquer setor. */
+    @JsonIgnore
+    public boolean gereTodasAsEscalas() {
+        return temPoderesDeCoordenadorGeral() || Boolean.TRUE.equals(gestorEscalas);
+    }
+
+    /** Monta a escala do setor: quem coordena o setor ou quem gere todas as escalas. */
+    @JsonIgnore
+    public boolean coordenaEscalaDoSetor(Setor alvo) {
+        return gereTodasAsEscalas() || coordenaSetor(alvo);
+    }
+
+    /** Pode criar evento extra e adicionar funções: qualquer coordenação ou gestor(a) de escalas. */
+    @JsonIgnore
+    public boolean podeMontarEscalas() {
+        return isCoordenacao() || gereTodasAsEscalas();
     }
 
     /** Quem pode marcar a conferência doutrinária de um cartão. */

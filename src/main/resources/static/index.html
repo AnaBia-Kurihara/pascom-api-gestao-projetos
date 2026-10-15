@@ -250,6 +250,22 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center;justify-conten
 .cand-ok{color:var(--green);border-color:var(--green)}
 .pub-bar{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 14px;margin:0 0 14px}
 .pub-row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:4px 0}
+.bell{position:relative;width:40px;height:40px;border-radius:50%;border:1px solid var(--line);background:var(--panel);color:var(--ink2);display:grid;place-items:center;padding:0;flex:none}
+.bell svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.bell-n{position:absolute;top:-4px;right:-4px;min-width:18px;height:18px;padding:0 5px;border-radius:99px;background:var(--rose);color:#fff;font-size:11px;font-weight:700;display:grid;place-items:center}
+.mbar .bell{margin-left:auto;background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.18);color:#fff}
+.mbar .bell-slot{margin-left:auto;display:flex}
+.mbar .bell-slot+.mbar-me{margin-left:10px}
+.avisos-lista{gap:10px}
+.aviso-item{border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.aviso-item.novo{border-color:var(--brand);background:var(--tint)}
+.aviso-item p{font-size:14px;color:var(--ink)}
+.aviso-item small{font-size:12px;color:var(--ink3)}
+.hist{margin:18px 0 0}
+.hist-lista{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:12px;background:var(--panel);max-height:360px;overflow-y:auto}
+.hist-item{display:flex;flex-direction:column;gap:2px;padding:9px 12px;border-bottom:1px solid var(--line);font-size:13.5px;color:var(--ink2)}
+.hist-item:last-child{border-bottom:0}
+.hist-item small{color:var(--ink3);font-size:12px}
 .lembrete-pub{display:flex;align-items:center;gap:10px 12px;flex-wrap:wrap;background:var(--gold-soft);color:var(--gold-ink);border:1px solid var(--gold);border-radius:12px;padding:12px 14px;margin:0 0 16px}
 .lembrete-pub>div{flex:1 1 240px;display:flex;flex-direction:column;gap:2px;font-size:14px}
 .lembrete-pub span{font-size:13px;opacity:.9}
@@ -462,6 +478,7 @@ details.como p{max-width:72ch;line-height:1.55}
   /* Cabeçalho e Painel mais compactos */
   .top h1{font-size:22px}
   .top h1 .pill{display:none} /* o setor já aparece no topo */
+  .bell-desk{display:none}
   .top p{font-size:13.5px}
   .hero{padding:18px 18px;border-radius:14px}
   .hero h2{font-size:20px}
@@ -692,7 +709,7 @@ function memberFromApi(u){
     id:String(u.id), nome:u.nome, funcao:u.funcao||'', role:ROLE_FROM_API[u.role]||'voluntario',
     setor:u.setor?SETOR_FROM_API[u.setor]:null,
     disp:u.disponibilidade||'Não informado', h:(u.avatarHue!=null?u.avatarHue:(Number(u.id)*53)%360),
-    email:u.email, poderesGeral:!!u.poderesCoordenadorGeral,
+    email:u.email, poderesGeral:!!u.poderesCoordenadorGeral, gestorEscalas:!!u.gestorEscalas,
     extras:(u.setoresExtras||[]).map(x=>SETOR_FROM_API[x]).filter(Boolean),
     foto:u.fotoVersao||null
   };
@@ -802,6 +819,7 @@ async function carregarTudo(meId){
   // Volta no último espaço aberto neste aparelho; se não tiver, começa no setor da pessoa.
   let salvo=null; try{ salvo=localStorage.getItem(SETOR_KEY); }catch(e){}
   currentSetor=SETOR_NAME[salvo]?salvo:((m&&m.setor)?m.setor:'redes_sociais');
+  carregarAvisos();
 }
 const SETOR_KEY='pascom-fatima-setor';
 function lembrarSetor(){ try{ localStorage.setItem(SETOR_KEY,currentSetor); }catch(e){} }
@@ -933,7 +951,10 @@ const coordenaSetor=s=>{const m=me();return !!m&&(isCoordenadorGeral()||(m.role=
 // Pode tirar alguém da escala: a própria pessoa, o Coordenador Geral, ou o coordenador da equipe (setor) dela.
 // Faz parte da equipe do setor: setor principal, um dos setores extras (escolhidos no perfil) ou Coordenação Geral.
 const pertenceSetor=(m,s)=>!!m&&(m.role==='coordenador_geral'||m.setor===s||(m.extras||[]).indexOf(s)>-1);
-const podeTirarDaEscala=whoId=>{const m=me(),w=mem(whoId);return !!m&&(whoId===state.me||isCoordenadorGeral()||(m.role==='coordenador'&&!!w&&!!m.setor&&pertenceSetor(w,m.setor)));};
+// Gestor(a) de escalas: mexe na escala de todos os setores (só nas escalas). Mesma regra do backend.
+const gereEscalas=()=>isCoordenadorGeral()||!!(me()&&me().gestorEscalas);
+const coordenaEscala=s=>gereEscalas()||coordenaSetor(s);
+const podeTirarDaEscala=whoId=>{const m=me(),w=mem(whoId);return !!m&&(whoId===state.me||gereEscalas()||(m.role==='coordenador'&&!!w&&!!m.setor&&pertenceSetor(w,m.setor)));};
 const card=id=>state.cards.find(c=>c.id===id);
 const visibleCards=()=>state.cards.filter(c=>c.setor===currentSetor);
 const visibleIdeas=()=>state.ideas.filter(i=>i.setor===currentSetor);
@@ -1052,7 +1073,7 @@ function proximoMesISO(){const a=new Date();const d=new Date(a.getFullYear(),a.g
    o servidor publica sozinho no dia 1º (EventoService.publicarMesQueChegou). */
 function lembretePublicacaoHtml(){
   const m=me(); if(!m||new Date().getDate()<25) return '';
-  const meus=isCoordenadorGeral()?SETORES.map(x=>x.id):(m.role==='coordenador'&&m.setor?[m.setor]:[]);
+  const meus=gereEscalas()?SETORES.map(x=>x.id):(m.role==='coordenador'&&m.setor?[m.setor]:[]);
   const prox=proximoMesISO();
   const pend=meus.filter(st=>state.events.some(e=>e.date.slice(0,7)===prox&&e.slots.some(s=>s.setor===st&&!s.publicada)));
   if(!pend.length) return '';
@@ -1067,7 +1088,7 @@ function minhasEscalas(){
 }
 function eventosComVagaNoSetor(){
   const h=hojeISO();
-  const coord=coordenaSetor(currentSetor);
+  const coord=coordenaEscala(currentSetor);
   return state.events.filter(e=>e.date>=h&&(coord||!mesFechado(e.date))&&e.slots.some(s=>doSetorAtual(s)&&!s.who&&!s.oculto))
     .sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
 }
@@ -1463,7 +1484,7 @@ let editSlotKey=null; // 'idEvento:idFuncao' da função sendo renomeada
 let escalarKey=null; // 'idEvento:idFuncao' com o seletor "Escalar" aberto
 // Mesma regra do backend (EventoService.exigirPodeEditarFuncao): Coordenação Geral mexe em tudo;
 // coordenador de setor, só nas funções do próprio setor.
-const podeEditarFuncao=s=>s.setor?coordenaSetor(s.setor):isCoordenadorGeral();
+const podeEditarFuncao=s=>s.setor?coordenaEscala(s.setor):gereEscalas();
 let escalaAba='setor'; // 'setor' | 'completa'
 let escalaFiltro='todas'; // 'todas' | 'vagas' | 'minhas'
 const mesAtualStr=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');};
@@ -1489,8 +1510,8 @@ function escalaTabsHtml(){
 function viewEscalas(){
   if(escalaAba==='completa') return escalaTabsHtml()+viewEscalaCompleta();
   const agora=new Date(), hoje=agora.getFullYear()+'-'+String(agora.getMonth()+1).padStart(2,'0')+'-'+String(agora.getDate()).padStart(2,'0');
-  const podeCriar=isApprover();
-  const podeEditarSetor=coordenaSetor(currentSetor);
+  const podeCriar=isApprover()||gereEscalas();
+  const podeEditarSetor=coordenaEscala(currentSetor);
   const doSetor=s=>s.setor===currentSetor||s.setor===null;
   const evs=state.events
     .filter(e=>e.date>=hoje)
@@ -1504,15 +1525,15 @@ function viewEscalas(){
   const filtrados=escalaFiltro==='vagas'?evs.filter(comVaga):escalaFiltro==='minhas'?evs.filter(minha):evs;
   const chips='<div class="dash-tabs chips-esc">'+[['todas','Todas'],['vagas','Com vaga'],['minhas','Minhas']].map(x=>
     '<button type="button" class="dash-tab'+(escalaFiltro===x[0]?' active':'')+'" data-action="escalaFiltro" data-filtro="'+x[0]+'">'+x[1]+' <span class="chip-n">'+n[x[0]]+'</span></button>').join('')+'</div>';
-  const coord=(podeCriar||isCoordenadorGeral())?'<div class="filters" style="margin-bottom:12px">'+
+  const coord=(podeCriar||gereEscalas())?'<div class="filters" style="margin-bottom:12px">'+
     (podeCriar?'<button class="btn primary" data-action="novaEscala">+ Evento extra com escala</button>':'')+
-    (isCoordenadorGeral()?'<button class="btn" data-action="gerarEscalasMes">Gerar missas do mês</button>':'')+'</div>':'';
+    (gereEscalas()?'<button class="btn" data-action="gerarEscalasMes">Gerar missas do mês</button>':'')+'</div>':'';
   const como='<details class="como"><summary>Como funciona a escala</summary><p>Todo mês a escala começa nova: as missas de domingo (e, pro Datashow, as das 8h, 18h30 e a de sábado às 16h) entram sozinhas, já com as funções de cada setor. '+
     (podeEditarSetor
       ?'Enquanto a escala do mês está <b>em montagem</b>, só a coordenação vê quem foi escalado: veja os candidatos de cada função, toque em <b>Escalar</b> ou <b>Trocar</b> e, quando estiver pronta, <b>publique</b>. Você também pode renomear, remover ou adicionar funções de '+esc(SETOR_NAME[currentSetor])+'.'
       :'Toque em <b>Quero servir</b> nas funções em que você pode servir. A coordenação escolhe quem fica em cada uma e, quando a escala for <b>publicada</b>, ela aparece aqui pra todo mundo. Quando o mês chega, a escala dele <b>fecha</b>: se precisar sair, fale com a coordenação do seu setor.')+
     (podeCriar?' Se tiver outro evento que precise de gente, marque como evento extra.':'')+'</p></details>';
-  const naoFaz=me()&&!pertenceSetor(me(),currentSetor)?'<div class="aviso-equipe"><span>Você ainda não faz parte de <b>'+esc(SETOR_NAME[currentSetor])+'</b>, então não pode se inscrever nas vagas daqui. Se você também serve neste setor, adicione ele no seu perfil.</span><button class="btn small primary" data-action="abrirPerfil">Ir pro meu perfil</button></div>':'';
+  const naoFaz=me()&&!pertenceSetor(me(),currentSetor)&&!gereEscalas()?'<div class="aviso-equipe"><span>Você ainda não faz parte de <b>'+esc(SETOR_NAME[currentSetor])+'</b>, então não pode se inscrever nas vagas daqui. Se você também serve neste setor, adicione ele no seu perfil.</span><button class="btn small primary" data-action="abrirPerfil">Ir pro meu perfil</button></div>':'';
   // Status de cada mês da lista (em montagem / publicada) pro setor atual.
   const meses={};
   evs.forEach(e=>e.slots.filter(s=>s.setor===currentSetor).forEach(s=>{const m=e.date.slice(0,7); if(!(m in meses)) meses[m]=s.publicada;}));
@@ -1524,7 +1545,7 @@ function viewEscalas(){
       '<p class="note" style="margin:6px 0 0">Em montagem, só a coordenação vê os nomes. Publicou, a equipe vê a escala final. Quando o mês chega, a escala dele fecha (e, se não tiver sido publicada, é publicada sozinha no dia 1º).</p></div>'
     :(mesesKeys.some(m=>!meses[m])?'<div class="aviso-montagem">A escala de <b>'+mesesKeys.filter(m=>!meses[m]).map(nomeMes).join(' e ')+'</b> está em montagem. Toque em <b>Quero servir</b> nas funções em que você pode; a coordenação escolhe e publica.</div>':'');
   const acoes=(podeEditarSetor?lembretePublicacaoHtml():'')+naoFaz+chips+coord+statusMeses+como;
-  const rodape=pdfBarHtml(currentSetor);
+  const rodape=(podeEditarSetor?historicoHtml():'')+pdfBarHtml(currentSetor);
   const vazio=escalaFiltro==='minhas'?'Você ainda não está em nenhuma escala de '+esc(SETOR_NAME[currentSetor])+'.':escalaFiltro==='vagas'?'Nenhuma vaga aberta em '+esc(SETOR_NAME[currentSetor])+' agora.':'Nenhuma escala aberta pra '+esc(SETOR_NAME[currentSetor])+' por enquanto.';
   if(!filtrados.length) return escalaTabsHtml()+acoes+'<div class="empty">'+vazio+'</div>'+rodape;
   return escalaTabsHtml()+acoes+'<div class="evs">'+filtrados.map(e=>{
@@ -1534,7 +1555,7 @@ function viewEscalas(){
     const joined=e.slots.some(s=>s.who===state.me);
     const pillEv=!slots.length?'':montagem?'<span class="pill">Em montagem</span>':'<span class="pill '+(open?'warn':'ok')+'">'+(open?open+(open>1?' vagas':' vaga'):'Completa')+'</span>';
     return '<article class="ev'+(e.big?' big':'')+'"><div class="ev-h"><div class="dbadge"><b>'+d.getDate()+'</b><span>'+d.toLocaleDateString('pt-BR',{month:'short'}).replace('.','')+'</span></div><div style="flex:1;min-width:120px"><h3>'+esc(e.title)+'</h3><small>'+cap(d.toLocaleDateString('pt-BR',{weekday:'long'}))+', '+e.time+' no '+esc(e.place)+'</small></div><div class="ev-h-actions">'+pillEv+
-      (isCoordenadorGeral()?'<button class="btn small danger" data-action="excluirEvento" data-id="'+e.id+'" title="Excluir escala">Excluir</button>':'')+'</div></div>'+
+      (gereEscalas()?'<button class="btn small danger" data-action="excluirEvento" data-id="'+e.id+'" title="Excluir escala">Excluir</button>':'')+'</div></div>'+
       (slots.length?slots.map(s=>{
         let act='', extra='';
         const podeEntrar=!s.setor||pertenceSetor(me(),s.setor);
@@ -1759,6 +1780,7 @@ function membrosDoSetor(s){
 }
 function papelNoSetor(m,s){
   if(m.role==='coordenador_geral') return 'Coordenação Geral';
+  if(m.gestorEscalas&&!(m.role==='coordenador'&&m.setor===s)) return 'Gestor(a) de escalas';
   if(m.setor===s) return m.role==='coordenador'?'Coordenação do setor':'Voluntário(a)';
   return (m.role==='coordenador'?'Coordena '+SETOR_NAME[m.setor]:'Voluntário(a) de '+(SETOR_NAME[m.setor]||'outro setor'))+', também está aqui';
 }
@@ -1775,7 +1797,7 @@ function viewEquipeSetor(){
       '<div class="fn">'+esc(m.funcao||'—')+'</div>'+
       '<div class="note" style="margin-top:2px"><span class="pill'+(r<2?' warn':'')+'">'+esc(papelNoSetor(m,s))+'</span> Disponível: '+esc((m.disp||'').toLowerCase())+'</div>'+
       (cs.length?'<ul>'+cs.map(c=>'<li>'+esc(c.title)+'</li>').join('')+'</ul>':(ehSetorDeConteudo()?'<p class="note">Sem cartões em andamento neste setor.</p>':''))+
-      (isCoordenadorGeral()&&m.id!==state.me?'<button type="button" class="link-btn mem-link" data-action="linkSenha" data-id="'+m.id+'">Gerar link de nova senha</button>':'')+'</div></div>';
+      (isCoordenadorGeral()&&m.id!==state.me?'<button type="button" class="link-btn mem-link" data-action="gerenciarPessoa" data-id="'+m.id+'">Gerenciar (papel, setor, senha)</button>':'')+'</div></div>';
   };
   const aviso=eu&&!pertenceSetor(eu,s)
     ?'<div class="aviso-equipe"><span>Você ainda não faz parte da equipe de <b>'+esc(SETOR_NAME[s])+'</b>. Se você também serve aqui, adicione este setor no seu perfil.</span><button class="btn small primary" data-action="abrirPerfil">Ir pro meu perfil</button></div>'
@@ -1793,6 +1815,7 @@ function timePessoaHtml(m,s){
     '<b>'+esc(m.nome)+'</b>'+
     (m.funcao?'<span class="fn">'+esc(m.funcao)+'</span>':'')+
     (sub?'<span class="pill'+(coordena?' warn':'')+'">'+esc(sub)+'</span>':'')+
+    (isCoordenadorGeral()&&m.id!==state.me?'<button type="button" class="link-btn mem-link" data-action="gerenciarPessoa" data-id="'+m.id+'">Gerenciar</button>':'')+
   '</div>';
 }
 function timeGridHtml(){
@@ -1860,6 +1883,30 @@ function capturarRascunhoPerfil(){
 function atualizarMembro(u){
   const nm=memberFromApi(u), i=MEMBERS.findIndex(x=>x.id===nm.id);
   if(i>-1) MEMBERS[i]=nm; else MEMBERS.push(nm);
+}
+// Coordenação Geral: mudar papel/setor de alguém e gerar link de nova senha, numa janela só.
+function gerenciarPessoa(id){
+  const m=mem(id); if(!m) return;
+  const o=$('#overlay');
+  o.innerHTML='<div class="modal" role="dialog" aria-modal="true" aria-label="Gerenciar '+esc(m.nome)+'"><div class="m-head"><h3>'+esc(m.nome)+'</h3><button class="x" data-action="close" aria-label="Fechar">×</button></div>'+
+    '<div class="m-body">'+
+      '<p class="note" style="margin:0">Hoje: <b>'+esc(ROLE_NAME[m.role])+(m.setor?' · '+esc(SETOR_NAME[m.setor]):'')+'</b></p>'+
+      '<label class="fld"><span>Papel</span><select id="gp-role">'+ROLES.map(r=>'<option value="'+r.id+'"'+(r.id===m.role?' selected':'')+'>'+r.nome+'</option>').join('')+'</select></label>'+
+      '<label class="fld" id="gp-setor-wrap"'+(m.role==='coordenador_geral'?' hidden':'')+'><span>Setor principal</span><select id="gp-setor">'+SETORES.map(x=>'<option value="'+x.id+'"'+(x.id===m.setor?' selected':'')+'>'+x.nome+'</option>').join('')+'</select></label>'+
+      '<p class="note" style="margin:0">Coordenador(a) de setor monta, troca e publica a escala do setor. Só pode existir um(a) Coordenador(a) Geral.</p>'+
+      '<label class="chk"><input type="checkbox" id="gp-gestor"'+(m.gestorEscalas?' checked':'')+'><span>Gestor(a) de escalas<small>Mexe na escala de <b>todos os setores</b> (montar, trocar, tirar, publicar, editar funções), como a Coordenação Geral, mas só nas escalas.</small></span></label>'+
+      '<div style="border-top:1px solid var(--line);padding-top:12px"><b style="font-size:14px">Esqueceu a senha?</b><p class="note" style="margin:4px 0 8px">Gere um link de nova senha (vale 24h) pra mandar pelo WhatsApp.</p><button class="btn small" data-action="linkSenha" data-id="'+m.id+'">Gerar link de nova senha</button></div>'+
+    '</div>'+
+    '<div class="m-foot"><span class="sp"></span><button class="btn" data-action="close">Cancelar</button><button class="btn primary" data-action="salvarPapel" data-id="'+m.id+'">Salvar papel</button></div></div>';
+  o.hidden=false;
+}
+async function salvarPapel(id){
+  const role=$('#gp-role').value, setor=$('#gp-setor').value;
+  try{
+    const gestor=!!($('#gp-gestor')&&$('#gp-gestor').checked);
+    const u=await api('/usuarios/'+id+'/papel',{method:'PATCH',body:JSON.stringify({gestorEscalas:gestor,role:({voluntario:'VOLUNTARIO',coordenador:'COORDENADOR',coordenador_geral:'COORDENADOR_GERAL'})[role],setor:role==='coordenador_geral'?null:setor.toUpperCase()})});
+    atualizarMembro(u); closeModal(); render(); toast(u.nome.split(' ')[0]+' agora é '+ROLE_NAME[ROLE_FROM_API[u.role]]+(u.setor?' · '+SETOR_NAME[SETOR_FROM_API[u.setor]]:'')+(u.gestorEscalas?' · gestor(a) de escalas':'')+'.');
+  }catch(e){ toast(e.message,'warn'); }
 }
 // Plano B da senha: a Coordenação Geral gera o link e manda pra pessoa pelo WhatsApp.
 async function gerarLinkSenha(id){
@@ -2367,10 +2414,36 @@ function renderTop(){
     ? '<button class="btn primary fab" data-action="new" aria-label="Novo cartão">+ Novo cartão</button>'
     : '';
   $('#top').innerHTML='<div><h1>'+esc(v.title())+badge+'</h1><p>'+esc(v.sub())+'</p></div>'+
-    (novoBtn?'<div class="top-actions">'+novoBtn+'</div>':'');
+    '<div class="top-actions"><span class="bell-slot bell-desk">'+sininhoHtml()+'</span>'+novoBtn+'</div>';
 }
 /* Celular: barra do topo mostra o espaço atual (toque pra trocar) e a sua foto (perfil);
    barra de baixo tem as abas principais do setor + "Mais" (abre a gaveta com o resto). */
+/* Avisos dentro do app: "você foi escalado(a)", "saiu a escala de Novembro" etc. */
+let avisos={naoLidos:0,lista:[]};
+async function carregarAvisos(){
+  if(!authToken) return;
+  try{ const r=await api('/avisos'); avisos={naoLidos:r.naoLidos||0,lista:r.avisos||[]}; atualizarSininho(); }catch(_){}
+}
+function sininhoHtml(){
+  return '<button type="button" class="bell" data-action="abrirAvisos" aria-label="Avisos'+(avisos.naoLidos?' ('+avisos.naoLidos+' novos)':'')+'">'+
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 16V11a6 6 0 1 1 12 0v5l1.5 2h-15L6 16zM10 20a2 2 0 0 0 4 0"/></svg>'+
+    (avisos.naoLidos?'<span class="bell-n">'+(avisos.naoLidos>9?'9+':avisos.naoLidos)+'</span>':'')+'</button>';
+}
+function atualizarSininho(){ $$('.bell-slot').forEach(el=>{el.innerHTML=sininhoHtml();}); }
+function quandoFoi(iso){
+  const d=new Date(iso), min=Math.round((Date.now()-d.getTime())/60000);
+  if(min<1) return 'agora'; if(min<60) return 'há '+min+' min'; if(min<1440) return 'há '+Math.round(min/60)+'h';
+  return d.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'})+' às '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+}
+async function abrirAvisos(){
+  await carregarAvisos();
+  const o=$('#overlay');
+  o.innerHTML='<div class="modal" role="dialog" aria-modal="true" aria-label="Avisos"><div class="m-head"><h3>Avisos</h3><button class="x" data-action="close" aria-label="Fechar">×</button></div>'+
+    '<div class="m-body avisos-lista">'+(avisos.lista.length?avisos.lista.map(a=>'<div class="aviso-item'+(a.lido?'':' novo')+'"><p>'+esc(a.texto)+'</p><small>'+esc(quandoFoi(a.criadoEm))+'</small></div>').join('')
+      :'<div class="empty">Nenhum aviso por enquanto. Quando a coordenação te escalar ou publicar a escala, aparece aqui.</div>')+'</div></div>';
+  o.hidden=false;
+  if(avisos.naoLidos){ try{ await api('/avisos/lidos',{method:'POST'}); avisos.naoLidos=0; avisos.lista.forEach(a=>a.lido=true); atualizarSininho(); }catch(_){} }
+}
 function renderMobileBars(){
   const m=me();
   $('#mbar').innerHTML=
@@ -2379,6 +2452,7 @@ function renderMobileBars(){
       '<span class="tx"><small>Espaço</small><b>'+esc(SETOR_NAME[currentSetor])+'</b></span>'+
       '<svg class="chev" viewBox="0 0 24 24" aria-hidden="true">'+ICONS.chev+'</svg>'+
     '</button>'+
+    '<span class="bell-slot">'+sininhoHtml()+'</span>'+
     (m?'<button type="button" class="mbar-me" data-action="abrirPerfil" aria-label="Meu perfil">'+avatar(m.id)+'</button>':'');
   const abas=abasPrincipais(), noMais=abas.indexOf(view)<0;
   $('#tabbar').innerHTML=abas.map(k=>
@@ -2539,11 +2613,35 @@ async function recarregarEventos(){
     if(view==='escalas'&&!editSlotKey&&!addSlotEventoId&&!escalarKey&&$('#overlay').hidden) render();
   }catch(_){}
 }
+// Histórico da escala do setor (só coordenação): carrega ao abrir, recarrega depois de cada mudança.
+let historico={setor:null,itens:null,aberto:false,carregando:false};
+function historicoHtml(){
+  const aberto=historico.aberto&&historico.setor===currentSetor;
+  let corpo='';
+  if(aberto) corpo=historico.carregando?'<div class="empty">Carregando...</div>'
+    :!historico.itens||!historico.itens.length?'<div class="empty">Nenhuma alteração registrada ainda.</div>'
+    :'<div class="hist-lista">'+historico.itens.slice(0,60).map(h=>'<div class="hist-item"><span>'+esc(h.texto)+'</span><small>'+esc(quandoFoi(h.criadoEm))+'</small></div>').join('')+'</div>';
+  return '<div class="hist"><button type="button" class="btn small" data-action="toggleHistorico">'+(aberto?'Esconder histórico':'Histórico de alterações')+'</button>'+
+    (aberto?'<p class="note" style="margin:8px 0">Só a coordenação vê: quem escalou, trocou, tirou ou publicou.</p>'+corpo:'')+'</div>';
+}
+async function toggleHistorico(){
+  if(historico.aberto&&historico.setor===currentSetor){ historico.aberto=false; render(); return; }
+  historico={setor:currentSetor,itens:null,aberto:true,carregando:true}; render();
+  await carregarHistorico();
+}
+async function carregarHistorico(){
+  if(!historico.aberto) return;
+  try{ historico.itens=await api('/escalas/historico?setor='+historico.setor.toUpperCase()); }
+  catch(e){ historico.itens=[]; toast(e.message,'warn'); }
+  historico.carregando=false;
+  if(view==='escalas') render();
+}
 async function acaoEscala(evId,caminho,metodo,corpo,msg){
   const ev=state.events.find(x=>x.id===evId);
   try{
     const dto=await api('/eventos/'+evId+'/slots/'+caminho,{method:metodo,body:corpo?JSON.stringify(corpo):undefined});
     Object.assign(ev,eventoFromApi(dto)); invalidarEscalaCompleta(); escalarKey=null; render(); if(msg) toast(msg);
+    carregarHistorico();
   }catch(e){ toast(e.message,'warn'); escalarKey=null; await recarregarEventos(); }
 }
 async function publicarMes(mes,publicar){
@@ -2617,6 +2715,10 @@ document.addEventListener('click',e=>{
     case 'abrirPerfil': view='perfil'; perfilRascunho=null; mobileNavOpen=false; render(); $('.main').scrollTop=0; break;
     case 'salvarPerfil': salvarPerfil(); break;
     case 'linkSenha': gerarLinkSenha(id); break;
+    case 'gerenciarPessoa': gerenciarPessoa(id); break;
+    case 'salvarPapel': salvarPapel(id); break;
+    case 'abrirAvisos': abrirAvisos(); break;
+    case 'toggleHistorico': toggleHistorico(); break;
     case 'copiarLinkSenha': {
       const ta=$('#link-senha-msg'); if(!ta) break;
       const ok=()=>toast('Mensagem copiada. É só colar no WhatsApp da pessoa.');
@@ -2698,6 +2800,7 @@ document.addEventListener('click',e=>{
 document.addEventListener('change',e=>{
   if(e.target.id==='fo'){filters.owner=e.target.value;refreshBoard();}
   if(e.target.id==='perfil-foto'){ const f=e.target.files&&e.target.files[0]; e.target.value=''; enviarFoto(f); }
+  if(e.target.id==='gp-role'){ const w=$('#gp-setor-wrap'); if(w) w.hidden=(e.target.value==='coordenador_geral'); }
   if(e.target.id==='au-role'){
     const wrap=$('#au-setor-wrap');
     if(wrap) wrap.hidden=(e.target.value==='coordenador_geral');
@@ -2762,11 +2865,12 @@ async function conferirVersao(){
   }catch(_){}
 }
 setInterval(conferirVersao,2*60*1000);
+setInterval(()=>{ if(authToken&&state.me&&document.visibilityState==='visible') carregarAvisos(); },2*60*1000);
 document.addEventListener('visibilitychange',()=>{
   if(document.visibilityState!=='visible') return;
   conferirVersao();
   // Voltou pra aba: traz a escala atualizada (outras pessoas podem ter se inscrito nesse meio tempo).
-  if(authToken&&state.me) recarregarEventos();
+  if(authToken&&state.me){ recarregarEventos(); carregarAvisos(); }
 });
 
 async function init(){

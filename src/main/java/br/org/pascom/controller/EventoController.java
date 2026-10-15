@@ -45,8 +45,8 @@ public class EventoController {
     @PostMapping("/gerar-escalas-mes")
     public ResponseEntity<Map<String, Integer>> gerarEscalasDoMes(@RequestParam(required = false) String mes,
                                                                     @AuthenticationPrincipal Usuario solicitante) {
-        if (!solicitante.temPoderesDeCoordenadorGeral()) {
-            throw new IllegalStateException("Apenas o Coordenador Geral pode gerar as escalas do mês.");
+        if (!solicitante.gereTodasAsEscalas()) {
+            throw new IllegalStateException("Apenas a Coordenação Geral ou quem gere as escalas pode gerar as escalas do mês.");
         }
         YearMonth alvo = mes != null ? YearMonth.parse(mes) : YearMonth.now(java.time.ZoneId.of(br.org.pascom.service.CalendarioService.FUSO));
         int criados = eventoService.gerarEscalasDoMes(alvo);

@@ -5,6 +5,7 @@ import br.org.pascom.dto.GoogleAuthDTO;
 import br.org.pascom.dto.GoogleAuthResponseDTO;
 import br.org.pascom.dto.LoginDTO;
 import br.org.pascom.dto.LoginResponseDTO;
+import br.org.pascom.dto.PapelUpdateDTO;
 import br.org.pascom.dto.PerfilUpdateDTO;
 import br.org.pascom.dto.RedefinirSenhaDTO;
 import br.org.pascom.dto.UsuarioCadastroDTO;
@@ -87,6 +88,13 @@ public class UsuarioController {
                         .cacheControl(CacheControl.maxAge(Duration.ofDays(30)).cachePrivate())
                         .body(f.getDados()))
                 .orElse(ResponseEntity.notFound().build());
+    }
+
+    /** Só Coordenação Geral: muda o papel e o setor principal de alguém. */
+    @PatchMapping("/{id}/papel")
+    public ResponseEntity<UsuarioResponseDTO> alterarPapel(@PathVariable Long id, @Valid @RequestBody PapelUpdateDTO dados,
+                                                           @AuthenticationPrincipal Usuario solicitante) {
+        return ResponseEntity.ok(usuarioService.alterarPapel(id, dados, solicitante));
     }
 
     /** Só Coordenação Geral: gera um link de nova senha pra mandar por fora (ex.: WhatsApp). */

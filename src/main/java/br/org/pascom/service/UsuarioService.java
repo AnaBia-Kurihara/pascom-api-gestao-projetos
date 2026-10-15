@@ -3,6 +3,7 @@ package br.org.pascom.service;
 import br.org.pascom.dto.GoogleAuthDTO;
 import br.org.pascom.dto.GoogleAuthResponseDTO;
 import br.org.pascom.dto.LoginResponseDTO;
+import br.org.pascom.dto.PapelUpdateDTO;
 import br.org.pascom.dto.PerfilUpdateDTO;
 import br.org.pascom.dto.UsuarioCadastroDTO;
 import br.org.pascom.dto.UsuarioResponseDTO;
@@ -202,6 +203,47 @@ public class UsuarioService {
         usuario.setResetSenhaExpiraEm(LocalDateTime.now().plusHours(24));
         usuarioRepository.save(usuario);
         return emailService.linkRedefinicao(usuario.getResetSenhaToken());
+    }
+
+    /**
+     * Coordenação Geral muda o papel e o setor principal de alguém (ex.: promover a voluntária que
+     * na verdade é subcoordenadora). Só pode existir um COORDENADOR_GERAL, e ninguém muda o
+     * próprio papel (evita a Coordenação Geral se trancar pra fora sem querer).
+     */
+    @Transactional
+    public UsuarioResponseDTO alterarPapel(Long id, PapelUpdateDTO dados, Usuario solicitante) {
+        if (!solicitante.temPoderesDeCoordenadorGeral()) {
+            throw new IllegalStateException("Só a Coordenação Geral pode mudar o papel de alguém da equipe.");
+        }
+        if (solicitante.getId().equals(id)) {
+            throw new IllegalStateException("Você não pode mudar o seu próprio papel.");
+        }
+        Usuario usuario = buscar(id);
+
+        if (dados.role() == Role.COORDENADOR_GERAL) {
+            usuarioRepository.findAll().stream()
+                    .filter(u -> u.getRole() == Role.COORDENADOR_GERAL && !u.getId().equals(id))
+                    .findFirst()
+                    .ifPresent(outro -> {
+                        throw new IllegalStateException("Já existe um(a) Coordenador(a) Geral: " + outro.getNome() + ".");
+                    });
+            usuario.setRole(Role.COORDENADOR_GERAL);
+            usuario.setSetor(null);
+            usuario.getSetoresExtras().clear();
+        } else {
+            Setor setor = dados.setor() != null ? dados.setor() : usuario.getSetor();
+            if (setor == null) {
+                throw new IllegalArgumentException("Escolha o setor.");
+            }
+            usuario.setRole(dados.role());
+            usuario.setSetor(setor);
+            // O setor principal não precisa aparecer também como extra.
+            usuario.getSetoresExtras().remove(setor);
+        }
+        if (dados.gestorEscalas() != null) {
+            usuario.setGestorEscalas(dados.gestorEscalas());
+        }
+        return UsuarioResponseDTO.from(usuarioRepository.save(usuario));
     }
 
     @Transactional

@@ -6,6 +6,8 @@ import br.org.pascom.dto.EventoRequestDTO;
 import br.org.pascom.dto.SlotEscalaDTO;
 import br.org.pascom.dto.SlotEscalaRequestDTO;
 import br.org.pascom.dto.UsuarioResponseDTO;
+import br.org.pascom.model.AlteracaoEscala;
+import br.org.pascom.repository.AlteracaoEscalaRepository;
 import br.org.pascom.dto.UsuarioResumoDTO;
 import br.org.pascom.model.CandidaturaEscala;
 import br.org.pascom.model.Evento;
@@ -93,16 +95,21 @@ public class EventoService {
     private final CandidaturaEscalaRepository candidaturaRepository;
     private final PublicacaoEscalaRepository publicacaoRepository;
     private final UsuarioRepository usuarioRepository;
+    private final AlteracaoEscalaRepository historicoRepository;
+    private final AvisoService avisoService;
 
     public EventoService(EventoRepository eventoRepository, SlotEscalaRepository slotEscalaRepository,
                          CalendarioService calendarioService, CandidaturaEscalaRepository candidaturaRepository,
-                         PublicacaoEscalaRepository publicacaoRepository, UsuarioRepository usuarioRepository) {
+                         PublicacaoEscalaRepository publicacaoRepository, UsuarioRepository usuarioRepository,
+                         AlteracaoEscalaRepository historicoRepository, AvisoService avisoService) {
         this.eventoRepository = eventoRepository;
         this.slotEscalaRepository = slotEscalaRepository;
         this.calendarioService = calendarioService;
         this.candidaturaRepository = candidaturaRepository;
         this.publicacaoRepository = publicacaoRepository;
         this.usuarioRepository = usuarioRepository;
+        this.historicoRepository = historicoRepository;
+        this.avisoService = avisoService;
     }
 
     /** @param viewer quem está vendo (define o que fica oculto); null = ninguém em especial, tudo em montagem fica oculto */
@@ -125,7 +132,7 @@ public class EventoService {
      */
     @Transactional
     public EventoDTO criar(EventoRequestDTO dto, Usuario solicitante) {
-        if (!solicitante.isCoordenacao()) {
+        if (!solicitante.podeMontarEscalas()) {
             throw new IllegalStateException("Apenas coordenadores podem criar eventos e marcar datas na escala.");
         }
 
@@ -202,7 +209,7 @@ public class EventoService {
     /** Coordenador de setor só adiciona funções do próprio setor; Coordenador Geral, de qualquer setor. */
     @Transactional
     public EventoDTO adicionarSlot(Long eventoId, SlotEscalaRequestDTO dto, Usuario solicitante) {
-        if (!solicitante.isCoordenacao()) {
+        if (!solicitante.podeMontarEscalas()) {
             throw new IllegalStateException("Apenas coordenadores podem adicionar funções a uma escala.");
         }
 
@@ -216,6 +223,8 @@ public class EventoService {
                 .evento(evento)
                 .build();
         slotEscalaRepository.save(slot);
+        registrar(slot.getSetor(), evento.getData(), solicitante,
+                nome(solicitante) + " adicionou a função " + slot.getRotulo() + " em " + descreverMissa(evento) + ".");
 
         return toDTO(eventoRepository.findById(eventoId).orElseThrow(), solicitante);
     }
@@ -231,7 +240,10 @@ public class EventoService {
         if (rotulo == null || rotulo.isBlank()) {
             throw new IllegalArgumentException("Dê um nome pra função.");
         }
+        String antigo = slot.getRotulo();
         slot.setRotulo(rotulo.trim());
+        registrar(slot.getSetor(), slot.getEvento().getData(), solicitante,
+                nome(solicitante) + " renomeou a função " + antigo + " para " + slot.getRotulo() + " em " + descreverMissa(slot.getEvento()) + ".");
         slotEscalaRepository.save(slot);
         return toDTO(eventoRepository.findById(eventoId).orElseThrow(), solicitante);
     }
@@ -242,6 +254,13 @@ public class EventoService {
         SlotEscala slot = slotDoEvento(eventoId, slotId);
         exigirPodeEditarFuncao(slot, solicitante);
         candidaturaRepository.apagarDoSlot(slot);
+        registrar(slot.getSetor(), slot.getEvento().getData(), solicitante,
+                nome(solicitante) + " removeu a função " + slot.getRotulo() + " de " + descreverMissa(slot.getEvento())
+                        + (slot.getVoluntario() != null ? " (estava " + slot.getVoluntario().getNome() + ")" : "") + ".");
+        if (slot.getVoluntario() != null && funcaoPublicada(slot)) {
+            avisoService.avisar(slot.getVoluntario(), "A função " + slot.getRotulo() + " em " + descreverMissa(slot.getEvento())
+                    + " foi removida da escala, e você não está mais nela.");
+        }
         Evento evento = slot.getEvento();
         evento.getSlots().remove(slot);
         eventoRepository.save(evento);
@@ -258,7 +277,7 @@ public class EventoService {
     }
 
     private void exigirPodeEditarFuncao(SlotEscala slot, Usuario solicitante) {
-        if (solicitante.temPoderesDeCoordenadorGeral()) return;
+        if (solicitante.gereTodasAsEscalas()) return;
         if (solicitante.getRole() != Role.COORDENADOR) {
             throw new IllegalStateException("Apenas coordenadores podem alterar as funções da escala.");
         }
@@ -325,7 +344,20 @@ public class EventoService {
                 .ifPresent(o -> {
                     throw new IllegalStateException(pessoa.getNome() + " já está em \"" + o.getRotulo() + "\" nesta missa.");
                 });
+        Usuario anterior = slot.getVoluntario();
         slot.setVoluntario(pessoa);
+        String missa = descreverMissa(slot.getEvento());
+        registrar(slot.getSetor(), slot.getEvento().getData(), solicitante, anterior == null
+                ? nome(solicitante) + " escalou " + pessoa.getNome() + " em " + slot.getRotulo() + ", " + missa + "."
+                : nome(solicitante) + " trocou " + anterior.getNome() + " por " + pessoa.getNome() + " em " + slot.getRotulo() + ", " + missa + ".");
+        // Em montagem ninguém é avisado (é sigiloso); a pessoa fica sabendo quando a escala for publicada.
+        if (funcaoPublicada(slot) && (anterior == null || !anterior.getId().equals(pessoa.getId()))) {
+            avisoService.avisar(pessoa, "Você foi escalado(a) em " + slot.getRotulo() + " na " + missa + ".");
+            if (anterior != null) {
+                avisoService.avisar(anterior, "A coordenação mudou a escala: você não está mais em " + slot.getRotulo()
+                        + " na " + missa + ".");
+            }
+        }
         slotEscalaRepository.save(slot);
         return toDTO(eventoRepository.findById(eventoId).orElseThrow(), solicitante);
     }
@@ -337,6 +369,8 @@ public class EventoService {
         if (publicacaoRepository.findByMesAndSetor(mes.toString(), setor).isEmpty()) {
             publicacaoRepository.save(PublicacaoEscala.builder()
                     .mes(mes.toString()).setor(setor).publicadaEm(LocalDateTime.now()).publicadaPor(solicitante).build());
+            registrar(setor, mes.atDay(1), solicitante, nome(solicitante) + " publicou a escala de " + nomeMesExtenso(mes.atDay(1)) + ".");
+            avisarPublicacao(mes, setor);
         }
     }
 
@@ -347,12 +381,16 @@ public class EventoService {
         if (mesFechado(mes.atDay(1))) {
             throw new IllegalStateException("A escala desse mês já está fechada e não pode voltar pra montagem.");
         }
-        publicacaoRepository.findByMesAndSetor(mes.toString(), setor).ifPresent(publicacaoRepository::delete);
+        publicacaoRepository.findByMesAndSetor(mes.toString(), setor).ifPresent(p -> {
+            publicacaoRepository.delete(p);
+            registrar(setor, mes.atDay(1), solicitante, nome(solicitante) + " voltou a escala de "
+                    + nomeMesExtenso(mes.atDay(1)) + " pra montagem.");
+        });
     }
 
     private void exigirCoordenaSetor(Setor setor, Usuario solicitante) {
         if (setor == null) throw new IllegalArgumentException("Informe o setor.");
-        if (!solicitante.coordenaSetor(setor)) {
+        if (!solicitante.coordenaEscalaDoSetor(setor)) {
             throw new IllegalStateException("Só a coordenação de " + nomeSetor(setor) + " pode publicar essa escala.");
         }
     }
@@ -383,7 +421,7 @@ public class EventoService {
 
         boolean ehElaMesma = escalado.getId().equals(solicitante.getId());
         // "Equipe dela" inclui quem entrou no setor do coordenador como setor extra, pelo perfil.
-        boolean coordenaEquipeDela = solicitante.temPoderesDeCoordenadorGeral()
+        boolean coordenaEquipeDela = solicitante.gereTodasAsEscalas()
                 || (solicitante.getRole() == Role.COORDENADOR && escalado.fazParteDoSetor(solicitante.getSetor()));
 
         if (!ehElaMesma && !coordenaEquipeDela) {
@@ -400,8 +438,74 @@ public class EventoService {
 
         slot.setVoluntario(null);
         slotEscalaRepository.save(slot);
+        String missa = descreverMissa(slot.getEvento());
+        registrar(slot.getSetor(), slot.getEvento().getData(), solicitante, ehElaMesma
+                ? escalado.getNome() + " saiu de " + slot.getRotulo() + ", " + missa + "."
+                : nome(solicitante) + " tirou " + escalado.getNome() + " de " + slot.getRotulo() + ", " + missa + ".");
+        if (!ehElaMesma && funcaoPublicada(slot)) {
+            avisoService.avisar(escalado, "A coordenação tirou você da escala de " + slot.getRotulo() + " na " + missa + ".");
+        }
 
         return toDTO(eventoRepository.findById(eventoId).orElseThrow(), solicitante);
+    }
+
+    // ---------- histórico e avisos ----------
+
+    /** Histórico de alterações de um setor (mais recentes primeiro). Só coordenação do setor ou Geral. */
+    public List<Map<String, Object>> historico(Setor setor, Usuario solicitante) {
+        if (setor == null || !solicitante.coordenaEscalaDoSetor(setor)) {
+            throw new IllegalStateException("Só a coordenação do setor pode ver o histórico da escala.");
+        }
+        return historicoRepository.findTop150BySetorOrderByCriadoEmDesc(setor).stream()
+                .map(h -> Map.<String, Object>of("mes", h.getMes(), "texto", h.getTexto(), "criadoEm", h.getCriadoEm().toString()))
+                .toList();
+    }
+
+    /** Só registra o que é de algum setor (funções gerais ficam de fora). */
+    private void registrar(Setor setor, LocalDate dataEvento, Usuario autor, String texto) {
+        if (setor == null) return;
+        historicoRepository.save(AlteracaoEscala.builder()
+                .setor(setor)
+                .mes(YearMonth.from(dataEvento).toString())
+                .texto(texto.length() > 500 ? texto.substring(0, 497) + "..." : texto)
+                .autor(autor)
+                .criadoEm(LocalDateTime.now())
+                .build());
+    }
+
+    /** Ao publicar, cada pessoa escalada naquele setor/mês recebe um aviso com as funções dela. */
+    private void avisarPublicacao(YearMonth mes, Setor setor) {
+        List<Evento> eventos = eventoRepository.findByDataBetweenAndExcluidoEmIsNullOrderByDataAscHorarioAsc(
+                mes.atDay(1), mes.atEndOfMonth());
+        Map<Long, List<String>> porPessoa = new java.util.LinkedHashMap<>();
+        Map<Long, Usuario> pessoas = new java.util.HashMap<>();
+        for (Evento e : eventos) {
+            for (SlotEscala sl : e.getSlots()) {
+                if (sl.getSetor() == setor && sl.getVoluntario() != null) {
+                    pessoas.put(sl.getVoluntario().getId(), sl.getVoluntario());
+                    porPessoa.computeIfAbsent(sl.getVoluntario().getId(), k -> new ArrayList<>())
+                            .add(sl.getRotulo() + " (" + descreverMissa(e) + ")");
+                }
+            }
+        }
+        porPessoa.forEach((id, funcoes) -> avisoService.avisar(pessoas.get(id),
+                "Saiu a escala de " + nomeMesExtenso(mes.atDay(1)) + " de " + nomeSetor(setor) + "! Você está em: "
+                        + String.join("; ", funcoes) + "."));
+    }
+
+    private boolean funcaoPublicada(SlotEscala s) {
+        return s.getSetor() == null || publicacaoRepository.findByMesAndSetor(
+                YearMonth.from(s.getEvento().getData()).toString(), s.getSetor()).isPresent();
+    }
+
+    /** "Missa das 10h de domingo, 22/11" */
+    private static String descreverMissa(Evento e) {
+        String dia = e.getData().getDayOfWeek().getDisplayName(java.time.format.TextStyle.FULL, java.util.Locale.forLanguageTag("pt-BR"));
+        return e.getTitulo() + " de " + dia + ", " + e.getData().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM"));
+    }
+
+    private static String nome(Usuario u) {
+        return u == null ? "O sistema" : u.getNome();
     }
 
     /**
@@ -522,6 +626,10 @@ public class EventoService {
                 publicacaoRepository.save(PublicacaoEscala.builder()
                         .mes(mes).setor(setor).publicadaEm(LocalDateTime.now()).build());
                 publicados++;
+                LocalDate primeiro = YearMonth.parse(mes).atDay(1);
+                registrar(setor, primeiro, null, "Escala de " + nomeMesExtenso(primeiro)
+                        + " publicada automaticamente no dia 1º (ninguém tinha publicado).");
+                avisarPublicacao(YearMonth.parse(mes), setor);
             }
         }
         return publicados;
@@ -624,14 +732,14 @@ public class EventoService {
      * que pediu (null = função geral).
      */
     private Setor setorPermitido(Setor pedido, Usuario solicitante) {
-        if (solicitante.temPoderesDeCoordenadorGeral()) return pedido;
+        if (solicitante.gereTodasAsEscalas()) return pedido;
         return solicitante.getSetor();
     }
 
     @Transactional
     public EventoDTO moverParaLixeira(Long id, MotivoExclusao motivo, String detalhe, Usuario solicitante) {
-        if (!solicitante.temPoderesDeCoordenadorGeral()) {
-            throw new IllegalStateException("Apenas o Coordenador Geral pode excluir eventos da escala.");
+        if (!solicitante.gereTodasAsEscalas()) {
+            throw new IllegalStateException("Apenas a Coordenação Geral ou quem gere as escalas pode excluir eventos da escala.");
         }
         Evento evento = eventoRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Evento não encontrado."));
@@ -643,8 +751,8 @@ public class EventoService {
 
     @Transactional
     public EventoDTO restaurar(Long id, Usuario solicitante) {
-        if (!solicitante.temPoderesDeCoordenadorGeral()) {
-            throw new IllegalStateException("Apenas o Coordenador Geral pode restaurar eventos da lixeira.");
+        if (!solicitante.gereTodasAsEscalas()) {
+            throw new IllegalStateException("Apenas a Coordenação Geral ou quem gere as escalas pode restaurar eventos da lixeira.");
         }
         Evento evento = eventoRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Evento não encontrado."));
@@ -687,7 +795,7 @@ public class EventoService {
     /** Quem monta a escala da função: coordenação do setor ou Coordenação Geral (função geral: só a Geral). */
     private static boolean coordenaFuncao(SlotEscala s, Usuario u) {
         if (u == null) return false;
-        return s.getSetor() == null ? u.temPoderesDeCoordenadorGeral() : u.coordenaSetor(s.getSetor());
+        return s.getSetor() == null ? u.gereTodasAsEscalas() : u.coordenaEscalaDoSetor(s.getSetor());
     }
 
     private SlotEscalaDTO toSlotDTO(SlotEscala s, Visao v) {
