@@ -39,7 +39,11 @@ spring:
 
 api:
   liturgia:
-    # API aberta (comunidade, github.com/Dancrf/liturgia-diaria) com as leituras e orações do dia.
+    # Fonte principal: a liturgia diária da Paulus (paulus.com.br/portal/liturgia-diaria), lida do
+    # site. O sitemap diz qual página é de qual dia. Escolha da coordenação: é a mais confiável.
+    paulus-sitemap: ${LITURGIA_PAULUS_SITEMAP:https://www.paulus.com.br/portal/liturgiadiaria-sitemap.xml}
+    # API aberta (comunidade, github.com/Dancrf/liturgia-diaria): completa as orações (que a Paulus
+    # não publica no site) e serve de reserva se a Paulus estiver fora do ar.
     url: ${LITURGIA_API_URL:https://liturgia.up.railway.app/v2/}
   resend:
     # E-mail transacional via API HTTPS (não SMTP — o Railway bloqueia as portas de SMTP de saída).

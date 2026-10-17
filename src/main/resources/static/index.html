@@ -2057,6 +2057,7 @@ function liturgiaHtml(l){
     bloco('l-p1',p1&&p1.titulo||'Primeira leitura',p1&&p1.referencia,p1&&p1.texto)+
     bloco('l-sl','Salmo responsorial',sl&&sl.referencia,sl&&((sl.refrao?'R. '+sl.refrao+' ':'')+sl.texto),sl&&sl.refrao?'R. '+sl.refrao:'')+
     bloco('l-p2',p2&&p2.titulo||'Segunda leitura',p2&&p2.referencia,p2&&p2.texto)+
+    bloco('l-acl','Aclamação ao Evangelho','',ev&&ev.aclamacao)+
     bloco('l-ev',ev&&ev.titulo||'Evangelho',ev&&ev.referencia,ev&&ev.texto)+
     bloco('l-ae','Antífona de entrada','',an.entrada)+
     bloco('l-co','Oração do dia (coleta)','',o.coleta)+
@@ -2082,7 +2083,8 @@ function viewMontagem(){
     '<div class="mont-prog"><span class="'+(l?'ok':'')+'">'+(l?'✓':'○')+' Liturgia</span><span class="'+(total===4?'ok':'')+'">'+(total===4?'✓':'○')+' Músicas '+total+'/4</span><span class="'+(d.temAvisos?'ok':'')+'">'+(d.temAvisos?'✓':'○')+' Avisos</span><span class="'+(d.montado?'ok':'')+'">'+(d.montado?'✓':'○')+' Montado</span></div></section>';
   const lit='<section class="panel"><h2>📖 Liturgia <small class="sec-k">igual nas 4 missas</small></h2>'+
     (d.liturgiaErro?'<div class="empty">'+esc(d.liturgiaErro)+'</div>':liturgiaHtml(l)+'<div class="lit-acoes" style="margin-top:10px"><button class="btn primary" data-action="copiarLit" data-k="l-tudo">Copiar a liturgia toda em slides</button></div>')+
-    '<p class="note">Fonte automática. Confira sempre com a <a href="https://liturgia.cnbb.org.br/" target="_blank" rel="noopener">CNBB</a> ou a <a href="https://liturgia.cancaonova.com/pb/" target="_blank" rel="noopener">Canção Nova</a> antes de montar. Os números dos versículos já saem do texto.</p></section>';
+    (l&&l.linkFonte?'<p class="note">Leituras, salmo e antífona de entrada da <a href="'+esc(l.linkFonte)+'" target="_blank" rel="noopener">Liturgia Diária da Paulus</a>; as orações vêm de outra fonte automática, confira no folheto. Os números dos versículos já saem do texto.</p>'
+      :'<p class="note">A Paulus não respondeu agora, então isto veio de uma fonte reserva. Confira com a <a href="https://www.paulus.com.br/portal/liturgia-diaria/" target="_blank" rel="noopener">Liturgia Diária da Paulus</a> antes de montar.</p>')+'</section>';
   const missa=d.missas.find(x=>x.chave===holy.missa)||d.missas[0];
   const msgWpp='Oi, músicos! 🎵 Pra montarmos os slides do fim de semana (sábado '+fds(d.sabado)+' e domingo '+fds(d.domingo)+'), mandem as músicas de cada missa por aqui: '+d.linkMusicos;
   liturgiaCopias['wpp']=msgWpp;
