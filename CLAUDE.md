@@ -166,6 +166,12 @@ railway up --ci --message "descrição do que mudou"
 
 **E-mail transacional (recuperação de senha, lembrete de 48h, pedido de aniversário) usa a API HTTPS do Resend, não SMTP** — e **enquanto não houver domínio verificado no Resend (`RESEND_FROM`), só chega pro dono da conta Resend**; por isso tudo que é por e-mail também aparece no app (sininho/Painel) — confirmado testando com `railway ssh` que o Railway bloqueia as portas de saída 25/465/587 (SMTP), inclusive pra Gmail com senha de app; só HTTPS (443) funciona. `EmailService` chama `api.resend.com/emails` direto via `RestClient` (mesmo padrão de HTTP cru já usado pra Instagram/Google), com a chave em `api.resend.chave` / env var `RESEND_API_KEY` e remetente em `api.resend.remetente` / `RESEND_FROM` (default `onboarding@resend.dev`, funciona sem verificar domínio próprio).
 
+### Fuso horário e limites de acesso
+
+- **Fuso**: o servidor do Railway roda em UTC; `PascomFatimaApiApplication` (bloco `static`, vale também nos testes) faz `TimeZone.setDefault(America/Sao_Paulo)`, então `LocalDateTime.now()` é horário de Brasília. Antes disso os horários gravados saíam 3h adiantados (sininho mostrava "agora" por 3h; o Assistente achava que era amanhã depois das 21h). Registros gravados até 17/10/2026 continuam 3h adiantados no banco. Mesmo assim, prefira `CalendarioService.hoje()`/zonas explícitas em código novo.
+- **`LimiteRequisicoesFilter`** (só rotas abertas): login/Google 30 por 5 min, cadastro 60 por 10 min, esqueci/redefinir senha 10 por hora, envios dos links públicos 40 por 10 min, leituras 120 por min — **por endereço** (último item do `X-Forwarded-For`, que é o que o Railway acrescenta), com folga porque muita gente usa o mesmo Wi-Fi da igreja; responde `429 {"erro"}`. Recusa (`413`) qualquer corpo acima de 2 MB (o Java tem só 200 MB). Além disso, `UsuarioService.login` bloqueia **o e-mail** por 15 min depois de 8 senhas erradas (em memória: some num deploy).
+- `X-Frame-Options: SAMEORIGIN` (antes estava desligado por causa do console do H2).
+
 ### Convenção de tratamento de erros
 
 Violações de regra de negócio devem lançar `IllegalStateException` (transição de estado inválida, permissão negada) ou `IllegalArgumentException` (entidade não encontrada, input inválido) a partir dos services — ambas são capturadas centralmente pelo `ApiExceptionHandler` e retornadas como `400` com `{"erro": "..."}`. Falhas de Bean Validation em DTOs `@Valid @RequestBody` são capturadas separadamente e retornadas como `{"erros": {campo: mensagem}}`.

@@ -38,8 +38,9 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .cors(Customizer.withDefaults())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                // necessário para o console do H2 renderizar dentro de um <frame>
-                .headers(headers -> headers.frameOptions(frame -> frame.disable()))
+                // sameOrigin: o console do H2 (só local) abre em <frame> do próprio site, e nenhum site
+                // de fora consegue pôr o sistema dentro de um <iframe> pra enganar alguém (clickjacking)
+                .headers(headers -> headers.frameOptions(frame -> frame.sameOrigin()))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/usuarios/cadastro", "/api/usuarios/login",
                                 "/api/usuarios/esqueci-senha", "/api/usuarios/redefinir-senha",

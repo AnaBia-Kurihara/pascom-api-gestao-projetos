@@ -111,6 +111,47 @@ class ApiIntegracaoTest {
         assertThat(corpo(r).path("erros").has("email")).isTrue();
     }
 
+    @Test
+    void senhaErradaMuitasVezesBloqueiaAqueleEmail() throws Exception {
+        Pessoa p = cadastrarELogar("VOLUNTARIO", "JOVENS");
+        for (int i = 0; i < 8; i++) {
+            assertThat(enviar(post("/api/usuarios/login"), null, Map.of("email", p.email, "senha", "errada" + i))
+                    .getResponse().getStatus()).isEqualTo(401);
+        }
+        // nem a senha certa entra enquanto estiver bloqueado
+        MvcResult r = enviar(post("/api/usuarios/login"), null, Map.of("email", p.email, "senha", "senha123"));
+        assertThat(r.getResponse().getStatus()).isEqualTo(400);
+        assertThat(corpo(r).path("erro").asText()).contains("Espere 15 minutos");
+    }
+
+    @Test
+    void mesmoEnderecoTentandoLoginSemPararRecebe429() throws Exception {
+        int ultimo = 0;
+        for (int i = 0; i < 31; i++) {
+            ultimo = mvc.perform(post("/api/usuarios/login").header("X-Forwarded-For", "203.0.113.7")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"email\":\"ninguem" + i + "@pascom.test\",\"senha\":\"x\"}")).andReturn().getResponse().getStatus();
+        }
+        assertThat(ultimo).isEqualTo(429);
+    }
+
+    @Test
+    void envioGrandeDemaisEhRecusado() throws Exception {
+        byte[] grande = new byte[3 * 1024 * 1024];
+        MvcResult r = mvc.perform(post("/api/publico/avisos/qualquer").contentType(MediaType.APPLICATION_JSON).content(grande)).andReturn();
+        assertThat(r.getResponse().getStatus()).isEqualTo(413);
+    }
+
+    @Test
+    void sistemaNaoPodeSerColocadoDentroDeOutroSite() throws Exception {
+        assertThat(mvc.perform(get("/")).andReturn().getResponse().getHeader("X-Frame-Options")).isEqualTo("SAMEORIGIN");
+    }
+
+    @Test
+    void relogioDoServidorEstaNoHorarioDeBrasilia() {
+        assertThat(java.util.TimeZone.getDefault().getID()).isEqualTo("America/Sao_Paulo");
+    }
+
     // ---------------------------------------------------------------- escala: sigilo e vaga disputada
 
     @Test
@@ -292,6 +333,9 @@ class ApiIntegracaoTest {
     }
 
     private MvcResult enviar(MockHttpServletRequestBuilder req, String token, Object corpo) throws Exception {
+        // cada chamada "vem" de um endereço diferente, pra o limite por endereço (LimiteRequisicoesFilter)
+        // não somar as chamadas de todos os testes; os testes do limite usam um endereço fixo
+        req.header("X-Forwarded-For", "10.0." + (int) (Math.random() * 250) + "." + (int) (Math.random() * 250));
         if (corpo != null) req.contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(corpo));
         return mvc.perform(token == null ? req : autenticado(req, token)).andReturn();
     }

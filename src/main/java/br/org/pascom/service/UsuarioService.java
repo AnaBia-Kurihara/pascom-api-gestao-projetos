@@ -87,9 +87,28 @@ public class UsuarioService {
         return UsuarioResponseDTO.from(usuarioRepository.save(usuario));
     }
 
+    /** Erros de senha por e-mail: depois de {@link #MAX_ERROS_SENHA} em 15 min, aquele e-mail espera 15 min. */
+    private static final int MAX_ERROS_SENHA = 8;
+    private static final java.time.Duration BLOQUEIO_SENHA = java.time.Duration.ofMinutes(15);
+    private record ErrosSenha(int quantos, java.time.Instant desde) {}
+    private final java.util.Map<String, ErrosSenha> errosSenha = new java.util.concurrent.ConcurrentHashMap<>();
+
     public LoginResponseDTO login(String email, String senha) {
-        Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(Usuario.normalizarEmail(email), senha));
+        String chave = Usuario.normalizarEmail(email);
+        java.time.Instant agora = java.time.Instant.now();
+        errosSenha.values().removeIf(e -> e.desde().plus(BLOQUEIO_SENHA).isBefore(agora));
+        ErrosSenha erros = errosSenha.get(chave);
+        if (erros != null && erros.quantos() >= MAX_ERROS_SENHA) {
+            throw new IllegalStateException("Muitas tentativas com senha errada. Espere 15 minutos ou use \"Esqueci a senha\".");
+        }
+        Authentication authentication;
+        try {
+            authentication = authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(chave, senha));
+        } catch (org.springframework.security.core.AuthenticationException e) {
+            errosSenha.merge(chave, new ErrosSenha(1, agora), (a, b) -> new ErrosSenha(a.quantos() + 1, a.desde()));
+            throw e;
+        }
+        errosSenha.remove(chave);
 
         Usuario usuario = (Usuario) authentication.getPrincipal();
         String token = tokenService.gerarToken(usuario);
