@@ -1,0 +1,23 @@
+# Perfil dos testes automáticos: banco H2 em memória (some no fim), sem agendamentos e sem internet.
+spring:
+  datasource:
+    url: jdbc:h2:mem:pascom-teste;DB_CLOSE_DELAY=-1
+  jpa:
+    show-sql: false
+  h2:
+    console:
+      enabled: false
+
+api:
+  liturgia:
+    # Porta fechada: a liturgia falha na hora e a tela mostra o aviso de erro, sem esperar a internet.
+    url: http://127.0.0.1:9/
+    paulus-sitemap: http://127.0.0.1:9/sitemap.xml
+  resend:
+    chave: ""
+  gemini:
+    chave: ""
+
+app:
+  agendamentos: false
+  admin-emails: ""

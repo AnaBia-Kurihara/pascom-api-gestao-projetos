@@ -62,6 +62,11 @@ public class PaulusLiturgiaService {
         return ler(doc, data, link);
     }
 
+    /** Lê uma página já baixada (usado nos testes, com páginas reais salvas). */
+    Map<String, Object> lerHtml(String html, LocalDate data, String link) {
+        return ler(Jsoup.parse(html, link), data, link);
+    }
+
     private String paginaDoDia(LocalDate data) {
         if (sitemapLidoEm.plus(VALIDADE_SITEMAP).isBefore(Instant.now()) || !paginas.containsKey(data)) {
             // Relê se venceu, ou se o dia não estava lá (a Paulus pode ter publicado depois), no máximo 1x/10min.
@@ -76,31 +81,37 @@ public class PaulusLiturgiaService {
         try {
             String xml = Jsoup.connect(sitemapUrl).userAgent(AGENTE).timeout(TIMEOUT_MS)
                     .ignoreContentType(true).maxBodySize(0).execute().body();
-            Map<LocalDate, String> novo = new HashMap<>();
-            Matcher m = ENTRADA_SITEMAP.matcher(xml);
-            while (m.find()) {
-                // A data de publicação de cada página costuma ser o próprio dia da liturgia (00h e pouco,
-                // horário de Brasília), mas às vezes vem com um dia de diferença (ex.: a do dia 26/12
-                // publicada no 25). Quem manda é o número do dia no link; a data só diz o mês/ano.
-                Matcher d = DIA_NO_LINK.matcher(m.group(1));
-                if (!d.find()) continue;
-                int diaDoMes = Integer.parseInt(d.group(1));
-                LocalDate publicada = OffsetDateTime.parse(m.group(2)).atZoneSameInstant(FUSO).toLocalDate();
-                for (int delta = -3; delta <= 3; delta++) {
-                    LocalDate dia = publicada.plusDays(delta);
-                    if (dia.getDayOfMonth() == diaDoMes) {
-                        // o que bate com a data exata ganha de um vizinho que também caiu nesse dia
-                        if (delta == 0 || !novo.containsKey(dia)) novo.put(dia, m.group(1));
-                        break;
-                    }
-                }
-            }
+            Map<LocalDate, String> novo = indexarSitemap(xml);
             if (!novo.isEmpty()) paginas = novo;
         } catch (IOException | RuntimeException e) {
             // segue com o que já tinha; quem chamou cai na reserva se faltar o dia
         } finally {
             sitemapLidoEm = Instant.now();
         }
+    }
+
+    /** Dia da liturgia → link da página, a partir do XML do sitemap. */
+    static Map<LocalDate, String> indexarSitemap(String xml) {
+        Map<LocalDate, String> novo = new HashMap<>();
+        Matcher m = ENTRADA_SITEMAP.matcher(xml);
+        while (m.find()) {
+            // A data de publicação de cada página costuma ser o próprio dia da liturgia (00h e pouco,
+            // horário de Brasília), mas às vezes vem com um dia de diferença (ex.: a do dia 26/12
+            // publicada no 25). Quem manda é o número do dia no link; a data só diz o mês/ano.
+            Matcher d = DIA_NO_LINK.matcher(m.group(1));
+            if (!d.find()) continue;
+            int diaDoMes = Integer.parseInt(d.group(1));
+            LocalDate publicada = OffsetDateTime.parse(m.group(2)).atZoneSameInstant(FUSO).toLocalDate();
+            for (int delta = -3; delta <= 3; delta++) {
+                LocalDate dia = publicada.plusDays(delta);
+                if (dia.getDayOfMonth() == diaDoMes) {
+                    // o que bate com a data exata ganha de um vizinho que também caiu nesse dia
+                    if (delta == 0 || !novo.containsKey(dia)) novo.put(dia, m.group(1));
+                    break;
+                }
+            }
+        }
+        return novo;
     }
 
     // ---------------------------------------------------------------- leitura da página

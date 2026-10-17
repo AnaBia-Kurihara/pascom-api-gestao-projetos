@@ -1,5 +1,12 @@
 server:
   port: ${PORT:8080}
+  # Economia no Railway (limite de US$ 5/mês): poucas threads bastam pra equipe da Pascom, e cada
+  # thread parada também ocupa memória. A memória do Java é limitada pela variável JAVA_TOOL_OPTIONS
+  # no Railway (ver CLAUDE.md, "Custo").
+  tomcat:
+    threads:
+      max: 40
+      min-spare: 4
 
 spring:
   application:
