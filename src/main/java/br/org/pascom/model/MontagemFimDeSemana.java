@@ -37,6 +37,13 @@ public class MontagemFimDeSemana {
     @Column(nullable = false, unique = true, length = 48)
     private String tokenMusicos;
 
+    /** Token do link das outras pastorais mandarem avisos (sem login). */
+    @Column(unique = true, length = 48)
+    private String tokenAvisos;
+
+    /** Última vez que a equipe mexeu nos avisos do fim de semana. */
+    private LocalDateTime avisosAtualizadosEm;
+
     private LocalDateTime montadoEm;
 
     @ManyToOne
@@ -47,4 +54,9 @@ public class MontagemFimDeSemana {
     @OrderBy("missa ASC, ordem ASC")
     @Builder.Default
     private List<MusicaMissa> musicas = new ArrayList<>();
+
+    @OneToMany(mappedBy = "montagem", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("criadoEm ASC")
+    @Builder.Default
+    private List<AvisoPastoral> avisosPastorais = new ArrayList<>();
 }

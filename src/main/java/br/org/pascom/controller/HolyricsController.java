@@ -46,6 +46,12 @@ public class HolyricsController {
         return ResponseEntity.ok(holyricsService.marcarMontado(sabado, Boolean.TRUE.equals(corpo.get("montado")), u));
     }
 
+    @DeleteMapping("/montagem/avisos-pastorais/{id}")
+    public ResponseEntity<Map<String, Object>> removerAvisoPastoral(@RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate sabado,
+                                                                    @PathVariable Long id, @AuthenticationPrincipal Usuario u) {
+        return ResponseEntity.ok(holyricsService.removerAvisoPastoral(sabado, id, u));
+    }
+
     @PostMapping("/montagem/novo-link")
     public ResponseEntity<Map<String, Object>> novoLink(@RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate sabado,
                                                         @AuthenticationPrincipal Usuario u) {

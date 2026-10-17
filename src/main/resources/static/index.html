@@ -317,6 +317,11 @@ details.lit summary>small{color:var(--ink3);font-size:12px;white-space:nowrap}
 .mus-t summary{font-size:13px;color:var(--brand);cursor:pointer}
 .mus-pedir{margin-top:14px;padding-top:12px;border-top:1px dashed var(--line);font-size:13.5px;color:var(--ink2);display:flex;flex-direction:column;gap:8px}
 .mont-fim .chk b{font-size:15px}
+.alerta-mud{background:var(--gold-soft);color:var(--gold-ink);border:1px solid var(--gold);border-radius:10px;padding:9px 12px;font-size:13.5px;margin:0 0 10px}
+.sub-h{font-size:15px;margin:16px 0 6px}
+.past{display:flex;gap:8px;align-items:flex-start;padding:9px 0;border-bottom:1px solid var(--line)}
+.past>div{flex:1;min-width:0}.past p{font-size:14px}.past small{font-size:12.5px;color:var(--ink3)}
+.past.novo p{font-weight:600}
 .lembrete-pub{display:flex;align-items:center;gap:10px 12px;flex-wrap:wrap;background:var(--gold-soft);color:var(--gold-ink);border:1px solid var(--gold);border-radius:12px;padding:12px 14px;margin:0 0 16px}
 .lembrete-pub>div{flex:1 1 240px;display:flex;flex-direction:column;gap:2px;font-size:14px}
 .lembrete-pub span{font-size:13px;opacity:.9}
@@ -2082,14 +2087,24 @@ function viewMontagem(){
   const msgWpp='Oi, músicos! 🎵 Pra montarmos os slides do fim de semana (sábado '+fds(d.sabado)+' e domingo '+fds(d.domingo)+'), mandem as músicas de cada missa por aqui: '+d.linkMusicos;
   liturgiaCopias['wpp']=msgWpp;
   const mus='<section class="panel"><h2>🎵 Músicas por missa</h2>'+
-    '<div class="dash-tabs">'+d.missas.map(m=>'<button type="button" class="dash-tab'+(m.chave===missa.chave?' active':'')+'" data-action="holyMissa" data-missa="'+m.chave+'">'+esc(m.rotulo)+(m.musicas.length?' ✓':'')+'</button>').join('')+'</div>'+
+    '<div class="dash-tabs">'+d.missas.map(m=>'<button type="button" class="dash-tab'+(m.chave===missa.chave?' active':'')+'" data-action="holyMissa" data-missa="'+m.chave+'">'+esc(m.rotulo)+(m.mudouDepoisDeMontado?' ⚠':m.musicas.length?' ✓':'')+'</button>').join('')+'</div>'+
+    (missa.mudouDepoisDeMontado?'<div class="alerta-mud">⚠ As músicas desta missa mudaram depois que a montagem foi marcada como pronta. Confira e ajuste no Holyrics.</div>':'')+
     (missa.musicas.length?'<div class="rows">'+missa.musicas.map((x,i)=>{ const k='m-'+missa.chave+'-'+i; liturgiaCopias[k]=x.titulo+(x.letra?'\n\n'+x.letra:'');
       return '<div class="mus"><span class="mus-mom">'+esc(x.momento)+'</span><div class="mus-t"><b>'+esc(x.titulo)+'</b>'+(x.letra?'<details><summary>ver letra</summary><pre>'+esc(x.letra)+'</pre></details>':'<small>sem letra</small>')+'</div>'+
         '<button class="btn small" data-action="copiarLit" data-k="'+k+'">Copiar</button></div>';}).join('')+'</div><p class="note">Enviado por '+esc(missa.musicas[0].enviadoPor||'—')+'.</p>'
       :'<div class="empty">Os músicos ainda não mandaram as músicas dessa missa.</div>')+
     '<div class="mus-pedir"><span>Peça as músicas pelo link (os músicos não precisam de conta):</span><div class="lit-acoes"><a class="btn small primary" href="https://wa.me/?text='+encodeURIComponent(msgWpp)+'" target="_blank" rel="noopener">Pedir no WhatsApp</a><button class="btn small" data-action="copiarLit" data-k="wpp">Copiar mensagem</button><button class="btn small" data-action="holyNovoLink" title="Gera outro link e desativa o anterior">Trocar link</button></div></div></section>';
-  const av='<section class="panel"><h2>📢 Avisos do fim de semana</h2><label class="fld"><span>Avisos pra passar no fim das missas</span><textarea id="holy-avisos" rows="5" placeholder="Ex.: Inscrições para a crisma até dia 30. Bazar no salão paroquial no sábado.">'+esc(d.avisos||'')+'</textarea></label>'+
-    '<div class="lit-acoes"><button class="btn small primary" data-action="holyAvisos">Salvar avisos</button>'+(d.avisos?'<button class="btn small" data-action="copiarAvisos">Copiar em slides</button>':'')+'</div></section>';
+  const msgPast='Oi! 📢 A Pascom está montando os slides das missas do fim de semana (sábado '+fds(d.sabado)+' e domingo '+fds(d.domingo)+'). Se a sua pastoral tiver algum aviso, mande por aqui: '+d.linkAvisos;
+  liturgiaCopias['wpp-avisos']=msgPast;
+  const pastorais=(d.avisosPastorais||[]);
+  const av='<section class="panel"><h2>📢 Avisos do fim de semana</h2>'+
+    (d.avisosMudaramDepoisDeMontado?'<div class="alerta-mud">⚠ Chegaram avisos novos depois que a montagem foi marcada como pronta.</div>':'')+
+    '<label class="fld"><span>Avisos da equipe (valem pras 4 missas)</span><textarea id="holy-avisos" rows="5" placeholder="Ex.: Inscrições para a crisma até dia 30. Bazar no salão paroquial no sábado.">'+esc(d.avisos||'')+'</textarea></label>'+
+    '<div class="lit-acoes"><button class="btn small primary" data-action="holyAvisos">Salvar avisos</button>'+((d.avisos||pastorais.length)?'<button class="btn small" data-action="copiarAvisos">Copiar todos em slides</button>':'')+'</div>'+
+    '<h3 class="sub-h">Das outras pastorais</h3>'+
+    (pastorais.length?'<div class="rows">'+pastorais.map(a=>'<div class="past'+(a.depoisDeMontado?' novo':'')+'"><div><p>'+esc(a.texto)+'</p><small>'+esc(a.pastoral)+' · '+esc(a.missaRotulo)+(a.depoisDeMontado?' · <b>chegou depois da montagem</b>':'')+'</small></div><button class="icon-btn" data-action="holyTirarAviso" data-id="'+a.id+'" title="Tirar este aviso" aria-label="Tirar este aviso"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>').join('')+'</div>'
+      :'<p class="note" style="margin:0">Nenhum aviso das pastorais ainda.</p>')+
+    '<div class="mus-pedir"><span>Peça os avisos às outras pastorais (sem precisar de conta):</span><div class="lit-acoes"><a class="btn small primary" href="https://wa.me/?text='+encodeURIComponent(msgPast)+'" target="_blank" rel="noopener">Pedir avisos no WhatsApp</a><button class="btn small" data-action="copiarLit" data-k="wpp-avisos">Copiar mensagem</button></div></div></section>';
   const fim='<section class="panel mont-fim"><label class="chk"><input type="checkbox" id="holy-montado"'+(d.montado?' checked':'')+'><span><b>Montado no Holyrics</b><small>'+(d.montado?'Marcado por '+esc(d.montadoPor||'—')+'. A equipe do Datashow já pode contar com o material.':'Marque quando o material das 4 missas estiver pronto no Holyrics.')+'</small></span></label></section>';
   return chips+cab+'<div class="cols"><div>'+lit+'</div><div>'+mus+av+fim+'</div></div>';
 }
@@ -3077,7 +3092,14 @@ document.addEventListener('click',e=>{
     case 'holySel': holy.missa=null; carregarHolyrics(t.dataset.sabado); break;
     case 'holyMissa': holy.missa=t.dataset.missa; render(); break;
     case 'copiarLit': copiarTexto(liturgiaCopias[t.dataset.k]||'','Copiado! É só colar no Holyrics.'); break;
-    case 'copiarAvisos': copiarTexto(emSlides((holy.det&&holy.det.avisos)||'',200).join('\n\n'),'Avisos copiados em slides.'); break;
+    case 'copiarAvisos': {
+      // Avisos da equipe + das pastorais, um slide por aviso (os longos são quebrados).
+      const d=holy.det||{}, partes=[];
+      String(d.avisos||'').split(/\n\s*\n|\n(?=[-•*])/).map(x=>x.trim()).filter(Boolean).forEach(x=>emSlides(x,220).forEach(y=>partes.push(y)));
+      (d.avisosPastorais||[]).forEach(a=>emSlides(a.texto,220).forEach(y=>partes.push(y)));
+      copiarTexto(partes.join('\n\n'),'Avisos copiados em slides.'); break;
+    }
+    case 'holyTirarAviso': if(confirm('Tirar este aviso da montagem?')){ (async()=>{ try{ holy.det=await api('/holyrics/montagem/avisos-pastorais/'+id+'?sabado='+holy.sel,{method:'DELETE'}); render(); toast('Aviso tirado.'); }catch(e){ toast(e.message,'warn'); } })(); } break;
     case 'holyAvisos': holyAcao('montagem/avisos','PUT',{avisos:($('#holy-avisos')||{}).value||''},'Avisos salvos.'); break;
     case 'holyNovoLink': if(confirm('Gerar um link novo? O link anterior para de funcionar.')) holyAcao('montagem/novo-link','POST',null,'Link novo gerado. Mande de novo pros músicos.'); break;
     case 'postAniversario': abrirPostAniversario(id); break;

@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Avisos das missas – Pascom Fátima</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Young+Serif&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#F1F4FA;--panel:#fff;--tint:#E8EDF7;--ink:#14203D;--ink2:#465273;--ink3:#77829F;--line:#DBE2F0;--brand:#2B57B8;--brand-ink:#fff;--gold:#C79A2E;--gold-soft:#F8EED2;--green:#2C7A57;--green-soft:#DCF0E5;--rose:#B4404A}
+@media (prefers-color-scheme: dark){:root{--bg:#0E1424;--panel:#161E36;--tint:#1D2745;--ink:#EBF0FF;--ink2:#B3BDDA;--ink3:#8792B2;--line:#28335A;--brand:#7FA4F2;--brand-ink:#0E1424;--gold:#E2BA5C;--gold-soft:#3A311A;--green:#6FCBA0;--green-soft:#1C3A2E;--rose:#F08C94}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 Figtree,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+main{max-width:640px;margin:0 auto;padding:20px 16px 120px}
+h1{font-family:"Young Serif",Georgia,serif;font-weight:400;font-size:26px;margin:4px 0 2px}
+.sub{color:var(--ink2);font-size:14.5px;margin:0 0 18px}
+.k{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--gold);font-weight:700}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px}
+.missas{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.missa{border:1.5px solid var(--line);background:var(--panel);color:var(--ink);border-radius:12px;padding:12px 10px;text-align:left;font:inherit;cursor:pointer}
+.missa b{display:block;font-size:15px}
+.missa small{font-size:12.5px;color:var(--ink3)}
+.missa.ok small{color:var(--green)}
+.missa.sel{border-color:var(--brand);box-shadow:0 0 0 2px var(--brand) inset}
+label.fld{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--ink2);margin-bottom:12px}
+input,select,textarea{width:100%;min-width:0;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;color:var(--ink);font:inherit;font-size:16px}
+textarea{resize:vertical;min-height:110px}
+.linha{border-top:1px solid var(--line);padding:12px 0}
+.linha:first-of-type{border-top:0}
+.linha-top{display:flex;gap:8px;align-items:center}
+.linha-top select{flex:0 0 42%}
+.letra-btn{background:none;border:0;color:var(--brand);font:inherit;font-size:13.5px;padding:6px 0;cursor:pointer}
+.rem{background:none;border:0;color:var(--ink3);font-size:22px;line-height:1;padding:4px 8px;cursor:pointer}
+.btn{border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:10px;padding:11px 16px;font:inherit;font-weight:600;cursor:pointer}
+.btn.primary{background:var(--brand);color:var(--brand-ink);border-color:transparent}
+.rodape{position:fixed;left:0;right:0;bottom:0;background:var(--panel);border-top:1px solid var(--line);padding:12px 16px calc(12px + env(safe-area-inset-bottom,0px));display:flex;gap:10px;justify-content:center}
+.rodape .btn{flex:1;max-width:320px}
+.msg{border-radius:12px;padding:12px 14px;margin-bottom:14px;font-size:14.5px}
+.msg.ok{background:var(--green-soft);color:var(--green)}
+.msg.erro{background:#FAE3E5;color:#B4404A}
+.vazio{text-align:center;color:var(--ink2);padding:40px 10px}
+.dica{font-size:13px;color:var(--ink3);margin:4px 0 0}
+.aviso{border-top:1px solid var(--line);padding:10px 0;font-size:14.5px}
+.aviso:first-child{border-top:0}
+.aviso small{display:block;color:var(--ink3);font-size:12.5px}
+</style>
+</head>
+<body>
+<main id="app"><p class="vazio">Carregando…</p></main>
+<script>
+(function(){
+const API='/api/publico/avisos/';
+const token=new URLSearchParams(location.search).get('t')||'';
+const $=s=>document.querySelector(s);
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const NOME_KEY='pascom-pastoral-nome';
+let dados=null, msg=null, rascunho={pastoral:'',texto:'',missa:''};
+try{ rascunho.pastoral=localStorage.getItem(NOME_KEY)||''; }catch(e){}
+const fmt=iso=>{const [a,m,d]=iso.split('-');return d+'/'+m;};
+async function carregar(){
+  try{ const r=await fetch(API+encodeURIComponent(token)); const b=await r.json(); if(!r.ok) throw new Error(b.erro||'Link inválido.'); dados=b; render(); }
+  catch(e){ $('#app').innerHTML='<p class="vazio">'+esc(e.message)+'</p>'; }
+}
+function render(){
+  $('#app').innerHTML='<span class="k">Pascom · Santuário Nossa Senhora de Fátima</span>'+
+    '<h1>Avisos das missas</h1><p class="sub">Fim de semana de sábado '+fmt(dados.sabado)+' e domingo '+fmt(dados.domingo)+'. O aviso vai direto pra equipe que monta os slides do telão.</p>'+
+    (msg?'<div class="msg '+msg.tipo+'">'+esc(msg.texto)+'</div>':'')+
+    '<div class="card"><label class="fld"><span>Pastoral ou movimento</span><input id="pastoral" value="'+esc(rascunho.pastoral)+'" maxlength="120" placeholder="Ex.: Grupo de Oração"></label>'+
+    '<label class="fld"><span>Em qual missa?</span><select id="missa"><option value="">Todas as missas do fim de semana</option>'+dados.missas.map(m=>'<option value="'+m.chave+'"'+(m.chave===rascunho.missa?' selected':'')+'>'+esc(m.rotulo)+'</option>').join('')+'</select></label>'+
+    '<label class="fld"><span>Aviso</span><textarea id="texto" maxlength="3000" placeholder="Ex.: O Grupo de Oração se reúne nesta terça, às 20h, com o tema…">'+esc(rascunho.texto)+'</textarea></label>'+
+    '<button class="btn primary" id="enviar" style="width:100%">Enviar aviso</button></div>'+
+    (dados.avisos.length?'<div class="card"><b>Avisos já enviados</b>'+dados.avisos.map(a=>'<div class="aviso">'+esc(a.texto)+'<small>'+esc(a.pastoral)+' · '+esc(a.missaRotulo)+'</small></div>').join('')+'</div>':'');
+}
+document.addEventListener('click',async e=>{
+  if(!e.target.closest('#enviar')) return;
+  rascunho={pastoral:$('#pastoral').value.trim(),texto:$('#texto').value.trim(),missa:$('#missa').value};
+  if(!rascunho.pastoral||!rascunho.texto){ msg={tipo:'erro',texto:'Preencha o nome da pastoral e o aviso.'}; render(); return; }
+  const b=$('#enviar'); b.disabled=true; b.textContent='Enviando…';
+  try{
+    const r=await fetch(API+encodeURIComponent(token),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pastoral:rascunho.pastoral,texto:rascunho.texto,missa:rascunho.missa||null})});
+    const d=await r.json(); if(!r.ok) throw new Error(d.erro||'Não foi possível enviar.');
+    try{ localStorage.setItem(NOME_KEY,rascunho.pastoral); }catch(_){}
+    dados=d; rascunho.texto=''; msg={tipo:'ok',texto:'Obrigado! O aviso foi enviado pra equipe do telão. 🙏'}; render(); window.scrollTo(0,0);
+  }catch(err){ msg={tipo:'erro',texto:err.message}; render(); }
+});
+carregar();
+})();
+</script>
+</body>
+</html>

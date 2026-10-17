@@ -10,5 +10,6 @@ import java.util.Optional;
 public interface MontagemFimDeSemanaRepository extends JpaRepository<MontagemFimDeSemana, Long> {
     Optional<MontagemFimDeSemana> findBySabado(LocalDate sabado);
     Optional<MontagemFimDeSemana> findByTokenMusicos(String token);
+    Optional<MontagemFimDeSemana> findByTokenAvisos(String token);
     List<MontagemFimDeSemana> findBySabadoBetween(LocalDate inicio, LocalDate fim);
 }

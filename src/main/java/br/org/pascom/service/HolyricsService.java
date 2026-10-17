@@ -1,5 +1,6 @@
 package br.org.pascom.service;
 
+import br.org.pascom.model.AvisoPastoral;
 import br.org.pascom.model.Evento;
 import br.org.pascom.model.MontagemFimDeSemana;
 import br.org.pascom.model.MusicaMissa;
@@ -9,6 +10,7 @@ import br.org.pascom.model.enums.Setor;
 import br.org.pascom.repository.EventoRepository;
 import br.org.pascom.repository.MontagemFimDeSemanaRepository;
 import br.org.pascom.repository.PublicacaoEscalaRepository;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,13 +32,14 @@ import java.util.*;
 public class HolyricsService {
 
     /** As 4 missas do fim de semana, na ordem. */
-    public record Missa(String chave, String rotulo, int diasDepoisDoSabado, String horario) {}
+    /** @param titulo título do evento da escala dessa missa (pra achar quem está no Datashow) */
+    public record Missa(String chave, String rotulo, int diasDepoisDoSabado, String horario, String titulo) {}
 
     public static final List<Missa> MISSAS = List.of(
-            new Missa("SAB_1630", "Sábado · 16h30", 0, "16:30"),
-            new Missa("DOM_0800", "Domingo · 8h", 1, "08:00"),
-            new Missa("DOM_1000", "Domingo · 10h", 1, "10:00"),
-            new Missa("DOM_1830", "Domingo · 18h30", 1, "18:30"));
+            new Missa("SAB_1630", "Sábado · 16h30", 0, "16:30", "Missa das 16h30"),
+            new Missa("DOM_0800", "Domingo · 8h", 1, "08:00", "Missa das 8h"),
+            new Missa("DOM_1000", "Domingo · 10h", 1, "10:00", "Missa das 10h"),
+            new Missa("DOM_1830", "Domingo · 18h30", 1, "18:30", "Missa das 18h30"));
 
     /** Momentos sugeridos (o músico pode deixar em branco o que não tiver). */
     public static final List<String> MOMENTOS = List.of(
@@ -95,6 +98,11 @@ public class HolyricsService {
         r.put("missas", musicasPorMissa(m));
         r.put("momentos", MOMENTOS);
         r.put("linkMusicos", emailService.linkApp() + "/musicos.html?t=" + m.getTokenMusicos());
+        r.put("linkAvisos", emailService.linkApp() + "/avisos.html?t=" + m.getTokenAvisos());
+        r.put("avisosPastorais", avisosPastoraisDe(m));
+        r.put("avisosMudaramDepoisDeMontado", m.getMontadoEm() != null && (
+                (m.getAvisosAtualizadosEm() != null && m.getAvisosAtualizadosEm().isAfter(m.getMontadoEm()))
+                        || m.getAvisosPastorais().stream().anyMatch(a -> a.getCriadoEm().isAfter(m.getMontadoEm()))));
         try {
             r.put("liturgia", liturgiaService.doDia(m.getSabado().plusDays(1)));
         } catch (IllegalStateException e) {
@@ -108,6 +116,7 @@ public class HolyricsService {
         exigirAcesso(viewer);
         MontagemFimDeSemana m = obterOuCriar(sabadoDe(sabado));
         m.setAvisos(avisos == null ? null : avisos.length() > 8000 ? avisos.substring(0, 8000) : avisos);
+        m.setAvisosAtualizadosEm(LocalDateTime.now());
         montagemRepository.save(m);
         return detalhe(m.getSabado(), viewer);
     }
@@ -122,12 +131,23 @@ public class HolyricsService {
         return detalhe(m.getSabado(), viewer);
     }
 
+    /** A equipe tira um aviso de pastoral (ex.: duplicado ou já passado pros avisos). */
+    @Transactional
+    public Map<String, Object> removerAvisoPastoral(LocalDate sabado, Long id, Usuario viewer) {
+        exigirAcesso(viewer);
+        MontagemFimDeSemana m = obterOuCriar(sabadoDe(sabado));
+        m.getAvisosPastorais().removeIf(a -> a.getId().equals(id));
+        montagemRepository.save(m);
+        return detalhe(m.getSabado(), viewer);
+    }
+
     /** Troca o link dos músicos (ex.: o link vazou pra fora do grupo). */
     @Transactional
     public Map<String, Object> novoLink(LocalDate sabado, Usuario viewer) {
         exigirAcesso(viewer);
         MontagemFimDeSemana m = obterOuCriar(sabadoDe(sabado));
         m.setTokenMusicos(novoToken());
+        m.setTokenAvisos(novoToken());
         montagemRepository.save(m);
         return detalhe(m.getSabado(), viewer);
     }
@@ -173,14 +193,132 @@ public class HolyricsService {
                     .build());
         }
         montagemRepository.save(m);
-        // Avisa quem está escalado pra montar esse fim de semana (se a escala já foi publicada).
-        escalado(m.getSabado(), true).ifPresent(u -> avisoService.avisar(u,
-                "🎵 " + quem + " mandou as músicas da missa de " + missa.rotulo().replace(" · ", " às ")
-                        + " (fim de semana de " + m.getSabado().getDayOfMonth() + "/" + m.getSabado().getMonthValue() + ")."));
+        String quando = missa.rotulo().replace(" · ", " às ") + " (fim de semana de " + diaMes(m.getSabado()) + ")";
+        if (m.getMontadoEm() != null) {
+            // Mudança de última hora: quem montou, quem está escalado e o Datashow daquela missa precisam saber.
+            alertarMudanca(m, List.of(missa), "⚠️ As músicas da missa de " + quando + " mudaram depois da montagem ("
+                    + quem + "). Confira no app e ajuste no Holyrics.");
+        } else {
+            escalado(m.getSabado(), true).ifPresent(u -> avisoService.avisar(u,
+                    "🎵 " + quem + " mandou as músicas da missa de " + quando + "."));
+        }
         return paraMusicos(token);
     }
 
+    // ---------- outras pastorais (link sem login pros avisos) ----------
+
+    @Transactional(readOnly = true)
+    public Map<String, Object> paraPastorais(String token) {
+        MontagemFimDeSemana m = porTokenAvisos(token);
+        Map<String, Object> r = new LinkedHashMap<>();
+        r.put("sabado", m.getSabado().toString());
+        r.put("domingo", m.getSabado().plusDays(1).toString());
+        r.put("missas", MISSAS.stream().map(x -> Map.of("chave", x.chave(), "rotulo", x.rotulo())).toList());
+        r.put("avisos", avisosPastoraisDe(m));
+        return r;
+    }
+
+    @Transactional
+    public Map<String, Object> adicionarAvisoPastoral(String token, String pastoral, String texto, String chaveMissa) {
+        MontagemFimDeSemana m = porTokenAvisos(token);
+        String nome = limpar(pastoral, 120), corpo = limpar(texto, 3000);
+        if (nome == null) throw new IllegalArgumentException("Diga o nome da pastoral (ou o seu).");
+        if (corpo == null) throw new IllegalArgumentException("Escreva o aviso.");
+        if (m.getAvisosPastorais().size() >= 40) throw new IllegalStateException("Avisos demais nesse fim de semana.");
+        Missa missa = chaveMissa == null || chaveMissa.isBlank() ? null : MISSAS.stream()
+                .filter(x -> x.chave().equals(chaveMissa)).findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Missa inválida."));
+        m.getAvisosPastorais().add(AvisoPastoral.builder().montagem(m).pastoral(nome).texto(corpo)
+                .missa(missa == null ? null : missa.chave()).criadoEm(LocalDateTime.now()).build());
+        montagemRepository.save(m);
+        String onde = missa == null ? "das missas do fim de semana de " + diaMes(m.getSabado())
+                : "da missa de " + missa.rotulo().replace(" · ", " às ") + " (" + diaMes(m.getSabado()) + ")";
+        if (m.getMontadoEm() != null) {
+            alertarMudanca(m, missa == null ? MISSAS : List.of(missa),
+                    "⚠️ Chegou um aviso novo de " + nome + " " + onde + " depois da montagem. Confira no app e inclua no Holyrics.");
+        } else {
+            escalado(m.getSabado(), true).ifPresent(u -> avisoService.avisar(u, "📢 " + nome + " mandou um aviso " + onde + "."));
+        }
+        return paraPastorais(token);
+    }
+
+    // ---------- lembretes gentis (prazos são referência, não regra) ----------
+
+    /** Quinta, 10h: se faltar música de alguma missa do fim de semana, um lembrete gentil pra quem monta. */
+    @Scheduled(cron = "0 0 10 * * THU", zone = CalendarioService.FUSO)
+    @Transactional
+    public void lembreteDeQuinta() {
+        LocalDate sabado = calendarioService.hoje().with(TemporalAdjusters.next(DayOfWeek.SATURDAY));
+        MontagemFimDeSemana m = obterOuCriar(sabado);
+        List<String> faltam = MISSAS.stream()
+                .filter(x -> m.getMusicas().stream().noneMatch(mu -> mu.getMissa().equals(x.chave())))
+                .map(x -> x.rotulo().replace(" · ", " "))
+                .toList();
+        if (faltam.isEmpty()) return;
+        escalado(sabado, true).ifPresent(u -> avisoService.avisar(u, "🎵 Oi! Pro fim de semana de " + diaMes(sabado)
+                + ", ainda não chegaram as músicas de: " + String.join(", ", faltam)
+                + ". Sem pressa: se precisar, reenvie o link pros músicos pela tela de Montagem."));
+    }
+
+    /** Sexta, 10h: lembrete gentil pra deixar liturgia e avisos prontos (se ainda não marcou como montado). */
+    @Scheduled(cron = "0 0 10 * * FRI", zone = CalendarioService.FUSO)
+    @Transactional
+    public void lembreteDeSexta() {
+        LocalDate sabado = calendarioService.hoje().with(TemporalAdjusters.next(DayOfWeek.SATURDAY));
+        MontagemFimDeSemana m = obterOuCriar(sabado);
+        if (m.getMontadoEm() != null) return;
+        escalado(sabado, true).ifPresent(u -> avisoService.avisar(u, "📖 Se der, hoje é um bom dia pra deixar a liturgia e os "
+                + "avisos do fim de semana de " + diaMes(sabado) + " prontos no Holyrics. Avisos de outras pastorais podem "
+                + "chegar mais tarde, e o app te avisa se chegar algo depois de montado."));
+    }
+
     // ---------- apoio ----------
+
+    /**
+     * Mudou algo depois de "Montado no Holyrics": avisa quem montou, quem está escalado pra montar e
+     * quem está no Datashow das missas afetadas (só quem já aparece em escala publicada).
+     */
+    private void alertarMudanca(MontagemFimDeSemana m, List<Missa> missas, String texto) {
+        Map<Long, Usuario> pessoas = new LinkedHashMap<>();
+        if (m.getMontadoPor() != null) pessoas.put(m.getMontadoPor().getId(), m.getMontadoPor());
+        escalado(m.getSabado(), true).ifPresent(u -> pessoas.put(u.getId(), u));
+        for (Missa x : missas) {
+            LocalDate dia = m.getSabado().plusDays(x.diasDepoisDoSabado());
+            if (publicacaoRepository.findByMesAndSetor(YearMonth.from(dia).toString(), Setor.DATASHOW).isEmpty()) continue;
+            eventoRepository.findFirstByDataAndTituloAndExcluidoEmIsNull(dia, x.titulo()).ifPresent(e ->
+                    e.getSlots().stream().filter(s -> s.getSetor() == Setor.DATASHOW && s.getVoluntario() != null)
+                            .forEach(s -> pessoas.put(s.getVoluntario().getId(), s.getVoluntario())));
+        }
+        pessoas.values().forEach(u -> avisoService.avisar(u, texto));
+    }
+
+    private List<Map<String, Object>> avisosPastoraisDe(MontagemFimDeSemana m) {
+        return m.getAvisosPastorais().stream().map(a -> {
+            Map<String, Object> o = new LinkedHashMap<>();
+            o.put("id", a.getId());
+            o.put("pastoral", a.getPastoral());
+            o.put("texto", a.getTexto());
+            o.put("missa", a.getMissa());
+            o.put("missaRotulo", a.getMissa() == null ? "Todas as missas"
+                    : MISSAS.stream().filter(x -> x.chave().equals(a.getMissa())).map(Missa::rotulo).findFirst().orElse(a.getMissa()));
+            o.put("criadoEm", a.getCriadoEm().toString());
+            o.put("depoisDeMontado", m.getMontadoEm() != null && a.getCriadoEm().isAfter(m.getMontadoEm()));
+            return o;
+        }).toList();
+    }
+
+    private MontagemFimDeSemana porTokenAvisos(String token) {
+        MontagemFimDeSemana m = montagemRepository.findByTokenAvisos(token == null || token.isBlank() ? "-" : token)
+                .orElseThrow(() -> new IllegalArgumentException("Link inválido. Peça um link novo à equipe do Holyrics."));
+        if (calendarioService.hoje().isAfter(m.getSabado().plusDays(2))) {
+            throw new IllegalStateException("Esse link já expirou: o fim de semana passou. Peça o link do próximo à equipe do Holyrics.");
+        }
+        return m;
+    }
+
+    private static String diaMes(LocalDate d) {
+        return d.getDayOfMonth() + "/" + d.getMonthValue();
+    }
 
     private MontagemFimDeSemana porToken(String token) {
         MontagemFimDeSemana m = montagemRepository.findByTokenMusicos(token == null ? "" : token)
@@ -226,6 +364,8 @@ public class HolyricsService {
             Map<String, Object> o = new LinkedHashMap<>();
             o.put("chave", x.chave());
             o.put("rotulo", x.rotulo());
+            o.put("mudouDepoisDeMontado", m.getMontadoEm() != null && m.getMusicas().stream()
+                    .anyMatch(mu -> mu.getMissa().equals(x.chave()) && mu.getAtualizadoEm() != null && mu.getAtualizadoEm().isAfter(m.getMontadoEm())));
             o.put("data", m.getSabado().plusDays(x.diasDepoisDoSabado()).toString());
             o.put("horario", x.horario());
             o.put("musicas", musicas);
@@ -251,8 +391,10 @@ public class HolyricsService {
     }
 
     private MontagemFimDeSemana obterOuCriar(LocalDate sabado) {
-        return montagemRepository.findBySabado(sabado).orElseGet(() ->
-                montagemRepository.save(MontagemFimDeSemana.builder().sabado(sabado).tokenMusicos(novoToken()).build()));
+        MontagemFimDeSemana m = montagemRepository.findBySabado(sabado).orElseGet(() ->
+                montagemRepository.save(MontagemFimDeSemana.builder().sabado(sabado).tokenMusicos(novoToken()).tokenAvisos(novoToken()).build()));
+        if (m.getTokenAvisos() == null) { m.setTokenAvisos(novoToken()); m = montagemRepository.save(m); }
+        return m;
     }
 
     private static LocalDate sabadoDe(LocalDate data) {
