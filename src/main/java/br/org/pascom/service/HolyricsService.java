@@ -12,7 +12,10 @@ import br.org.pascom.repository.MontagemFimDeSemanaRepository;
 import br.org.pascom.repository.PublicacaoEscalaRepository;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.security.SecureRandom;
 import java.time.DayOfWeek;
@@ -57,10 +60,14 @@ public class HolyricsService {
     private final CalendarioService calendarioService;
     private final EmailService emailService;
     private final SecureRandom random = new SecureRandom();
+    private final TransactionTemplate novaTransacao;
 
     public HolyricsService(MontagemFimDeSemanaRepository montagemRepository, EventoRepository eventoRepository,
                            PublicacaoEscalaRepository publicacaoRepository, LiturgiaService liturgiaService,
-                           AvisoService avisoService, CalendarioService calendarioService, EmailService emailService) {
+                           AvisoService avisoService, CalendarioService calendarioService, EmailService emailService,
+                           PlatformTransactionManager transactionManager) {
+        this.novaTransacao = new TransactionTemplate(transactionManager);
+        this.novaTransacao.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
         this.montagemRepository = montagemRepository;
         this.eventoRepository = eventoRepository;
         this.publicacaoRepository = publicacaoRepository;
@@ -391,10 +398,21 @@ public class HolyricsService {
     }
 
     private MontagemFimDeSemana obterOuCriar(LocalDate sabado) {
-        MontagemFimDeSemana m = montagemRepository.findBySabado(sabado).orElseGet(() ->
-                montagemRepository.save(MontagemFimDeSemana.builder().sabado(sabado).tokenMusicos(novoToken()).tokenAvisos(novoToken()).build()));
+        MontagemFimDeSemana m = montagemRepository.findBySabado(sabado).orElseGet(() -> criar(sabado));
         if (m.getTokenAvisos() == null) { m.setTokenAvisos(novoToken()); m = montagemRepository.save(m); }
         return m;
+    }
+
+    /**
+     * Cria o fim de semana numa transação própria, já gravada, e uma criação por vez: duas pessoas
+     * abrindo a Montagem no mesmo instante (ou um lembrete agendado junto) criariam o mesmo sábado duas
+     * vezes, e a segunda daria erro pela coluna única.
+     */
+    private synchronized MontagemFimDeSemana criar(LocalDate sabado) {
+        Long id = novaTransacao.execute(s -> montagemRepository.findBySabado(sabado).orElseGet(() ->
+                montagemRepository.save(MontagemFimDeSemana.builder().sabado(sabado)
+                        .tokenMusicos(novoToken()).tokenAvisos(novoToken()).build())).getId());
+        return montagemRepository.findById(id).orElseThrow();
     }
 
     private static LocalDate sabadoDe(LocalDate data) {

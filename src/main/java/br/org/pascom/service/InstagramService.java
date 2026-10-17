@@ -45,6 +45,7 @@ public class InstagramService {
     // graph.facebook.com NÃO funciona para tokens gerados pelo fluxo "Instagram Login"
     // (tokens que começam com "IGAA") — eles exigem graph.instagram.com. Confirmado em
     // teste real: "Invalid OAuth access token - Cannot parse access token" com o host errado.
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(InstagramService.class);
     private static final String GRAPH_BASE_URL = "https://graph.instagram.com/v21.0";
     private static final String METRICAS = "likes,comments,saved,shares,reach";
     private static final int MAX_PAGINAS_SYNC = 10; // até ~500 posts (limit=50/página) numa sincronização
@@ -181,6 +182,16 @@ public class InstagramService {
             }
             try {
                 Map<String, Integer> valores = buscarInsights(postagem.getInstagramMediaId(), token);
+                // Post antigo quase não muda: só grava uma linha nova de histórico quando algum número
+                // mudou, senão a tabela cresce ~2 mil linhas por dia à toa (500 posts × 4 rodadas).
+                MetricaInstagram ultima = metricaRepository.findFirstByPostagemIdOrderByColetadoEmDesc(postagem.getId()).orElse(null);
+                if (ultima != null && java.util.Objects.equals(ultima.getCurtidas(), valores.get("likes"))
+                        && java.util.Objects.equals(ultima.getComentarios(), valores.get("comments"))
+                        && java.util.Objects.equals(ultima.getSalvamentos(), valores.get("saved"))
+                        && java.util.Objects.equals(ultima.getCompartilhamentos(), valores.get("shares"))
+                        && java.util.Objects.equals(ultima.getAlcance(), valores.get("reach"))) {
+                    continue;
+                }
                 metricaRepository.save(MetricaInstagram.builder()
                         .postagem(postagem)
                         .coletadoEm(LocalDateTime.now())
@@ -204,6 +215,31 @@ public class InstagramService {
             sincronizarPosts();
         } catch (Exception ignorada) {
             // próxima rodada tenta de novo
+        }
+    }
+
+    /**
+     * O token do Instagram vence em 60 dias. Toda segunda, 4h, pede um novo (a Graph API renova por
+     * mais 60 dias qualquer token com mais de 24h que ainda não venceu); sem isso a leitura dos posts
+     * parava sozinha dois meses depois de conectar.
+     */
+    @Scheduled(cron = "0 0 4 * * MON", zone = CalendarioService.FUSO)
+    @Transactional
+    public void renovarToken() {
+        ContaInstagram conta = contaRepository.findById(ContaInstagram.ID_UNICO).orElse(null);
+        if (conta == null) return;
+        try {
+            String token = criptografiaService.decriptar(conta.getAccessTokenCriptografado());
+            Map<String, Object> r = restClient.get()
+                    .uri("https://graph.instagram.com/refresh_access_token?grant_type=ig_refresh_token&access_token={t}", token)
+                    .retrieve()
+                    .body(new org.springframework.core.ParameterizedTypeReference<Map<String, Object>>() {});
+            if (r == null || !(r.get("access_token") instanceof String novo) || novo.isBlank()) return;
+            conta.setAccessTokenCriptografado(criptografiaService.encriptar(novo));
+            if (r.get("expires_in") instanceof Number seg) conta.setTokenExpiraEm(LocalDateTime.now().plusSeconds(seg.longValue()));
+            contaRepository.save(conta);
+        } catch (RuntimeException e) {
+            log.warn("Não consegui renovar o token do Instagram: {}", e.getMessage());
         }
     }
 
