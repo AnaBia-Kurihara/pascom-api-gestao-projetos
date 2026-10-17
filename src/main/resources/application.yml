@@ -38,6 +38,9 @@ spring:
         use-last-modified: false
 
 api:
+  liturgia:
+    # API aberta (comunidade, github.com/Dancrf/liturgia-diaria) com as leituras e orações do dia.
+    url: ${LITURGIA_API_URL:https://liturgia.up.railway.app/v2/}
   resend:
     # E-mail transacional via API HTTPS (não SMTP — o Railway bloqueia as portas de SMTP de saída).
     # Chave gerada em resend.com; "from" precisa ser um remetente autorizado na conta Resend.

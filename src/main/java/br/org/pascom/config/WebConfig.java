@@ -17,7 +17,7 @@ public class WebConfig implements WebMvcConfigurer {
     @org.springframework.context.annotation.Bean
     public org.springframework.boot.web.servlet.FilterRegistrationBean<org.springframework.web.filter.ShallowEtagHeaderFilter> etagDoFront() {
         var registro = new org.springframework.boot.web.servlet.FilterRegistrationBean<>(new org.springframework.web.filter.ShallowEtagHeaderFilter());
-        registro.addUrlPatterns("/", "/index.html", "/privacidade.html");
+        registro.addUrlPatterns("/", "/index.html", "/privacidade.html", "/musicos.html");
         registro.setName("etagDoFront");
         return registro;
     }

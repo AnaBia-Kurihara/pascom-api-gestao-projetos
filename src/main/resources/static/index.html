@@ -289,6 +289,34 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center;justify-conten
 .aniv-pedir-geral{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--gold-soft);color:var(--gold-ink);border-radius:12px;padding:10px 14px;margin:0 0 14px;font-size:14px}
 .aniv-pedir-geral span{flex:1 1 240px}
 .post-aniv{width:100%;max-width:420px;align-self:center;border-radius:12px;box-shadow:0 8px 28px rgba(0,0,0,.25);aspect-ratio:1080/1350;background:var(--tint)}
+.mont-cab{display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;background:var(--deep);color:var(--deep-ink);border-radius:14px;padding:18px 20px;margin:0 0 18px}
+.mont-cab h2{font-size:22px;margin-top:2px}
+.mont-cab p{opacity:.9;margin-top:6px;font-size:14px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.mont-prog{display:flex;flex-wrap:wrap;gap:6px;align-items:flex-start;align-content:flex-start}
+.mont-prog span{font-size:12.5px;padding:4px 10px;border-radius:99px;background:rgba(255,255,255,.1)}
+.mont-prog span.ok{background:var(--gold);color:#1B1400;font-weight:600}
+.cor-lit{display:inline-block;width:12px;height:12px;border-radius:50%;border:1px solid rgba(255,255,255,.5);background:#888}
+.cor-verde{background:#2E8B57}.cor-roxo{background:#6A3D9A}.cor-branco{background:#fff}.cor-vermelho{background:#C0392B}.cor-rosa{background:#E89BB5}
+.sec-k{font-family:var(--sans);font-size:12.5px;color:var(--ink3);font-weight:500}
+details.lit{border:1px solid var(--line);border-radius:12px;margin-bottom:8px;background:var(--panel)}
+details.lit summary{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:11px 14px;cursor:pointer;list-style:none}
+details.lit summary::-webkit-details-marker{display:none}
+details.lit summary span{display:flex;flex-direction:column;font-size:14.5px}
+details.lit summary span small{color:var(--ink3);font-size:12.5px}
+details.lit summary em{font-style:normal;font-size:12.5px;color:var(--gold-ink);margin-top:2px}
+details.lit summary>small{color:var(--ink3);font-size:12px;white-space:nowrap}
+.lit-corpo{padding:0 14px 6px;display:flex;flex-direction:column;gap:6px}
+.lit-corpo p{font-size:14px;color:var(--ink2);background:var(--tint);border-radius:8px;padding:8px 10px}
+.lit-acoes{display:flex;gap:8px;flex-wrap:wrap;padding:0 14px 12px}
+.panel>.lit-acoes,.mus-pedir .lit-acoes,.panel .lit-acoes:last-child{padding-left:0;padding-right:0}
+.mus{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
+.mus-mom{flex:0 0 108px;font-size:12px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:.03em;padding-top:2px}
+.mus-t{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;font-size:14.5px}
+.mus-t small{color:var(--ink3);font-size:12.5px}
+.mus-t pre{white-space:pre-wrap;font:inherit;font-size:13.5px;color:var(--ink2);background:var(--tint);border-radius:8px;padding:8px 10px;margin-top:6px}
+.mus-t summary{font-size:13px;color:var(--brand);cursor:pointer}
+.mus-pedir{margin-top:14px;padding-top:12px;border-top:1px dashed var(--line);font-size:13.5px;color:var(--ink2);display:flex;flex-direction:column;gap:8px}
+.mont-fim .chk b{font-size:15px}
 .lembrete-pub{display:flex;align-items:center;gap:10px 12px;flex-wrap:wrap;background:var(--gold-soft);color:var(--gold-ink);border:1px solid var(--gold);border-radius:12px;padding:12px 14px;margin:0 0 16px}
 .lembrete-pub>div{flex:1 1 240px;display:flex;flex-direction:column;gap:2px;font-size:14px}
 .lembrete-pub span{font-size:13px;opacity:.9}
@@ -631,7 +659,8 @@ const SETORES=[
   {id:'redes_sociais',nome:'Redes sociais'},
   {id:'jovens',nome:'Jovens'},
   {id:'datashow',nome:'Datashow'},
-  {id:'transmissoes_videos',nome:'Transmissões/Vídeos'}
+  {id:'transmissoes_videos',nome:'Transmissões/Vídeos'},
+  {id:'holyrics',nome:'Holyrics'}
 ];
 const ROLE_NAME={coordenador_geral:'Coordenador(a) Geral',coordenador:'Coordenador(a)',voluntario:'Voluntário(a)'};
 const MESES=['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
@@ -656,8 +685,8 @@ function aniversariantesEm(data){
   const bissexto=new Date(data.getFullYear(),1,29).getMonth()===1;
   return MEMBERS.filter(x=>x.anivMes===m&&(x.anivDia===d||(!bissexto&&m===2&&d===28&&x.anivDia===29)));
 }
-const SETOR_NAME={redes_sociais:'Redes sociais',jovens:'Jovens',datashow:'Datashow',transmissoes_videos:'Transmissões/Vídeos'};
-const SETOR_ICON={redes_sociais:'share',jovens:'flame',datashow:'monitor',transmissoes_videos:'live'};
+const SETOR_NAME={redes_sociais:'Redes sociais',jovens:'Jovens',datashow:'Datashow',transmissoes_videos:'Transmissões/Vídeos',holyrics:'Holyrics'};
+const SETOR_ICON={redes_sociais:'share',jovens:'flame',datashow:'monitor',transmissoes_videos:'live',holyrics:'music'};
 // Datas fixas do calendário (exemplo: ajuste com a programação real do santuário)
 const LIT={'05-13':'N. Sra. de Fátima','09-21':'São Mateus','09-27':'São Vicente de Paulo','09-29':'Santos Arcanjos','09-30':'São Jerônimo','10-01':'Santa Teresinha','10-02':'Santos Anjos da Guarda','10-04':'São Francisco de Assis','10-07':'N. Sra. do Rosário','10-12':'N. Sra. Aparecida','10-15':'Santa Teresa d’Ávila','10-28':'São Judas Tadeu','11-01':'Todos os Santos','11-02':'Finados','12-08':'Imaculada Conceição','12-13':'Santa Luzia','12-25':'Natal'};
 const LIT_ABS={'2026-11-22':'Cristo Rei','2026-11-29':'1º domingo do Advento'};
@@ -748,7 +777,7 @@ function decodeJwt(token){
 }
 
 const ROLE_FROM_API={COORDENADOR_GERAL:'coordenador_geral',COORDENADOR:'coordenador',VOLUNTARIO:'voluntario'};
-const SETOR_FROM_API={REDES_SOCIAIS:'redes_sociais',JOVENS:'jovens',DATASHOW:'datashow',TRANSMISSOES_VIDEOS:'transmissoes_videos'};
+const SETOR_FROM_API={REDES_SOCIAIS:'redes_sociais',JOVENS:'jovens',DATASHOW:'datashow',TRANSMISSOES_VIDEOS:'transmissoes_videos',HOLYRICS:'holyrics'};
 function memberFromApi(u){
   return {
     id:String(u.id), nome:u.nome, funcao:u.funcao||'', role:ROLE_FROM_API[u.role]||'voluntario',
@@ -1086,6 +1115,7 @@ const ICONS={
   chev:'<path d="M6 9l6 6 6-6"/>',
   chart:'<path d="M4 20V10M11 20V4M18 20v-7"/><path d="M3 20h18"/>',
   book:'<path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H11v16H5.5A1.5 1.5 0 0 1 4 18.5v-13zM20 5.5A1.5 1.5 0 0 0 18.5 4H13v16h5.5a1.5 1.5 0 0 0 1.5-1.5v-13z"/>',
+  music:'<path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/>',
   more:'<circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/>',
   trash:'<path d="M4 7h16M9 7V4.5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1V7M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13M10 11v6M14 11v6"/>'
 };
@@ -1099,7 +1129,8 @@ const VIEWS={
   calendario:{label:'Calendário',icon:'cal',title:()=>'Calendário editorial',sub:()=>'O que vai ao ar, junto com os santos do dia e os eventos do santuário.',render:viewCalendario},
   dashboard:{label:'Dashboard',icon:'chart',title:()=>'Dashboard',sub:()=>'Andamento e engajamento das publicações — semana, mês e ano.',render:viewDashboard},
   ideias:{label:'Ideias',icon:'bulb',title:()=>'Banco de ideias',sub:()=>'Qualquer pessoa da equipe sugere. As mais votadas viram cartões.',render:viewIdeias},
-  escalas:{label:'Escalas',icon:'cam',title:()=>'Escalas de cobertura',sub:()=>'Quem vai fotografar, filmar e transmitir cada celebração.',render:viewEscalas},
+  escalas:{label:'Escalas',icon:'cam',title:()=>'Escalas de cobertura',sub:()=>'Quem vai montar, projetar, fotografar, filmar e transmitir cada celebração.',render:viewEscalas},
+  montagem:{label:'Montagem',icon:'music',title:()=>'Montagem do fim de semana',sub:()=>'Liturgia, músicas e avisos das 4 missas, prontos pra montar no Holyrics.',render:()=>viewMontagem()},
   guia:{label:'Guia',icon:'book',title:()=>'Guia da transmissão',sub:()=>'Roteiro de câmeras por momento da missa e o passo a passo pra entrar ao vivo.',render:()=>transmissaoGuiaHtml()},
   equipe:{label:'Equipe',icon:'users',title:()=>equipeAba==='time'?'Time da Pascom':'Equipe de '+SETOR_NAME[currentSetor],sub:()=>equipeAba==='time'?'Todo mundo que serve na Pascom, setor por setor.':'Quem serve neste setor: coordenação, Coordenação Geral e voluntários.',render:viewEquipe},
   materiais:{label:'Materiais',icon:'folder',title:()=>'Materiais e modelos',sub:()=>'Tudo o que a equipe precisa para produzir com o mesmo padrão.',render:viewMateriais},
@@ -1727,7 +1758,7 @@ function viewEscalas(){
     .filter(e=>e.date>=hoje)
     // Coordenação também vê eventos extras sem funções do setor (pra poder acrescentar as dela), mas
     // não as missas fixas de outro setor (ex.: a Missa das 16h30 de sábado, que é só do Datashow).
-    .filter(e=>e.slots.some(doSetor)||(podeEditarSetor&&!/^missa das \d{1,2}h(\d{2})?$/i.test((e.title||'').trim())))
+    .filter(e=>e.slots.some(doSetor)||(podeEditarSetor&&!/^(missa das \d{1,2}h(\d{2})?|montagem holyrics)$/i.test((e.title||'').trim())))
     .sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
   // Filtro rápido: todas / só onde ainda falta gente / só onde eu estou.
   const comVaga=e=>(podeEditarSetor||!mesFechado(e.date))&&e.slots.some(s=>doSetor(s)&&!s.who), minha=e=>e.slots.some(s=>s.who===state.me||s.euCand);
@@ -1738,7 +1769,7 @@ function viewEscalas(){
   const coord=(podeCriar||gereEscalas())?'<div class="filters" style="margin-bottom:12px">'+
     (podeCriar?'<button class="btn primary" data-action="novaEscala">+ Evento extra com escala</button>':'')+
     (gereEscalas()?'<button class="btn" data-action="gerarEscalasMes">Gerar missas do mês</button>':'')+'</div>':'';
-  const como='<details class="como"><summary>Como funciona a escala</summary><p>Todo mês a escala começa nova: as missas de domingo (e, pro Datashow, as das 8h, 18h30 e a de sábado às 16h30) entram sozinhas, já com as funções de cada setor. '+
+  const como='<details class="como"><summary>Como funciona a escala</summary><p>Todo mês a escala começa nova: as missas de domingo (e, pro Datashow, as das 8h, 18h30 e a de sábado às 16h30; pro Holyrics, a montagem de cada fim de semana) entram sozinhas, já com as funções de cada setor. '+
     (podeEditarSetor
       ?'Enquanto a escala do mês está <b>em montagem</b>, só a coordenação vê quem foi escalado: veja os candidatos de cada função, toque em <b>Escalar</b> ou <b>Trocar</b> e, quando estiver pronta, <b>publique</b>. Você também pode renomear, remover ou adicionar funções de '+esc(SETOR_NAME[currentSetor])+'.'
       :'Toque em <b>Quero servir</b> nas funções em que você pode servir. A coordenação escolhe quem fica em cada uma e, quando a escala for <b>publicada</b>, ela aparece aqui pra todo mundo. Quando o mês chega, a escala dele <b>fecha</b>: se precisar sair, fale com a coordenação do seu setor.')+
@@ -1970,6 +2001,101 @@ async function salvarSlotExistente(eventoId){
     addSlotEventoId=null;
     render(); toast('Função adicionada!');
   }catch(e){ toast(e.message,'warn'); }
+}
+
+/* ---------- Holyrics: montagem do fim de semana ----------
+   Uma pessoa monta as 4 missas (sábado 16h30, domingo 8h, 10h e 18h30): a liturgia é a mesma pro
+   fim de semana (vem automática), as músicas mudam por missa (os músicos mandam pelo link sem
+   login) e os avisos valem pro fim de semana. */
+let holy={lista:null,sel:null,det:null,carregando:false,missa:null,erro:null};
+const podeMontagem=()=>{const m=me();return !!m&&(pertenceSetor(m,'holyrics')||coordenaEscala('holyrics'));};
+async function carregarHolyrics(sabado){
+  holy.carregando=true; holy.erro=null; render();
+  try{
+    if(!holy.lista) holy.lista=await api('/holyrics/fins-de-semana');
+    holy.sel=sabado||holy.sel||(holy.lista[0]&&holy.lista[0].sabado);
+    holy.det=await api('/holyrics/montagem?sabado='+holy.sel);
+    if(!holy.missa) holy.missa=holy.det.missas[0].chave;
+  }catch(e){ holy.erro=e.message; }
+  holy.carregando=false; if(view==='montagem') render();
+}
+// Tira os números de versículo grudados no texto ("15os fariseus" -> "os fariseus") e quebra em
+// blocos do tamanho de um slide, sem cortar no meio da frase.
+function semVersiculos(t){ return String(t||'').replace(/(^|[\s“"(—–-])\d{1,3}(?=[A-Za-zÀ-ÿ“"])/g,'$1').replace(/\s+/g,' ').trim(); }
+function emSlides(t,max){
+  max=max||240; const frases=semVersiculos(t).split(/(?<=[.!?;:])\s+/); const out=[]; let atual='';
+  frases.forEach(f=>{ if((atual+' '+f).trim().length>max&&atual){ out.push(atual.trim()); atual=f; } else atual=(atual+' '+f).trim(); });
+  if(atual) out.push(atual.trim()); return out;
+}
+function copiarTexto(t,msg){
+  const ok=()=>toast(msg||'Copiado!');
+  if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(ok,()=>copiaAntiga(t,ok)); else copiaAntiga(t,ok);
+}
+function copiaAntiga(t,ok){ const a=document.createElement('textarea'); a.value=t; document.body.appendChild(a); a.select(); try{document.execCommand('copy');ok();}catch(_){} a.remove(); }
+const liturgiaCopias={}; // id -> texto (pra não pôr textos longos em atributos HTML)
+function blocoLiturgia(id,titulo,ref,texto,extra){
+  if(!texto) return '';
+  const slides=emSlides(texto);
+  liturgiaCopias[id]=(titulo?titulo+(ref?' ('+ref+')':'')+'\n\n':'')+semVersiculos(texto);
+  liturgiaCopias[id+'-s']=(titulo?titulo+(ref?' ('+ref+')':'')+'\n\n':'')+slides.join('\n\n');
+  return '<details class="lit"><summary><span><b>'+esc(titulo)+'</b>'+(ref?' <small>'+esc(ref)+'</small>':'')+(extra?'<em>'+esc(extra)+'</em>':'')+'</span><small>'+slides.length+' slide'+(slides.length>1?'s':'')+'</small></summary>'+
+    '<div class="lit-corpo">'+slides.map(x=>'<p>'+esc(x)+'</p>').join('')+'</div>'+
+    '<div class="lit-acoes"><button class="btn small" data-action="copiarLit" data-k="'+id+'">Copiar texto</button><button class="btn small primary" data-action="copiarLit" data-k="'+id+'-s">Copiar em slides</button></div></details>';
+}
+function liturgiaHtml(l){
+  if(!l) return '';
+  const L=l.leituras||{}, um=a=>a&&a[0];
+  const p1=um(L.primeiraLeitura), sl=um(L.salmo), p2=um(L.segundaLeitura), ev=um(L.evangelho), o=l.oracoes||{}, an=l.antifonas||{};
+  let tudo=[];
+  const bloco=(id,t,r,x,e)=>{ const h=blocoLiturgia(id,t,r,x,e); if(h) tudo.push(id+'-s'); return h; };
+  const html=
+    bloco('l-p1',p1&&p1.titulo||'Primeira leitura',p1&&p1.referencia,p1&&p1.texto)+
+    bloco('l-sl','Salmo responsorial',sl&&sl.referencia,sl&&((sl.refrao?'R. '+sl.refrao+' ':'')+sl.texto),sl&&sl.refrao?'R. '+sl.refrao:'')+
+    bloco('l-p2',p2&&p2.titulo||'Segunda leitura',p2&&p2.referencia,p2&&p2.texto)+
+    bloco('l-ev',ev&&ev.titulo||'Evangelho',ev&&ev.referencia,ev&&ev.texto)+
+    bloco('l-ae','Antífona de entrada','',an.entrada)+
+    bloco('l-co','Oração do dia (coleta)','',o.coleta)+
+    bloco('l-of','Oração sobre as oferendas','',o.oferendas)+
+    bloco('l-ac','Antífona da comunhão','',an.comunhao)+
+    bloco('l-pc','Oração depois da comunhão','',o.comunhao);
+  liturgiaCopias['l-tudo']=tudo.map(k=>liturgiaCopias[k]).join('\n\n\n');
+  return html;
+}
+function viewMontagem(){
+  if(!podeMontagem()) return '<div class="empty">A montagem é da equipe do Holyrics e da coordenação. Se você também faz parte do Holyrics, adicione o setor em <button type="button" class="link-btn" data-action="abrirPerfil">Meu perfil</button>.</div>';
+  if(!holy.lista&&!holy.carregando&&!holy.erro) setTimeout(()=>carregarHolyrics(),0);
+  if(holy.erro&&!holy.det) return '<div class="empty">'+esc(holy.erro)+'</div>';
+  if(!holy.lista||!holy.det) return '<div class="empty">Carregando…</div>';
+  const d=holy.det, fds=iso=>{const a=parse(iso);return a.getDate()+'/'+String(a.getMonth()+1).padStart(2,'0');};
+  const total=Object.values(d.musicasRecebidas).filter(n=>n>0).length;
+  const chips='<div class="dash-tabs chips-esc">'+holy.lista.map(f=>{const n=Object.values(f.musicasRecebidas).filter(x=>x>0).length;
+    return '<button type="button" class="dash-tab'+(f.sabado===holy.sel?' active':'')+'" data-action="holySel" data-sabado="'+f.sabado+'">'+fds(f.sabado)+' e '+fds(f.domingo)+(f.montado?' ✓':' <span class="chip-n">'+n+'/4</span>')+'</button>';}).join('')+'</div>';
+  const l=d.liturgia;
+  const cor=l&&l.cor?'<span class="cor-lit cor-'+esc(String(l.cor).toLowerCase().normalize('NFD').replace(/[^a-z]/g,''))+'"></span>'+esc(l.cor):'';
+  const cab='<section class="mont-cab"><div><small class="hero-k">Fim de semana de '+fds(d.sabado)+' e '+fds(d.domingo)+'</small><h2>'+esc(l&&l.liturgia||'Liturgia do domingo')+'</h2>'+
+    '<p>'+(cor?cor+' · ':'')+(d.escalado?'Montagem: <b>'+esc(d.escalado)+'</b>':'Ninguém escalado ainda pra montar')+'</p></div>'+
+    '<div class="mont-prog"><span class="'+(l?'ok':'')+'">'+(l?'✓':'○')+' Liturgia</span><span class="'+(total===4?'ok':'')+'">'+(total===4?'✓':'○')+' Músicas '+total+'/4</span><span class="'+(d.temAvisos?'ok':'')+'">'+(d.temAvisos?'✓':'○')+' Avisos</span><span class="'+(d.montado?'ok':'')+'">'+(d.montado?'✓':'○')+' Montado</span></div></section>';
+  const lit='<section class="panel"><h2>📖 Liturgia <small class="sec-k">igual nas 4 missas</small></h2>'+
+    (d.liturgiaErro?'<div class="empty">'+esc(d.liturgiaErro)+'</div>':liturgiaHtml(l)+'<div class="lit-acoes" style="margin-top:10px"><button class="btn primary" data-action="copiarLit" data-k="l-tudo">Copiar a liturgia toda em slides</button></div>')+
+    '<p class="note">Fonte automática. Confira sempre com a <a href="https://liturgia.cnbb.org.br/" target="_blank" rel="noopener">CNBB</a> ou a <a href="https://liturgia.cancaonova.com/pb/" target="_blank" rel="noopener">Canção Nova</a> antes de montar. Os números dos versículos já saem do texto.</p></section>';
+  const missa=d.missas.find(x=>x.chave===holy.missa)||d.missas[0];
+  const msgWpp='Oi, músicos! 🎵 Pra montarmos os slides do fim de semana (sábado '+fds(d.sabado)+' e domingo '+fds(d.domingo)+'), mandem as músicas de cada missa por aqui: '+d.linkMusicos;
+  liturgiaCopias['wpp']=msgWpp;
+  const mus='<section class="panel"><h2>🎵 Músicas por missa</h2>'+
+    '<div class="dash-tabs">'+d.missas.map(m=>'<button type="button" class="dash-tab'+(m.chave===missa.chave?' active':'')+'" data-action="holyMissa" data-missa="'+m.chave+'">'+esc(m.rotulo)+(m.musicas.length?' ✓':'')+'</button>').join('')+'</div>'+
+    (missa.musicas.length?'<div class="rows">'+missa.musicas.map((x,i)=>{ const k='m-'+missa.chave+'-'+i; liturgiaCopias[k]=x.titulo+(x.letra?'\n\n'+x.letra:'');
+      return '<div class="mus"><span class="mus-mom">'+esc(x.momento)+'</span><div class="mus-t"><b>'+esc(x.titulo)+'</b>'+(x.letra?'<details><summary>ver letra</summary><pre>'+esc(x.letra)+'</pre></details>':'<small>sem letra</small>')+'</div>'+
+        '<button class="btn small" data-action="copiarLit" data-k="'+k+'">Copiar</button></div>';}).join('')+'</div><p class="note">Enviado por '+esc(missa.musicas[0].enviadoPor||'—')+'.</p>'
+      :'<div class="empty">Os músicos ainda não mandaram as músicas dessa missa.</div>')+
+    '<div class="mus-pedir"><span>Peça as músicas pelo link (os músicos não precisam de conta):</span><div class="lit-acoes"><a class="btn small primary" href="https://wa.me/?text='+encodeURIComponent(msgWpp)+'" target="_blank" rel="noopener">Pedir no WhatsApp</a><button class="btn small" data-action="copiarLit" data-k="wpp">Copiar mensagem</button><button class="btn small" data-action="holyNovoLink" title="Gera outro link e desativa o anterior">Trocar link</button></div></div></section>';
+  const av='<section class="panel"><h2>📢 Avisos do fim de semana</h2><label class="fld"><span>Avisos pra passar no fim das missas</span><textarea id="holy-avisos" rows="5" placeholder="Ex.: Inscrições para a crisma até dia 30. Bazar no salão paroquial no sábado.">'+esc(d.avisos||'')+'</textarea></label>'+
+    '<div class="lit-acoes"><button class="btn small primary" data-action="holyAvisos">Salvar avisos</button>'+(d.avisos?'<button class="btn small" data-action="copiarAvisos">Copiar em slides</button>':'')+'</div></section>';
+  const fim='<section class="panel mont-fim"><label class="chk"><input type="checkbox" id="holy-montado"'+(d.montado?' checked':'')+'><span><b>Montado no Holyrics</b><small>'+(d.montado?'Marcado por '+esc(d.montadoPor||'—')+'. A equipe do Datashow já pode contar com o material.':'Marque quando o material das 4 missas estiver pronto no Holyrics.')+'</small></span></label></section>';
+  return chips+cab+'<div class="cols"><div>'+lit+'</div><div>'+mus+av+fim+'</div></div>';
+}
+async function holyAcao(caminho,metodo,corpo,msg){
+  try{ holy.det=await api('/holyrics/'+caminho+'?sabado='+holy.sel,{method:metodo,body:corpo?JSON.stringify(corpo):undefined}); holy.lista=null; await carregarHolyrics(holy.sel); if(msg) toast(msg); }
+  catch(e){ toast(e.message,'warn'); }
 }
 
 /* ---------- Equipe (do setor) e Time da Pascom (todos) ---------- */
@@ -2617,12 +2743,13 @@ function renderSide(){
 /* Produção, Dashboard e Ideias só existem pra Redes sociais e Jovens (quem produz conteúdo);
    Datashow e Transmissões trabalham pela escala. O Guia é só de Transmissões. */
 const SETORES_CONTEUDO=['redes_sociais','jovens'];
-const VIEWS_POR_SETOR={quadro:SETORES_CONTEUDO,dashboard:SETORES_CONTEUDO,ideias:SETORES_CONTEUDO,guia:['transmissoes_videos']};
+const VIEWS_POR_SETOR={quadro:SETORES_CONTEUDO,dashboard:SETORES_CONTEUDO,ideias:SETORES_CONTEUDO,guia:['transmissoes_videos'],montagem:['holyrics']};
 const ehSetorDeConteudo=()=>SETORES_CONTEUDO.indexOf(currentSetor)>-1;
 const viewDisponivel=k=>!!VIEWS[k]&&!VIEWS[k].hidden&&(!VIEWS_POR_SETOR[k]||VIEWS_POR_SETOR[k].indexOf(currentSetor)>-1);
 // Abas principais da barra de baixo no celular (o resto fica em "Mais").
 function abasPrincipais(){
   if(currentSetor==='transmissoes_videos') return ['painel','escalas','guia','equipe'];
+  if(currentSetor==='holyrics') return ['painel','escalas','montagem','equipe'];
   if(currentSetor==='datashow') return ['painel','escalas','calendario','equipe'];
   return ['painel','quadro','escalas','equipe'];
 }
@@ -2913,7 +3040,7 @@ document.addEventListener('click',e=>{
     case 'salvarMeta': salvarMeta(); break;
     case 'excluirMeta': excluirMeta(t.dataset.id); break;
     case 'toggleSetorMenu': setorMenuOpen=!setorMenuOpen; renderSide(); break;
-    case 'setSetor': currentSetor=t.dataset.setor; lembrarSetor(); setorMenuOpen=false; mobileNavOpen=false; render(); $('.main').scrollTop=0; if(view==='quadro'&&currentSetor==='datashow'&&datashowCache===null) carregarDatashow(); if(view==='quadro'&&currentSetor==='transmissoes_videos'&&transmissaoCache===null) carregarTransmissoes(); if(view==='lixeira'&&(lixeira.cartoes===null||lixeira.setor!==currentSetor)) carregarLixeira(); break;
+    case 'setSetor': currentSetor=t.dataset.setor; lembrarSetor(); holy={lista:null,sel:null,det:null,carregando:false,missa:null,erro:null}; setorMenuOpen=false; mobileNavOpen=false; render(); $('.main').scrollTop=0; if(view==='quadro'&&currentSetor==='datashow'&&datashowCache===null) carregarDatashow(); if(view==='quadro'&&currentSetor==='transmissoes_videos'&&transmissaoCache===null) carregarTransmissoes(); if(view==='lixeira'&&(lixeira.cartoes===null||lixeira.setor!==currentSetor)) carregarLixeira(); break;
     case 'chatEnviar': {
       const inp=$('#chat-input'); if(!inp) break;
       const texto=inp.value; inp.value='';
@@ -2947,6 +3074,12 @@ document.addEventListener('click',e=>{
     case 'salvarPerfil': salvarPerfil(); break;
     case 'linkSenha': gerarLinkSenha(id); break;
     case 'gerenciarPessoa': gerenciarPessoa(id); break;
+    case 'holySel': holy.missa=null; carregarHolyrics(t.dataset.sabado); break;
+    case 'holyMissa': holy.missa=t.dataset.missa; render(); break;
+    case 'copiarLit': copiarTexto(liturgiaCopias[t.dataset.k]||'','Copiado! É só colar no Holyrics.'); break;
+    case 'copiarAvisos': copiarTexto(emSlides((holy.det&&holy.det.avisos)||'',200).join('\n\n'),'Avisos copiados em slides.'); break;
+    case 'holyAvisos': holyAcao('montagem/avisos','PUT',{avisos:($('#holy-avisos')||{}).value||''},'Avisos salvos.'); break;
+    case 'holyNovoLink': if(confirm('Gerar um link novo? O link anterior para de funcionar.')) holyAcao('montagem/novo-link','POST',null,'Link novo gerado. Mande de novo pros músicos.'); break;
     case 'postAniversario': abrirPostAniversario(id); break;
     case 'baixarPostAniversario': baixarPostAniversario(id); break;
     case 'compartilharPostAniversario': compartilharPostAniversario(id); break;
@@ -3035,6 +3168,7 @@ document.addEventListener('click',e=>{
 });
 document.addEventListener('change',e=>{
   if(e.target.id==='fo'){filters.owner=e.target.value;refreshBoard();}
+  if(e.target.id==='holy-montado'){ holyAcao('montagem/montado','PUT',{montado:e.target.checked},e.target.checked?'Marcado como montado! 🙌':'Desmarcado.'); }
   if(e.target.id==='perfil-foto'){ const f=e.target.files&&e.target.files[0]; e.target.value=''; enviarFoto(f); }
   if(e.target.id==='gp-role'){ const w=$('#gp-setor-wrap'); if(w) w.hidden=(e.target.value==='coordenador_geral'); }
   if(e.target.id==='au-role'){

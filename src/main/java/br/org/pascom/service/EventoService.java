@@ -52,6 +52,7 @@ public class EventoService {
     /** Título antigo da missa de sábado (era às 16h até out/2026). */
     private static final String TITULO_MISSA_SABADO_ANTIGO = "Missa das 16h";
     public static final String LOCAL_PADRAO = "Igreja Matriz";
+    public static final String TITULO_MONTAGEM_HOLYRICS = "Montagem Holyrics";
 
     /**
      * Versão atual do modelo de funções das missas automáticas. Subir esse número quando
@@ -84,6 +85,10 @@ public class EventoService {
                     new FuncaoPadrao(Setor.DATASHOW, "Datashow", null))),
             new MissaAutomatica(DayOfWeek.SUNDAY, "Missa das 18h30", LocalTime.of(18, 30), List.of(
                     new FuncaoPadrao(Setor.DATASHOW, "Datashow", null))),
+            // Holyrics: uma pessoa monta o material das 4 missas do fim de semana (liturgia, músicas e
+            // avisos). Fica no sábado, no horário da 1ª missa (o lembrete de 48h cai na quinta).
+            new MissaAutomatica(DayOfWeek.SATURDAY, TITULO_MONTAGEM_HOLYRICS, HORARIO_MISSA_SABADO, List.of(
+                    new FuncaoPadrao(Setor.HOLYRICS, "Montagem (4 missas)", null))),
             new MissaAutomatica(DayOfWeek.SATURDAY, TITULO_MISSA_SABADO, HORARIO_MISSA_SABADO, List.of(
                     new FuncaoPadrao(Setor.DATASHOW, "Datashow", null)))
     );
@@ -795,6 +800,7 @@ public class EventoService {
             case JOVENS -> "Jovens";
             case DATASHOW -> "Datashow";
             case TRANSMISSOES_VIDEOS -> "Transmissões/Vídeos";
+            case HOLYRICS -> "Holyrics";
         };
     }
 

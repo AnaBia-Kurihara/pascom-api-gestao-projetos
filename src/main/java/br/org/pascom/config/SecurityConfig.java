@@ -44,6 +44,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/usuarios/cadastro", "/api/usuarios/login",
                                 "/api/usuarios/esqueci-senha", "/api/usuarios/redefinir-senha",
                                 "/api/usuarios/google", "/api/versao").permitAll()
+                        // Link dos músicos (Holyrics): sem login, protegido por um token secreto por fim de semana.
+                        .requestMatchers("/api/publico/**").permitAll()
                         .requestMatchers("/h2-console/**").permitAll()
                         .requestMatchers("/api/**").authenticated()
                         // front-end estático (index.html, css, js) — a autenticação de verdade

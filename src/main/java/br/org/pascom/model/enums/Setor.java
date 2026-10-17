@@ -12,5 +12,11 @@ public enum Setor {
     REDES_SOCIAIS,
     JOVENS,
     DATASHOW,
-    TRANSMISSOES_VIDEOS
+    TRANSMISSOES_VIDEOS,
+    /**
+     * Holyrics: monta durante a semana o material do Datashow das 4 missas do fim de semana
+     * (liturgia, músicas e avisos). Entrou em out/2026 — a migração V2__setor_holyrics.sql tirou os
+     * CHECKs de setor do Postgres pra este valor (e os próximos) não quebrarem os INSERTs.
+     */
+    HOLYRICS
 }
