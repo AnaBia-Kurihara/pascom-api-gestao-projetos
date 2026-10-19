@@ -1,0 +1,18 @@
+{
+  "name": "Pascom Fátima",
+  "short_name": "Pascom",
+  "description": "Escalas, montagem e organização da Pastoral da Comunicação do Santuário Nossa Senhora de Fátima.",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "lang": "pt-BR",
+  "background_color": "#0F2456",
+  "theme_color": "#0F2456",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

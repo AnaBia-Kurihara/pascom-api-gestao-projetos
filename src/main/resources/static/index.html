@@ -4,6 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Pascom Fátima – Organização da equipe</title>
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#0F2456">
+<link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Pascom">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Young+Serif&family=Anton&family=Great+Vibes&family=Open+Sans:wght@700&display=swap" rel="stylesheet">
@@ -331,6 +339,15 @@ details.lit summary>small{color:var(--ink3);font-size:12px;white-space:nowrap}
 .eq-h small{font-family:var(--sans);font-size:13px;color:var(--ink3);font-weight:500}
 .aviso-equipe{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:var(--gold-soft);color:var(--gold-ink);border-radius:12px;padding:12px 16px;margin-bottom:18px;font-size:14px}
 .aviso-equipe span{flex:1 1 260px}
+.push-banner{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:var(--tint);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin:0 0 16px}
+.push-banner .pb-ic{font-size:26px;line-height:1}
+.push-banner .pb-tx{flex:1 1 220px;font-size:14px;color:var(--ink2)}
+.push-banner .pb-tx b{display:block;color:var(--ink);font-size:15px;margin-bottom:2px}
+.push-banner .pb-acts{display:flex;gap:8px;flex-wrap:wrap}
+.push-linha{display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap}
+.push-linha>p{flex:1 1 240px;margin:0;font-size:14px;color:var(--ink2)}
+.push-linha .ok{color:var(--green);font-weight:600}
+.passos{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:8px;font-size:15px}
 .time-top{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:6px}
 .time-chips{flex-wrap:wrap;margin-bottom:0}
 .chip-n{opacity:.7;font-size:12px;margin-left:2px}
@@ -900,6 +917,7 @@ async function carregarTudo(meId){
   let salvo=null; try{ salvo=localStorage.getItem(SETOR_KEY); }catch(e){}
   currentSetor=SETOR_NAME[salvo]?salvo:((m&&m.setor)?m.setor:'redes_sociais');
   carregarAvisos();
+  setTimeout(()=>atualizarPush(true),0);
 }
 const SETOR_KEY='pascom-fatima-setor';
 function lembrarSetor(){ try{ localStorage.setItem(SETOR_KEY,currentSetor); }catch(e){} }
@@ -941,6 +959,7 @@ async function doCadastro(){
   }catch(e){ authMode='login'; authError=''; authOk='Conta criada! Agora é só entrar.'; renderAuth(); }
 }
 function logout(){
+  sairDoPush(authToken);
   authToken=null; try{localStorage.removeItem(TOKEN_KEY);localStorage.removeItem(SETOR_KEY);}catch(e){}
   state={cards:[],ideas:[],events:[],me:null};
   authMode='login'; authError=''; renderAuth();
@@ -1365,7 +1384,7 @@ function viewPainelEscala(){
       '<p>'+esc(prox.title)+' · '+(euVou?'você está escalado(a)':montagem?(cand?'escala em montagem, você se candidatou':'escala em montagem, candidate-se'):vag?vag+(vag>1?' vagas abertas':' vaga aberta'):'escala completa')+'</p></div>'+
       '<div class="hero-act"><button class="btn gold" data-action="nav" data-view="escalas">Ver escala</button></div></section>';
   }
-  return aniversarioPainelHtml()+lembretePublicacaoHtml()+hero+'<div class="cols"><div>'+minhasEscalasPanelHtml()+vagasPanelHtml()+'</div><div>'+timePainelHtml()+'</div></div>';
+  return aniversarioPainelHtml()+pushPainelHtml()+lembretePublicacaoHtml()+hero+'<div class="cols"><div>'+minhasEscalasPanelHtml()+vagasPanelHtml()+'</div><div>'+timePainelHtml()+'</div></div>';
 }
 function viewPainel(){
   if(!ehSetorDeConteudo()) return viewPainelEscala();
@@ -1385,7 +1404,7 @@ function viewPainel(){
     const k=cards.filter(c=>c.owner===m.id&&c.stage!=='publicado').length;
     return '<div class="load"><span>'+esc(m.nome)+'</span><div class="bar"><i class="'+(k>=4?'hi':'')+'" style="width:'+Math.min(100,k*25)+'%"></i></div><b>'+k+'</b></div>';
   }).join('');
-  return aniversarioPainelHtml()+lembrete+
+  return aniversarioPainelHtml()+pushPainelHtml()+lembrete+
   '<section class="hero"><div><h2>'+head+'</h2><p>'+sub+'</p></div>'+
     '<div class="hero-act"><button class="btn gold" data-action="newOn" data-date="'+d13+'">Planejar conteúdo</button><button class="btn light" data-action="goDate" data-date="'+d13+'">Ver no calendário</button></div></section>'+
   '<div class="strip"><div><b>'+prod+'</b><span>em produção</span></div><div><b>'+rev+'</b><span>aguardando revisão</span></div><div><b>'+ag+'</b><span>agendados</span></div><div class="'+(late?'alert':'')+'"><b>'+late+'</b><span>com prazo vencido</span></div></div>'+
@@ -2215,6 +2234,7 @@ function viewPerfil(){
       '</div>'+
       '<p class="note">Sua foto aparece na Equipe e no Time da Pascom. Ela é cortada num quadrado, centralizada.</p>'+
     '</div></section>'+
+    pushPerfilHtml()+
     '<section class="perfil-card"><h2>Seus dados</h2>'+
       '<label class="fld"><span>Nome</span><input id="pf-nome" value="'+esc(r.nome)+'" maxlength="120" autocomplete="name"></label>'+
       '<label class="fld"><span>Função</span><input id="pf-funcao" value="'+esc(r.funcao||'')+'" maxlength="120" placeholder="Ex.: Edição de vídeo, fotografia"></label>'+
@@ -2801,6 +2821,124 @@ function quandoFoi(iso){
   if(min<1) return 'agora'; if(min<60) return 'há '+min+' min'; if(min<1440) return 'há '+Math.round(min/60)+'h';
   return d.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'})+' às '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
 }
+// ---------------------------------------------------------------- app instalado + notificações no celular
+// Estado deste aparelho: '?' conferindo · 'ligado' · 'desligado' · 'negado' (bloqueou no navegador) ·
+// 'ios-instalar' (iPhone fora da Tela de Início: lá só dá notificação com o app instalado) · 'sem-suporte'.
+let pushEstado='?', pushOcupado=false, pushReinscrito=false, instalarPrompt=null, swRegistro=null;
+const PUSH_BANNER_KEY='pascom-push-banner-fechado';
+const ehStandalone=()=>{ try{ return matchMedia('(display-mode: standalone)').matches||navigator.standalone===true; }catch(e){ return false; } };
+const ehIOS=()=>/iphone|ipad|ipod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+const pushSuportado=()=>'serviceWorker' in navigator&&'PushManager' in window&&'Notification' in window;
+function chaveParaBytes(b64){
+  const s=(b64+'='.repeat((4-b64.length%4)%4)).replace(/-/g,'+').replace(/_/g,'/'), bin=atob(s), out=new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++) out[i]=bin.charCodeAt(i);
+  return out;
+}
+async function registroSw(){
+  if(!('serviceWorker' in navigator)) return null;
+  if(!swRegistro) swRegistro=navigator.serviceWorker.register('/sw.js').catch(()=>null);
+  return swRegistro;
+}
+async function inscricaoAtual(){
+  const reg=await registroSw(); if(!reg||!reg.pushManager) return null;
+  try{ return await reg.pushManager.getSubscription(); }catch(e){ return null; }
+}
+/** Confere o estado deste aparelho; ao entrar, reenvia a inscrição (o aparelho pode ter trocado de pessoa). */
+async function atualizarPush(aoEntrar){
+  let novo;
+  if(!pushSuportado()) novo=ehIOS()&&!ehStandalone()?'ios-instalar':'sem-suporte';
+  else if(Notification.permission==='denied') novo='negado';
+  else{
+    const sub=Notification.permission==='granted'?await inscricaoAtual():null;
+    novo=sub?'ligado':'desligado';
+    if(sub&&aoEntrar&&!pushReinscrito&&authToken){
+      pushReinscrito=true;
+      try{ await api('/push/inscricao',{method:'POST',body:JSON.stringify(sub.toJSON())}); }catch(e){}
+    }
+  }
+  if(novo!==pushEstado){ pushEstado=novo; if(state.me&&['painel','perfil'].indexOf(view)>-1) render(); }
+}
+async function ativarPush(){
+  if(pushOcupado) return;
+  if(pushEstado==='ios-instalar'){ comoInstalar(); return; }
+  if(!pushSuportado()){ toast('Este navegador não recebe notificações.','warn'); return; }
+  pushOcupado=true;
+  try{
+    const perm=await Notification.requestPermission();
+    if(perm!=='granted'){ await atualizarPush(); toast(perm==='denied'?'As notificações ficaram bloqueadas. Veja no seu perfil como liberar.':'Tudo bem, dá pra ativar depois no seu perfil.','warn'); return; }
+    const reg=await registroSw(); if(!reg) throw new Error('Não consegui preparar as notificações neste navegador.');
+    const {chave}=await api('/push/chave');
+    let sub=await reg.pushManager.getSubscription();
+    if(!sub) sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:chaveParaBytes(chave)});
+    await api('/push/inscricao',{method:'POST',body:JSON.stringify(sub.toJSON())});
+    pushReinscrito=true;
+    try{ localStorage.setItem(PUSH_BANNER_KEY,'1'); }catch(e){}
+    pushEstado='ligado'; render(); toast('Notificações ativadas! 🙌');
+  }catch(e){ toast(e.message||'Não foi possível ativar as notificações.','warn'); }
+  finally{ pushOcupado=false; }
+}
+async function desativarPush(){
+  const sub=await inscricaoAtual();
+  if(sub){
+    try{ await api('/push/desinscrever',{method:'POST',body:JSON.stringify({endpoint:sub.endpoint})}); }catch(e){}
+    try{ await sub.unsubscribe(); }catch(e){}
+  }
+  pushEstado='desligado'; render(); toast('Notificações desativadas neste aparelho.');
+}
+async function testePush(){
+  try{ await api('/push/teste',{method:'POST'}); toast('Enviado! Deve chegar em alguns segundos.'); }
+  catch(e){ toast(e.message,'warn'); }
+}
+/** Ao sair da conta, este aparelho para de receber as notificações dessa pessoa. */
+function sairDoPush(token){
+  inscricaoAtual().then(sub=>{
+    if(!sub) return;
+    if(token) fetch(API_BASE+'/push/desinscrever',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({endpoint:sub.endpoint})}).catch(()=>{});
+    sub.unsubscribe().catch(()=>{});
+    pushEstado='desligado'; pushReinscrito=false;
+  }).catch(()=>{});
+}
+async function instalarApp(){
+  if(!instalarPrompt){ comoInstalar(); return; }
+  const p=instalarPrompt; instalarPrompt=null;
+  try{ p.prompt(); await p.userChoice; }catch(e){}
+  render();
+}
+function comoInstalar(){
+  const ios=ehIOS();
+  const passos=ios
+    ?['Abra este site no <b>Safari</b>.','Toque em <b>Compartilhar</b> (o quadrado com a setinha pra cima).','Toque em <b>Adicionar à Tela de Início</b> e depois em <b>Adicionar</b>.','Abra a Pascom pelo ícone novo e toque em <b>Ativar notificações</b> no seu perfil.']
+    :['No <b>Chrome</b>, toque nos <b>três pontinhos</b> (⋮) no canto de cima.','Toque em <b>Instalar app</b> (ou <b>Adicionar à tela inicial</b>).','Confirme em <b>Instalar</b>.','Abra a Pascom pelo ícone e toque em <b>Ativar notificações</b> no seu perfil.'];
+  $('#overlay').innerHTML='<div class="modal" role="dialog" aria-modal="true" aria-label="Instalar o app"><div class="m-head"><h3>Instalar o app da Pascom</h3><button class="x" data-action="close" aria-label="Fechar">×</button></div>'+
+    '<div class="m-body"><p class="note" style="margin:0">Fica um ícone na tela do celular, abre em tela cheia e'+(ios?' (no iPhone, só assim)':'')+' recebe os lembretes da escala como notificação.</p><ol class="passos">'+passos.map(x=>'<li>'+x+'</li>').join('')+'</ol>'+
+    (ios?'<p class="note" style="margin:0">Precisa do iOS 16.4 ou mais novo (Ajustes → Geral → Sobre).</p>':'')+'</div>'+
+    '<div class="m-foot"><span class="sp"></span><button class="btn primary" data-action="close">Entendi</button></div></div>';
+  $('#overlay').hidden=false;
+}
+function pushPainelHtml(){
+  if(['desligado','ios-instalar'].indexOf(pushEstado)<0) return '';
+  try{ if(localStorage.getItem(PUSH_BANNER_KEY)) return ''; }catch(e){}
+  const ios=pushEstado==='ios-instalar';
+  return '<section class="push-banner"><span class="pb-ic">📲</span><div class="pb-tx"><b>Receba os lembretes da escala no celular</b>'+
+    (ios?'No iPhone, instale o app na Tela de Início e ative as notificações: chega aviso quando você for escalado(a) e 2 dias antes de servir.'
+        :'Chega aviso quando você for escalado(a), 2 dias antes de servir e quando alguém mudar algo que é com você.')+'</div>'+
+    '<div class="pb-acts">'+(ios?'<button class="btn small primary" data-action="comoInstalar">Como instalar</button>':'<button class="btn small primary" data-action="ativarPush">Ativar</button>')+
+    '<button class="btn small" data-action="fecharBannerPush">Agora não</button></div></section>';
+}
+function pushPerfilHtml(){
+  const instalado=ehStandalone();
+  const app=instalado?'<p><span class="ok">✓ Você está usando o app instalado.</span></p>'
+    :'<p>Instale a Pascom na tela do celular: abre em tela cheia, como um app.</p><button class="btn" data-action="instalarApp">'+(instalarPrompt?'Instalar o app':'Como instalar')+'</button>';
+  const txt={
+    '?':'<p>Conferindo este aparelho…</p>',
+    ligado:'<p><span class="ok">✓ Notificações ativadas neste aparelho.</span> Você recebe aqui os mesmos avisos do sininho: quando for escalado(a), 2 dias antes de servir e o resto.</p><button class="btn" data-action="testePush">Enviar teste</button><button class="btn" data-action="desativarPush">Desativar</button>',
+    desligado:'<p>Receba os avisos do sininho como notificação, mesmo com o app fechado.</p><button class="btn primary" data-action="ativarPush">Ativar notificações</button>',
+    negado:'<p>As notificações estão <b>bloqueadas</b> pra este site. Pra liberar, no Chrome: toque no ícone ao lado do endereço → <b>Permissões</b> (ou <b>Configurações do site</b>) → <b>Notificações</b> → <b>Permitir</b>. No app instalado do Android: segure o ícone da Pascom → <b>Informações do app</b> → <b>Notificações</b>. Depois volte aqui.</p>',
+    'ios-instalar':'<p>No iPhone, as notificações só funcionam com o app <b>instalado na Tela de Início</b>.</p><button class="btn primary" data-action="comoInstalar">Como instalar</button>',
+    'sem-suporte':'<p>Este navegador não recebe notificações. Use o <b>Chrome</b> no Android ou o <b>Safari</b> no iPhone (com o app instalado).</p>'
+  }[pushEstado];
+  return '<section class="perfil-card"><h2>📲 App e notificações</h2><div class="push-linha">'+app+'</div><div class="push-linha">'+txt+'</div></section>';
+}
 async function abrirAvisos(){
   await carregarAvisos();
   const o=$('#overlay');
@@ -3071,6 +3209,12 @@ document.addEventListener('click',e=>{
     case 'prev': {const c=card(id);moveCard(id,STAGES[stageIdx(c.stage)-1].id);break;}
     case 'next': {const c=card(id);moveCard(id,STAGES[stageIdx(c.stage)+1].id);break;}
     case 'close': closeModal(); break;
+    case 'ativarPush': ativarPush(); break;
+    case 'desativarPush': desativarPush(); break;
+    case 'testePush': testePush(); break;
+    case 'instalarApp': instalarApp(); break;
+    case 'comoInstalar': comoInstalar(); break;
+    case 'fecharBannerPush': try{ localStorage.setItem(PUSH_BANNER_KEY,'1'); }catch(_){ } render(); break;
     case 'save': saveModal(); break;
     case 'excluirCartao': {const c=card(modalId); abrirExclusao('cartao',modalId,c?c.title:'Este cartão'); break;}
     case 'excluirIdeia': {const i=state.ideas.find(x=>x.id===id); abrirExclusao('ideia',id,i?i.title:'Esta ideia'); break;}
@@ -3269,6 +3413,15 @@ document.addEventListener('visibilitychange',()=>{
 
 async function init(){
   conferirVersao();
+  registroSw();
+  window.addEventListener('beforeinstallprompt',e=>{ e.preventDefault(); instalarPrompt=e; if(state.me&&view==='perfil') render(); });
+  window.addEventListener('appinstalled',()=>{ instalarPrompt=null; if(state.me) render(); });
+  if('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message',e=>{ if(e.data&&e.data.tipo==='abrirAvisos'&&state.me) abrirAvisos(); });
+  let abrirAvisosAoEntrar=false;
+  try{
+    const p=new URLSearchParams(window.location.search);
+    if(p.get('abrir')==='avisos'){ abrirAvisosAoEntrar=true; history.replaceState(null,'',window.location.pathname); }
+  }catch(e){}
   try{
     const params=new URLSearchParams(window.location.search);
     const tk=params.get('resetToken');
@@ -3282,7 +3435,7 @@ async function init(){
   if(authToken){
     const claims=decodeJwt(authToken);
     if(claims&&claims.exp&&claims.exp*1000>Date.now()&&claims.id){
-      try{ await carregarTudo(claims.id); render(); return; }catch(e){}
+      try{ await carregarTudo(claims.id); render(); if(abrirAvisosAoEntrar) abrirAvisos(); return; }catch(e){}
     }
     authToken=null; try{localStorage.removeItem(TOKEN_KEY);}catch(e){}
   }

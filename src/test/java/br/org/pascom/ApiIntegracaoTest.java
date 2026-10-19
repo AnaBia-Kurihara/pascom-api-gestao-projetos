@@ -283,6 +283,64 @@ class ApiIntegracaoTest {
         assertThat(det.path("avisosPastorais").get(0).path("missaRotulo").asText()).isEqualTo("Todas as missas");
     }
 
+    // ---------------------------------------------------------------- notificações no celular
+
+    @Test
+    void aparelhoSeInscreveESaiDasNotificacoes() throws Exception {
+        Pessoa p = cadastrarELogar("VOLUNTARIO", "DATASHOW");
+        String chave = corpo(mvc.perform(autenticado(get("/api/push/chave"), p.token)).andReturn()).path("chave").asText();
+        assertThat(br.org.pascom.service.WebPushCripto.deB64(chave)).hasSize(65); // chave pública P-256 que o navegador usa
+
+        Map<String, Object> inscricao = inscricaoFalsa("https://fcm.googleapis.com/fcm/send/teste-" + UUID.randomUUID());
+        MvcResult r = enviar(post("/api/push/inscricao"), p.token, inscricao);
+        assertThat(r.getResponse().getStatus()).isEqualTo(200);
+        assertThat(corpo(r).path("aparelhos").asInt()).isEqualTo(1);
+        // o mesmo aparelho de novo não duplica
+        assertThat(corpo(enviar(post("/api/push/inscricao"), p.token, inscricao)).path("aparelhos").asInt()).isEqualTo(1);
+
+        r = enviar(post("/api/push/desinscrever"), p.token, Map.of("endpoint", inscricao.get("endpoint")));
+        assertThat(corpo(r).path("aparelhos").asInt()).isZero();
+    }
+
+    @Test
+    void servidorSoChamaServicosDePushConhecidos() throws Exception {
+        Pessoa p = cadastrarELogar("VOLUNTARIO", "DATASHOW");
+        for (String endereco : List.of("https://meu-servidor.com/coleta", "http://fcm.googleapis.com/x", "https://169.254.169.254/latest")) {
+            assertThat(enviar(post("/api/push/inscricao"), p.token, inscricaoFalsa(endereco)).getResponse().getStatus())
+                    .as(endereco).isEqualTo(400);
+        }
+    }
+
+    @Test
+    void testeSemAparelhoExplica() throws Exception {
+        Pessoa p = cadastrarELogar("VOLUNTARIO", "DATASHOW");
+        MvcResult r = enviar(post("/api/push/teste"), p.token, null);
+        assertThat(r.getResponse().getStatus()).isEqualTo(400);
+        assertThat(corpo(r).path("erro").asText()).contains("Nenhum aparelho");
+    }
+
+    @Test
+    void appInstalavelTemManifestEServiceWorker() throws Exception {
+        MvcResult m = mvc.perform(get("/manifest.json")).andReturn();
+        assertThat(m.getResponse().getStatus()).isEqualTo(200);
+        assertThat(corpo(m).path("display").asText()).isEqualTo("standalone");
+        for (JsonNode ic : corpo(m).path("icons")) {
+            assertThat(mvc.perform(get(ic.path("src").asText())).andReturn().getResponse().getStatus()).as(ic.path("src").asText()).isEqualTo(200);
+        }
+        MvcResult sw = mvc.perform(get("/sw.js")).andReturn();
+        assertThat(sw.getResponse().getStatus()).isEqualTo(200);
+        assertThat(sw.getResponse().getContentType()).contains("javascript");
+    }
+
+    private static Map<String, Object> inscricaoFalsa(String endpoint) {
+        java.security.KeyPair aparelho = br.org.pascom.service.WebPushCripto.novoParDeChaves();
+        byte[] auth = new byte[16];
+        new java.security.SecureRandom().nextBytes(auth);
+        return Map.of("endpoint", endpoint, "keys", Map.of(
+                "p256dh", br.org.pascom.service.WebPushCripto.b64(br.org.pascom.service.WebPushCripto.publicaBruta((java.security.interfaces.ECPublicKey) aparelho.getPublic())),
+                "auth", br.org.pascom.service.WebPushCripto.b64(auth)));
+    }
+
     // ---------------------------------------------------------------- apoio
 
     private record Pessoa(long id, String email, String token) {}

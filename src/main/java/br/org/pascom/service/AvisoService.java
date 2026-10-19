@@ -10,14 +10,16 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
-/** Avisos dentro do app (o sininho no topo). */
+/** Avisos dentro do app (o sininho no topo). Cada aviso também vai como notificação pro celular de quem ativou. */
 @Service
 public class AvisoService {
 
     private final AvisoRepository avisoRepository;
+    private final PushService pushService;
 
-    public AvisoService(AvisoRepository avisoRepository) {
+    public AvisoService(AvisoRepository avisoRepository, PushService pushService) {
         this.avisoRepository = avisoRepository;
+        this.pushService = pushService;
     }
 
     @Transactional
@@ -28,12 +30,14 @@ public class AvisoService {
     @Transactional
     public void avisar(Usuario usuario, String texto, String acao) {
         if (usuario == null || texto == null || texto.isBlank()) return;
+        String curto = texto.length() > 500 ? texto.substring(0, 497) + "..." : texto;
         avisoRepository.save(Aviso.builder()
                 .usuario(usuario)
-                .texto(texto.length() > 500 ? texto.substring(0, 497) + "..." : texto)
+                .texto(curto)
                 .acao(acao)
                 .criadoEm(LocalDateTime.now())
                 .build());
+        pushService.notificar(usuario.getId(), curto, acao);
     }
 
     /** Já mandou esse aviso (mesma ação) pra pessoa desde aquele instante? Evita repetir. */
