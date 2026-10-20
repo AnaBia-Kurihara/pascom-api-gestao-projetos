@@ -47,6 +47,8 @@ public class SecurityConfig {
                                 "/api/usuarios/google", "/api/versao").permitAll()
                         // Link dos músicos (Holyrics): sem login, protegido por um token secreto por fim de semana.
                         .requestMatchers("/api/publico/**").permitAll()
+                        // Volta do Google ao conectar o Gmail da Pascom (protegida pelo "state" de uso único).
+                        .requestMatchers("/api/gmail/callback").permitAll()
                         .requestMatchers("/h2-console/**").permitAll()
                         .requestMatchers("/api/**").authenticated()
                         // front-end estático (index.html, css, js) — a autenticação de verdade

@@ -71,6 +71,12 @@ api:
     google:
       # ID do cliente OAuth do Google (não é secreto — o mesmo valor também fica hardcoded no front-end).
       client-id: ${GOOGLE_CLIENT_ID:}
+  gmail:
+    # Envio dos e-mails do sistema pela conta Gmail da Pascom (API do Gmail por HTTPS: o Railway
+    # bloqueia SMTP). Usa o mesmo cliente OAuth do "Entrar com Google"; o segredo (client secret)
+    # fica só na variável GMAIL_CLIENT_SECRET. A conta é conectada pelo app (Meu perfil, Coordenação Geral).
+    client-id: ${GMAIL_CLIENT_ID:${GOOGLE_CLIENT_ID:}}
+    client-secret: ${GMAIL_CLIENT_SECRET:}
   gemini:
     # Chave da API do Gemini (aistudio.google.com/apikey) — "cérebro" do assistente de IA da equipe.
     chave: ${GEMINI_API_KEY:}

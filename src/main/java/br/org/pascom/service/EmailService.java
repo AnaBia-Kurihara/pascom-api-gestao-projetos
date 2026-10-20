@@ -9,8 +9,10 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Envio de e-mails transacionais (hoje: redefinição de senha) via a API HTTPS do Resend
- * (resend.com) — não usamos SMTP porque o Railway bloqueia as portas de saída (25/465/587).
+ * Envio de e-mails do sistema (nova senha, lembrete de 48h, pedido de aniversário). Primeiro pela
+ * conta Gmail da Pascom ({@link GmailService}), se estiver conectada; senão pela API HTTPS do Resend
+ * (resend.com), que sem domínio verificado só entrega pro dono da conta. Não usamos SMTP porque o
+ * Railway bloqueia as portas de saída (25/465/587).
  */
 @Service
 public class EmailService {
@@ -27,9 +29,11 @@ public class EmailService {
     private String baseUrl;
 
     private final RestClient restClient;
+    private final GmailService gmail;
 
-    public EmailService() {
+    public EmailService(GmailService gmail) {
         this.restClient = RestClient.create();
+        this.gmail = gmail;
     }
 
     public String linkApp() {
@@ -42,6 +46,7 @@ public class EmailService {
      * aviso no app. Sem domínio verificado em RESEND_FROM, o Resend só entrega pro dono da conta.
      */
     public boolean enviar(String destinatario, String assunto, String texto) {
+        if (destinatario != null && gmail.enviar(destinatario, assunto, texto)) return true;
         if (apiKey == null || apiKey.isBlank() || destinatario == null) return false;
         try {
             restClient.post()

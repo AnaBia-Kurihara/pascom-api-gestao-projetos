@@ -2344,7 +2344,7 @@ function viewPerfil(){
       '</div>'+
       '<p class="note">Sua foto aparece na Equipe e no Time da Pascom. Ela é cortada num quadrado, centralizada.</p>'+
     '</div></section>'+
-    pushPerfilHtml()+
+    pushPerfilHtml()+gmailPerfilHtml()+
     '<section class="perfil-card"><h2>Seus dados</h2>'+
       '<label class="fld"><span>Nome</span><input id="pf-nome" value="'+esc(r.nome)+'" maxlength="120" autocomplete="name"></label>'+
       '<label class="fld"><span>Função</span><input id="pf-funcao" value="'+esc(r.funcao||'')+'" maxlength="120" placeholder="Ex.: Edição de vídeo, fotografia"></label>'+
@@ -3035,6 +3035,38 @@ function pushPainelHtml(){
     '<div class="pb-acts">'+(ios?'<button class="btn small primary" data-action="comoInstalar">Como instalar</button>':'<button class="btn small primary" data-action="ativarPush">Ativar</button>')+
     '<button class="btn small" data-action="fecharBannerPush">Agora não</button></div></section>';
 }
+// ---------------------------------------------------------------- e-mails do sistema pelo Gmail da Pascom (Coordenação Geral)
+let gmailInfo=null, gmailCarregando=false;
+async function carregarGmail(){
+  gmailCarregando=true;
+  try{ gmailInfo=await api('/gmail/status'); }catch(e){ gmailInfo={erro:e.message}; }
+  gmailCarregando=false; if(view==='perfil') render();
+}
+function gmailPerfilHtml(){
+  if(!isCoordenadorGeral()) return '';
+  if(!gmailInfo&&!gmailCarregando) setTimeout(carregarGmail,0);
+  const g=gmailInfo; let corpo;
+  if(!g) corpo='<p>Conferindo…</p>';
+  else if(g.erro) corpo='<p>'+esc(g.erro)+'</p>';
+  else if(!g.configurado) corpo='<p>Falta um passo no Railway: a variável <b>GMAIL_CLIENT_SECRET</b> (o segredo do cliente OAuth do Google). No Google Cloud, cadastre este endereço de retorno no cliente OAuth:</p><p><code style="word-break:break-all">'+esc(g.redirectUri)+'</code></p>';
+  else if(g.email&&g.funcionando) corpo='<p><span class="ok">✓ Os e-mails do sistema saem de <b>'+esc(g.email)+'</b></span> e chegam pra qualquer pessoa: nova senha, lembrete de 48h e pedido de aniversário.</p><button class="btn" data-action="testeGmail">Enviar e-mail de teste</button><button class="btn" data-action="desconectarGmail">Desconectar</button>';
+  else if(g.email) corpo='<p>⚠️ O Google parou de aceitar os envios de <b>'+esc(g.email)+'</b> (a autorização foi tirada ou a senha da conta mudou). Enquanto isso, os e-mails voltam a só chegar pra você.</p><button class="btn primary" data-action="conectarGmail">Conectar de novo</button>';
+  else corpo='<p>Hoje os e-mails do sistema (nova senha, lembrete de 48h) <b>só chegam pra você</b>. Conecte o Gmail da Pascom e eles passam a chegar pra todo mundo. O app só ganha permissão pra <b>enviar</b>: não lê a caixa de entrada.</p><button class="btn primary" data-action="conectarGmail">Conectar Gmail da Pascom</button>';
+  return '<section class="perfil-card"><h2>✉️ E-mails do sistema</h2><div class="push-linha">'+corpo+'</div></section>';
+}
+async function conectarGmail(){
+  try{ const r=await api('/gmail/conectar',{method:'POST'}); window.location.href=r.url; }
+  catch(e){ toast(e.message,'warn'); }
+}
+async function testeGmail(){
+  try{ const r=await api('/gmail/teste',{method:'POST'}); toast('E-mail de teste enviado pra '+r.enviadoPara+'.'); }
+  catch(e){ toast(e.message,'warn'); carregarGmail(); }
+}
+async function desconectarGmail(){
+  if(!confirm('Desconectar o Gmail? Os e-mails do sistema voltam a só chegar pra você.')) return;
+  try{ gmailInfo=await api('/gmail',{method:'DELETE'}); render(); toast('Gmail desconectado.'); }
+  catch(e){ toast(e.message,'warn'); }
+}
 function pushPerfilHtml(){
   const instalado=ehStandalone();
   const app=instalado?'<p><span class="ok">✓ Você está usando o app instalado.</span></p>'
@@ -3325,6 +3357,9 @@ document.addEventListener('click',e=>{
     case 'next': {const c=card(id);moveCard(id,STAGES[stageIdx(c.stage)+1].id);break;}
     case 'close': closeModal(); break;
     case 'ativarPush': ativarPush(); break;
+    case 'conectarGmail': conectarGmail(); break;
+    case 'testeGmail': testeGmail(); break;
+    case 'desconectarGmail': desconectarGmail(); break;
     case 'desativarPush': desativarPush(); break;
     case 'testePush': testePush(); break;
     case 'instalarApp': instalarApp(); break;
@@ -3536,10 +3571,11 @@ async function init(){
   window.addEventListener('beforeinstallprompt',e=>{ e.preventDefault(); instalarPrompt=e; if(state.me&&view==='perfil') render(); });
   window.addEventListener('appinstalled',()=>{ instalarPrompt=null; if(state.me) render(); });
   if('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message',e=>{ if(e.data&&e.data.tipo==='abrirAvisos'&&state.me) abrirAvisos(); });
-  let abrirAvisosAoEntrar=false;
+  let abrirAvisosAoEntrar=false, voltaGmail=null;
   try{
     const p=new URLSearchParams(window.location.search);
     if(p.get('abrir')==='avisos'){ abrirAvisosAoEntrar=true; history.replaceState(null,'',window.location.pathname); }
+    if(p.get('gmail')){ voltaGmail={ok:p.get('gmail')==='ok',conta:p.get('conta'),motivo:p.get('motivo')}; history.replaceState(null,'',window.location.pathname); }
   }catch(e){}
   try{
     const params=new URLSearchParams(window.location.search);
@@ -3554,7 +3590,14 @@ async function init(){
   if(authToken){
     const claims=decodeJwt(authToken);
     if(claims&&claims.exp&&claims.exp*1000>Date.now()&&claims.id){
-      try{ await carregarTudo(claims.id); render(); if(abrirAvisosAoEntrar) abrirAvisos(); return; }catch(e){}
+      try{
+        await carregarTudo(claims.id);
+        if(voltaGmail){ view='perfil'; gmailInfo=null; }
+        render();
+        if(voltaGmail) toast(voltaGmail.ok?'Gmail conectado! Os e-mails agora saem de '+(voltaGmail.conta||'Gmail da Pascom')+'.':(voltaGmail.motivo||'Não foi possível conectar o Gmail.'),voltaGmail.ok?undefined:'warn');
+        if(abrirAvisosAoEntrar) abrirAvisos();
+        return;
+      }catch(e){}
     }
     authToken=null; try{localStorage.removeItem(TOKEN_KEY);}catch(e){}
   }

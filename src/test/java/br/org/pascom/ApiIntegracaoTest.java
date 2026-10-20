@@ -169,6 +169,27 @@ class ApiIntegracaoTest {
     }
 
     @Test
+    void emailsPeloGmailSaoConfiguradosSoPelaCoordenacaoGeral() throws Exception {
+        Pessoa vol = cadastrarELogar("VOLUNTARIO", "DATASHOW");
+        assertThat(mvc.perform(autenticado(get("/api/gmail/status"), vol.token)).andReturn().getResponse().getStatus()).isEqualTo(400);
+        assertThat(enviar(post("/api/gmail/conectar"), vol.token, null).getResponse().getStatus()).isEqualTo(400);
+
+        JsonNode st = corpo(mvc.perform(autenticado(get("/api/gmail/status"), geral)).andReturn());
+        assertThat(st.path("configurado").asBoolean()).isFalse(); // nos testes não há GMAIL_CLIENT_SECRET
+        assertThat(st.path("redirectUri").asText()).endsWith("/api/gmail/callback");
+        MvcResult r = enviar(post("/api/gmail/conectar"), geral, null);
+        assertThat(r.getResponse().getStatus()).isEqualTo(400);
+        assertThat(corpo(r).path("erro").asText()).contains("GMAIL_CLIENT_SECRET");
+    }
+
+    @Test
+    void voltaDoGoogleComPedidoInvalidoVoltaProAppComErro() throws Exception {
+        MvcResult r = mvc.perform(get("/api/gmail/callback").param("code", "x").param("state", "inventado")).andReturn();
+        assertThat(r.getResponse().getStatus()).isEqualTo(302);
+        assertThat(r.getResponse().getHeader("Location")).startsWith("/?gmail=erro");
+    }
+
+    @Test
     void esqueciSenhaNaoRevelaSeOEmailExiste() throws Exception {
         MvcResult r = enviar(post("/api/usuarios/esqueci-senha"), null, Map.of("email", emailNovo()));
         assertThat(r.getResponse().getStatus()).isEqualTo(200);
