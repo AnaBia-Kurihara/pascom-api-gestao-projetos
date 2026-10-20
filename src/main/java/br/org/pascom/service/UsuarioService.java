@@ -37,10 +37,13 @@ public class UsuarioService {
     private final GoogleTokenService googleTokenService;
     private final FotoUsuarioRepository fotoUsuarioRepository;
 
+    private final AvisoService avisoService;
+
     public UsuarioService(UsuarioRepository usuarioRepository, PasswordEncoder passwordEncoder,
                            AuthenticationManager authenticationManager, TokenService tokenService,
                            EmailService emailService, GoogleTokenService googleTokenService,
-                           FotoUsuarioRepository fotoUsuarioRepository) {
+                           FotoUsuarioRepository fotoUsuarioRepository, AvisoService avisoService) {
+        this.avisoService = avisoService;
         this.usuarioRepository = usuarioRepository;
         this.passwordEncoder = passwordEncoder;
         this.authenticationManager = authenticationManager;
@@ -298,13 +301,31 @@ public class UsuarioService {
 
     @Transactional
     public void esqueciSenha(String email) {
-        // Não revela se o e-mail existe ou não — sempre "sucesso" do ponto de vista de quem pediu.
+        // Não revela se o e-mail existe ou não — sempre "sucesso" do ponto de vista de quem pediu
+        // (nem quando o e-mail falha: a resposta igual pra todo mundo não deixa descobrir quem tem conta).
         usuarioRepository.findByEmail(Usuario.normalizarEmail(email)).ifPresent(usuario -> {
             usuario.setResetSenhaToken(UUID.randomUUID().toString());
             usuario.setResetSenhaExpiraEm(LocalDateTime.now().plusHours(1));
             usuarioRepository.save(usuario);
-            emailService.enviarLinkRedefinicaoSenha(usuario.getEmail(), usuario.getResetSenhaToken());
+            if (!emailService.enviarLinkRedefinicaoSenha(usuario.getEmail(), usuario.getResetSenhaToken())) {
+                pedirLinkACoordenacaoGeral(usuario);
+            }
         });
+    }
+
+    /**
+     * O e-mail não saiu (enquanto não houver domínio verificado no Resend, ele só chega pro dono da
+     * conta): avisa quem pode gerar o link de nova senha (sininho + notificação no celular), com um
+     * toque que abre o "Gerar link" daquela pessoa. No máximo um aviso a cada 30 min por pessoa.
+     */
+    private void pedirLinkACoordenacaoGeral(Usuario quemPediu) {
+        String acao = "linkSenha:" + quemPediu.getId();
+        for (Usuario u : usuarioRepository.findAll()) {
+            if (!u.temPoderesDeCoordenadorGeral() || u.getId().equals(quemPediu.getId())) continue;
+            if (avisoService.jaAvisou(u, acao, LocalDateTime.now().minusMinutes(30))) continue;
+            avisoService.avisar(u, "🔑 " + quemPediu.getNome() + " esqueceu a senha e o e-mail não chegou. "
+                    + "Toque aqui pra gerar o link de nova senha e mandar pelo WhatsApp.", acao);
+        }
     }
 
     @Transactional

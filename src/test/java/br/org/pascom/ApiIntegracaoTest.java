@@ -154,6 +154,26 @@ class ApiIntegracaoTest {
         assertThat(java.util.TimeZone.getDefault().getID()).isEqualTo("America/Sao_Paulo");
     }
 
+    @Test
+    void esqueciSenhaSemEmailAvisaACoordenacaoGeralUmaVezSo() throws Exception {
+        Pessoa p = cadastrarELogar("VOLUNTARIO", "DATASHOW");
+        // Nos testes não há chave do Resend: é o mesmo caso de produção sem domínio verificado (e-mail não sai).
+        for (int i = 0; i < 2; i++) {
+            assertThat(enviar(post("/api/usuarios/esqueci-senha"), null, Map.of("email", p.email)).getResponse().getStatus()).isEqualTo(200);
+        }
+        long avisos = 0;
+        for (JsonNode a : corpo(mvc.perform(autenticado(get("/api/avisos"), geral)).andReturn()).path("avisos")) {
+            if (("linkSenha:" + p.id).equals(a.path("acao").asText())) avisos++;
+        }
+        assertThat(avisos).isEqualTo(1);
+    }
+
+    @Test
+    void esqueciSenhaNaoRevelaSeOEmailExiste() throws Exception {
+        MvcResult r = enviar(post("/api/usuarios/esqueci-senha"), null, Map.of("email", emailNovo()));
+        assertThat(r.getResponse().getStatus()).isEqualTo(200);
+    }
+
     // ---------------------------------------------------------------- escala: sigilo e vaga disputada
 
     @Test

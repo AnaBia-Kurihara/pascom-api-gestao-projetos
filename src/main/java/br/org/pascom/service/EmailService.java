@@ -63,31 +63,12 @@ public class EmailService {
         return baseUrl + "/?resetToken=" + token;
     }
 
-    public void enviarLinkRedefinicaoSenha(String destinatario, String token) {
-        String link = linkRedefinicao(token);
-
+    /** Devolve false se o e-mail não saiu (sem domínio verificado no Resend, só chega pro dono da conta). */
+    public boolean enviarLinkRedefinicaoSenha(String destinatario, String token) {
         String texto =
                 "Alguém (esperamos que você) pediu para redefinir a senha da sua conta na Pascom Fátima.\n\n" +
-                "Clique no link abaixo para escolher uma nova senha (válido por 1 hora):\n" + link + "\n\n" +
+                "Clique no link abaixo para escolher uma nova senha (válido por 1 hora):\n" + linkRedefinicao(token) + "\n\n" +
                 "Se você não pediu isso, pode ignorar este e-mail — sua senha continua a mesma.";
-
-        Map<String, Object> corpo = Map.of(
-                "from", remetente,
-                "to", List.of(destinatario),
-                "subject", "Pascom Fátima — Redefinição de senha",
-                "text", texto
-        );
-
-        try {
-            restClient.post()
-                    .uri(RESEND_URL)
-                    .header("Authorization", "Bearer " + apiKey)
-                    .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
-                    .body(corpo)
-                    .retrieve()
-                    .toBodilessEntity();
-        } catch (RestClientException e) {
-            throw new IllegalStateException("Não conseguimos enviar o e-mail agora. Peça à Coordenação Geral um link de nova senha (ela gera pelo app, na aba Equipe).", e);
-        }
+        return enviar(destinatario, "Pascom Fátima — Redefinição de senha", texto);
     }
 }

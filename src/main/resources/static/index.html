@@ -988,7 +988,7 @@ async function doEsqueciSenha(){
   if(!email){ authError='Digite seu e-mail.'; authOk=''; renderAuth(); return; }
   try{
     await api('/usuarios/esqueci-senha',{method:'POST',body:JSON.stringify({email:email})});
-    authMode='login'; authError=''; authOk='Se esse e-mail tiver uma conta, enviamos um link pra redefinir a senha. Confira sua caixa de entrada (e o spam).';
+    authMode='login'; authError=''; authOk='Pronto! Se esse e-mail tiver uma conta, mandamos o link pra redefinir a senha. Se não chegar em alguns minutos (olhe o spam também), a Coordenação Geral já foi avisada e vai te mandar o link pelo WhatsApp.';
     renderAuth();
   }catch(e){ authError=e.message||'Não foi possível enviar o e-mail.'; authOk=''; renderAuth(); }
 }
@@ -3057,6 +3057,10 @@ async function abrirAvisos(){
         // Aviso com ação: "postAniversario:<id>" abre o gerador do post (só pra coordenação).
         const pid=a.acao&&a.acao.indexOf('postAniversario:')===0?a.acao.split(':')[1]:null;
         const clicavel=pid&&mem(pid)&&podeGerarPostAniversario();
+        // "linkSenha:<id>": alguém esqueceu a senha e o e-mail não chegou; a Coordenação Geral gera o link.
+        const sid=a.acao&&a.acao.indexOf('linkSenha:')===0?a.acao.split(':')[1]:null;
+        if(sid&&mem(sid)&&isCoordenadorGeral())
+          return '<button type="button" class="aviso-item aviso-acao'+(a.lido?'':' novo')+'" data-action="linkSenha" data-id="'+esc(sid)+'"><p>'+esc(a.texto)+'</p><small>'+esc(quandoFoi(a.criadoEm))+' · <b>Gerar link de nova senha</b></small></button>';
         return clicavel
           ?'<button type="button" class="aviso-item aviso-acao'+(a.lido?'':' novo')+'" data-action="postAniversario" data-id="'+esc(pid)+'"><p>'+esc(a.texto)+'</p><small>'+esc(quandoFoi(a.criadoEm))+' · <b>Gerar post</b></small></button>'
           :'<div class="aviso-item'+(a.lido?'':' novo')+'"><p>'+esc(a.texto)+'</p><small>'+esc(quandoFoi(a.criadoEm))+'</small></div>';
@@ -3115,7 +3119,8 @@ function loginHtml(){
 }
 function esqueciSenhaHtml(){
   return '<div class="authwrap"><div class="authbox">'+
-    '<h2>Esqueceu a senha?</h2><p class="note" style="margin:4px 0 20px">Digite seu e-mail que a gente manda um link pra redefinir</p>'+
+    '<h2>Esqueceu a senha?</h2><p class="note" style="margin:4px 0 12px">Digite seu e-mail que a gente manda um link pra redefinir.</p>'+
+    '<p class="note" style="margin:0 0 20px">💡 Seu e-mail é do <b>Gmail</b>? Nem precisa de senha: volte e toque em <b>Entrar com Google</b>.</p>'+
     (authError?'<p class="late" style="margin-bottom:14px">'+esc(authError)+'</p>':'')+
     '<label class="fld"><span>E-mail</span><input id="au-email" type="email" autocomplete="username"></label>'+
     '<button class="btn primary" style="width:100%;margin-top:18px" data-action="doEsqueciSenha">Enviar link</button>'+
