@@ -210,7 +210,7 @@ public class EventoService {
         }
 
         if (slotEscalaRepository.ocuparSeLivre(slotId, voluntario) == 0) {
-            throw new IllegalStateException("Alguém acabou de pegar essa vaga. Escolha outra.");
+            throw new IllegalStateException("Alguém acabou de pegar essa vaga. Escolha outra função ou tente servir outro dia.");
         }
 
         return toDTO(eventoRepository.findById(eventoId).orElseThrow(), voluntario);
@@ -313,7 +313,7 @@ public class EventoService {
                 ? Set.of(chavePublicacao(slot.getEvento().getData(), slot.getSetor())) : Set.of();
         if (publicada(slot, publicados) && slot.getVoluntario() != null
                 && !slot.getVoluntario().getId().equals(voluntario.getId())) {
-            throw new IllegalStateException("Essa função já está preenchida nesta escala.");
+            throw new IllegalStateException("Vaga ocupada, tente servir outro dia.");
         }
         if (candidaturaRepository.findBySlotIdAndUsuarioId(slotId, voluntario.getId()).isEmpty()) {
             candidaturaRepository.save(CandidaturaEscala.builder()

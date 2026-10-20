@@ -35,11 +35,14 @@ public class EscalaController {
     private final CalendarioService calendarioService;
     private final EventoService eventoService;
     private final EscalaPdfService escalaPdfService;
+    private final br.org.pascom.service.ParticipacaoService participacaoService;
 
-    public EscalaController(CalendarioService calendarioService, EventoService eventoService, EscalaPdfService escalaPdfService) {
+    public EscalaController(CalendarioService calendarioService, EventoService eventoService, EscalaPdfService escalaPdfService,
+                            br.org.pascom.service.ParticipacaoService participacaoService) {
         this.calendarioService = calendarioService;
         this.eventoService = eventoService;
         this.escalaPdfService = escalaPdfService;
+        this.participacaoService = participacaoService;
     }
 
     /** Domingos do mês (?mes=AAAA-MM, padrão = mês atual). */
@@ -70,6 +73,14 @@ public class EscalaController {
     public ResponseEntity<List<Map<String, Object>>> historico(@RequestParam Setor setor,
                                                                @AuthenticationPrincipal Usuario solicitante) {
         return ResponseEntity.ok(eventoService.historico(setor, solicitante));
+    }
+
+    /** Relatório de participação do setor (quem serve mais, menos e há quanto tempo): só coordenação. */
+    @GetMapping("/participacao")
+    public ResponseEntity<Map<String, Object>> participacao(@RequestParam Setor setor,
+                                                            @RequestParam(defaultValue = "3") int meses,
+                                                            @AuthenticationPrincipal Usuario solicitante) {
+        return ResponseEntity.ok(participacaoService.doSetor(setor, meses, solicitante));
     }
 
     @PostMapping("/despublicar")

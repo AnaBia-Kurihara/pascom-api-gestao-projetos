@@ -15,6 +15,12 @@ public interface CandidaturaEscalaRepository extends JpaRepository<CandidaturaEs
     Optional<CandidaturaEscala> findBySlotIdAndUsuarioId(Long slotId, Long usuarioId);
     List<CandidaturaEscala> findBySlotIdIn(Collection<Long> slotIds);
 
+    /** Candidaturas abertas ("Quero servir") em funções de um setor, de hoje em diante. */
+    @Query("select c from CandidaturaEscala c join fetch c.slot s join fetch s.evento e where s.setor = :setor "
+            + "and e.excluidoEm is null and e.data >= :desde")
+    List<CandidaturaEscala> doSetorDesde(@Param("setor") br.org.pascom.model.enums.Setor setor,
+                                         @Param("desde") java.time.LocalDate desde);
+
     @Modifying(flushAutomatically = true)
     @Query("delete from CandidaturaEscala c where c.slot = :slot")
     void apagarDoSlot(@Param("slot") SlotEscala slot);

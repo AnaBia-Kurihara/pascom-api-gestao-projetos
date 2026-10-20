@@ -49,6 +49,8 @@ class ApiIntegracaoTest {
 
     @Autowired private MockMvc mvc;
     @Autowired private ObjectMapper json;
+    @Autowired private br.org.pascom.repository.EventoRepository eventoRepository;
+    @Autowired private br.org.pascom.repository.UsuarioRepository usuarioRepository;
 
     /** Só pode existir um Coordenador Geral no sistema: é criado uma vez e usado em todos os testes. */
     private String geral;
@@ -281,6 +283,65 @@ class ApiIntegracaoTest {
         det = corpo(mvc.perform(autenticado(get("/api/holyrics/montagem").param("sabado", sabado), holy.token)).andReturn());
         assertThat(det.path("avisosPastorais")).hasSize(1);
         assertThat(det.path("avisosPastorais").get(0).path("missaRotulo").asText()).isEqualTo("Todas as missas");
+    }
+
+    // ---------------------------------------------------------------- relatório de participação
+
+    @Test
+    void participacaoMostraQuemServiuQuemTemMarcadoEQuemNuncaServiu() throws Exception {
+        Pessoa coord = cadastrarELogar("COORDENADOR", "TRANSMISSOES_VIDEOS");
+        Pessoa antigo = cadastrarELogar("VOLUNTARIO", "TRANSMISSOES_VIDEOS");
+        Pessoa marcado = cadastrarELogar("VOLUNTARIO", "TRANSMISSOES_VIDEOS");
+        Pessoa novato = cadastrarELogar("VOLUNTARIO", "TRANSMISSOES_VIDEOS");
+
+        // Missa que já aconteceu (há 20 dias), com "antigo" escalado. Gravada direto: a API não cria evento no passado.
+        LocalDate passado = LocalDate.now(FUSO).minusDays(20);
+        br.org.pascom.model.Evento ev = br.org.pascom.model.Evento.builder().titulo("Missa passada de teste")
+                .data(passado).horario(java.time.LocalTime.of(10, 0)).local("Santuário").build();
+        ev.getSlots().add(br.org.pascom.model.SlotEscala.builder().rotulo("Câmera 1")
+                .setor(br.org.pascom.model.enums.Setor.TRANSMISSOES_VIDEOS)
+                .voluntario(usuarioRepository.findById(antigo.id).orElseThrow()).evento(ev).build());
+        eventoRepository.save(ev);
+
+        // Mês que vem: "marcado" escalado, "novato" só se candidatou.
+        JsonNode futuro = criarEvento("Evento de teste da participação", "Câmera 2", "TRANSMISSOES_VIDEOS");
+        long eventoId = futuro.path("id").asLong(), slotId = futuro.path("slots").get(0).path("id").asLong();
+        assertThat(enviar(post("/api/eventos/" + eventoId + "/slots/" + slotId + "/escalar"), coord.token, Map.of("usuarioId", marcado.id))
+                .getResponse().getStatus()).isEqualTo(200);
+        JsonNode outro = criarEvento("Outro evento de teste da participação", "Câmera 3", "TRANSMISSOES_VIDEOS");
+        assertThat(enviar(post("/api/eventos/" + outro.path("id").asLong() + "/slots/" + outro.path("slots").get(0).path("id").asLong() + "/candidatura"),
+                novato.token, null).getResponse().getStatus()).isEqualTo(200);
+
+        MvcResult r = mvc.perform(autenticado(get("/api/escalas/participacao").param("setor", "TRANSMISSOES_VIDEOS").param("meses", "3"), coord.token)).andReturn();
+        assertThat(r.getResponse().getStatus()).isEqualTo(200);
+        Map<Long, JsonNode> porId = new java.util.HashMap<>();
+        for (JsonNode p : corpo(r).path("pessoas")) porId.put(p.path("id").asLong(), p);
+
+        assertThat(porId.get(antigo.id).path("serviu").asInt()).isEqualTo(1);
+        assertThat(porId.get(antigo.id).path("ultimaVez").asText()).isEqualTo(passado.toString());
+        assertThat(porId.get(antigo.id).path("diasSemServir").asInt()).isEqualTo(20);
+        assertThat(porId.get(marcado.id).path("serviu").asInt()).isZero();
+        assertThat(porId.get(marcado.id).path("proximas").asInt()).isEqualTo(1);
+        assertThat(porId.get(novato.id).path("ultimaVez").isNull()).isTrue();
+        assertThat(porId.get(novato.id).path("candidaturas").asInt()).isEqualTo(1);
+        // quem menos serviu vem primeiro
+        assertThat(corpo(r).path("pessoas").get(0).path("serviu").asInt()).isZero();
+
+        // 0 = desde o começo: também conta a missa de 20 dias atrás
+        JsonNode tudo = corpo(mvc.perform(autenticado(get("/api/escalas/participacao").param("setor", "TRANSMISSOES_VIDEOS").param("meses", "0"), coord.token)).andReturn());
+        assertThat(tudo.path("totalServicos").asInt()).isGreaterThanOrEqualTo(1);
+    }
+
+    @Test
+    void participacaoEhSoDaCoordenacaoDoSetor() throws Exception {
+        Pessoa vol = cadastrarELogar("VOLUNTARIO", "TRANSMISSOES_VIDEOS");
+        Pessoa coordOutro = cadastrarELogar("COORDENADOR", "JOVENS");
+        for (Pessoa p : List.of(vol, coordOutro)) {
+            assertThat(mvc.perform(autenticado(get("/api/escalas/participacao").param("setor", "TRANSMISSOES_VIDEOS"), p.token))
+                    .andReturn().getResponse().getStatus()).isEqualTo(400);
+        }
+        assertThat(mvc.perform(autenticado(get("/api/escalas/participacao").param("setor", "TRANSMISSOES_VIDEOS"), geral))
+                .andReturn().getResponse().getStatus()).isEqualTo(200);
     }
 
     // ---------------------------------------------------------------- notificações no celular
