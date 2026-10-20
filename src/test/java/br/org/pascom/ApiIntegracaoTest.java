@@ -344,6 +344,89 @@ class ApiIntegracaoTest {
                 .andReturn().getResponse().getStatus()).isEqualTo(200);
     }
 
+    // ---------------------------------------------------------------- sugestão de escala
+
+    @Test
+    void sugestaoUsaSoCandidatosEmRodizioSemDuasFuncoesNaMesmaMissa() throws Exception {
+        Pessoa coord = cadastrarELogar("COORDENADOR", "JOVENS");
+        Pessoa ana = cadastrarELogar("VOLUNTARIO", "JOVENS");
+        Pessoa bia = cadastrarELogar("VOLUNTARIO", "JOVENS");
+        cadastrarELogar("VOLUNTARIO", "JOVENS"); // não se candidatou a nada: não pode aparecer na sugestão
+
+        JsonNode e1 = criarEventoComFuncoes("Missa 1 da sugestão", "JOVENS", "Função A", "Função B");
+        JsonNode e2 = criarEventoComFuncoes("Missa 2 da sugestão", "JOVENS", "Função C");
+        JsonNode e3 = criarEventoComFuncoes("Missa 3 da sugestão", "JOVENS", "Função D");
+        long a = slot(e1, "Função A"), b = slot(e1, "Função B"), c = slot(e2, "Função C"), d = slot(e3, "Função D");
+        candidatar(ana, e1, a); candidatar(ana, e1, b); candidatar(ana, e2, c); candidatar(ana, e3, d);
+        candidatar(bia, e1, b); candidatar(bia, e3, d);
+
+        String mes = YearMonth.from(LocalDate.parse(e1.path("data").asText())).toString();
+        MvcResult r = mvc.perform(autenticado(get("/api/escalas/sugestao").param("mes", mes).param("setor", "JOVENS"), coord.token)).andReturn();
+        assertThat(r.getResponse().getStatus()).isEqualTo(200);
+        Map<Long, Long> quem = new java.util.HashMap<>();
+        List<Map<String, Object>> itens = new ArrayList<>();
+        for (JsonNode i : corpo(r).path("itens")) {
+            if (i.has("usuarioId")) {
+                quem.put(i.path("slotId").asLong(), i.path("usuarioId").asLong());
+                itens.add(Map.of("eventoId", i.path("eventoId").asLong(), "slotId", i.path("slotId").asLong(), "usuarioId", i.path("usuarioId").asLong()));
+            }
+        }
+        assertThat(quem.get(a)).isEqualTo(ana.id); // só a Ana podia
+        assertThat(quem.get(c)).isEqualTo(ana.id); // só a Ana podia
+        assertThat(quem.get(b)).isEqualTo(bia.id); // a Ana já está na Função A da mesma missa
+        assertThat(quem.get(d)).isEqualTo(bia.id); // rodízio: a Bia tem menos escalas no mês
+        assertThat(quem.values()).allMatch(id -> id == ana.id || id == bia.id);
+
+        // Nada foi gravado só por sugerir.
+        assertThat(slotVistoPor(coord.token, e1.path("id").asLong(), a).path("voluntarioId").isNull()).isTrue();
+
+        MvcResult ap = enviar(post("/api/escalas/sugestao/aplicar?setor=JOVENS"), coord.token, Map.of("itens", itens));
+        assertThat(ap.getResponse().getStatus()).isEqualTo(200);
+        assertThat(corpo(ap).path("escalados").asInt()).isEqualTo(4);
+        assertThat(slotVistoPor(coord.token, e1.path("id").asLong(), a).path("voluntarioId").asLong()).isEqualTo(ana.id);
+        assertThat(slotVistoPor(coord.token, e1.path("id").asLong(), b).path("voluntarioId").asLong()).isEqualTo(bia.id);
+
+        // Aplicar de novo não sobrescreve quem já está.
+        JsonNode denovo = corpo(enviar(post("/api/escalas/sugestao/aplicar?setor=JOVENS"), coord.token, Map.of("itens", itens)));
+        assertThat(denovo.path("escalados").asInt()).isZero();
+        assertThat(denovo.path("problemas")).hasSize(4);
+    }
+
+    @Test
+    void sugestaoEhSoDaCoordenacao() throws Exception {
+        Pessoa vol = cadastrarELogar("VOLUNTARIO", "JOVENS");
+        String mes = YearMonth.now(FUSO).plusMonths(1).toString();
+        assertThat(mvc.perform(autenticado(get("/api/escalas/sugestao").param("mes", mes).param("setor", "JOVENS"), vol.token))
+                .andReturn().getResponse().getStatus()).isEqualTo(400);
+        assertThat(enviar(post("/api/escalas/sugestao/aplicar?setor=JOVENS"), vol.token, Map.of("itens", List.of(Map.of("eventoId", 1, "slotId", 1, "usuarioId", 1))))
+                .getResponse().getStatus()).isEqualTo(400);
+    }
+
+    private JsonNode criarEventoComFuncoes(String titulo, String setor, String... funcoes) throws Exception {
+        LocalDate data = YearMonth.now(FUSO).plusMonths(1).atDay(1).with(TemporalAdjusters.nextOrSame(DayOfWeek.WEDNESDAY));
+        List<Map<String, Object>> slots = new ArrayList<>();
+        for (String f : funcoes) { Map<String, Object> s = new LinkedHashMap<>(); s.put("rotulo", f); s.put("setor", setor); slots.add(s); }
+        Map<String, Object> ev = new LinkedHashMap<>();
+        ev.put("titulo", titulo + " " + UUID.randomUUID().toString().substring(0, 6));
+        ev.put("data", data.toString());
+        ev.put("horario", "19:00");
+        ev.put("local", "Santuário");
+        ev.put("slots", slots);
+        MvcResult r = enviar(post("/api/eventos"), geral, ev);
+        assertThat(r.getResponse().getStatus()).as(r.getResponse().getContentAsString()).isIn(200, 201);
+        return corpo(r);
+    }
+
+    private static long slot(JsonNode evento, String funcao) {
+        for (JsonNode s : evento.path("slots")) if (s.path("rotulo").asText().equals(funcao)) return s.path("id").asLong();
+        throw new AssertionError("Função não encontrada: " + funcao);
+    }
+
+    private void candidatar(Pessoa p, JsonNode evento, long slotId) throws Exception {
+        assertThat(enviar(post("/api/eventos/" + evento.path("id").asLong() + "/slots/" + slotId + "/candidatura"), p.token, null)
+                .getResponse().getStatus()).isEqualTo(200);
+    }
+
     // ---------------------------------------------------------------- notificações no celular
 
     @Test

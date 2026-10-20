@@ -36,9 +36,12 @@ public class EscalaController {
     private final EventoService eventoService;
     private final EscalaPdfService escalaPdfService;
     private final br.org.pascom.service.ParticipacaoService participacaoService;
+    private final br.org.pascom.service.SugestaoEscalaService sugestaoService;
 
     public EscalaController(CalendarioService calendarioService, EventoService eventoService, EscalaPdfService escalaPdfService,
-                            br.org.pascom.service.ParticipacaoService participacaoService) {
+                            br.org.pascom.service.ParticipacaoService participacaoService,
+                            br.org.pascom.service.SugestaoEscalaService sugestaoService) {
+        this.sugestaoService = sugestaoService;
         this.calendarioService = calendarioService;
         this.eventoService = eventoService;
         this.escalaPdfService = escalaPdfService;
@@ -81,6 +84,22 @@ public class EscalaController {
                                                             @RequestParam(defaultValue = "3") int meses,
                                                             @AuthenticationPrincipal Usuario solicitante) {
         return ResponseEntity.ok(participacaoService.doSetor(setor, meses, solicitante));
+    }
+
+    /** Sugestão de escala do mês pro setor (só coordenação). Não grava nada: é só a proposta. */
+    @GetMapping("/sugestao")
+    public ResponseEntity<Map<String, Object>> sugestao(@RequestParam String mes, @RequestParam Setor setor,
+                                                        @AuthenticationPrincipal Usuario solicitante) {
+        return ResponseEntity.ok(sugestaoService.sugerir(calendarioService.parseMes(mes), setor, solicitante));
+    }
+
+    /** Corpo: {"itens": [{"eventoId", "slotId", "usuarioId"}, ...]} — o que a coordenação deixou marcado. */
+    @PostMapping("/sugestao/aplicar")
+    public ResponseEntity<Map<String, Object>> aplicarSugestao(@RequestParam Setor setor, @org.springframework.web.bind.annotation.RequestBody Map<String, Object> corpo,
+                                                               @AuthenticationPrincipal Usuario solicitante) {
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> itens = corpo.get("itens") instanceof List<?> l ? (List<Map<String, Object>>) l : List.of();
+        return ResponseEntity.ok(sugestaoService.aplicar(setor, itens, solicitante));
     }
 
     @PostMapping("/despublicar")

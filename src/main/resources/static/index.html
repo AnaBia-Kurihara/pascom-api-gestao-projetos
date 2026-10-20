@@ -165,6 +165,14 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center;justify-conten
 .part-num b{font-size:20px;display:block;line-height:1}
 .part-num small{font-size:12px;color:var(--ink3)}
 .part-row .bar{margin-top:8px;max-width:320px}
+.pub-acts{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.sug-ev{border-top:1px solid var(--line);padding-top:10px}
+.sug-ev:first-child{border-top:0;padding-top:0}
+.sug-ev h4{font-size:14px;margin:0 0 6px;color:var(--ink2);font-weight:600}
+.sug-item{display:flex;align-items:center;gap:10px;padding:6px 0;font-size:15px}
+.sug-item input{width:20px;height:20px;flex:0 0 auto}
+.sug-item small{color:var(--ink3);font-size:12.5px}
+.sug-vazia{color:var(--ink3)}
 .ev-cheio{margin:0 16px 12px;padding:10px 12px;border-radius:10px;background:var(--tint);color:var(--ink2);font-size:14px}
 .note{font-size:13px;color:var(--ink3);margin-top:8px}
 
@@ -1801,6 +1809,43 @@ function vezesServidas(id){
   const p=d.pessoas.find(x=>String(x.id)===String(id)); return p?p.serviu:null;
 }
 function nomePeriodoPartic(){ const p=PARTIC_PERIODOS.find(x=>x[0]===partic.meses); return p?p[1].toLowerCase():''; }
+// ---------------------------------------------------------------- sugestão de escala (coordenação)
+let sugestao=null; // {mes, publicada, dados}
+async function abrirSugestao(mes,publicada){
+  try{
+    const d=await api('/escalas/sugestao?mes='+mes+'&setor='+currentSetor.toUpperCase());
+    sugestao={mes:mes,publicada:publicada,dados:d,setor:currentSetor};
+    $('#overlay').innerHTML=sugestaoModal(); $('#overlay').hidden=false;
+  }catch(e){ toast(e.message,'warn'); }
+}
+function sugestaoModal(){
+  const d=sugestao.dados, grupos=[];
+  d.itens.filter(i=>i.usuarioId).forEach(i=>{ let g=grupos.find(x=>x.eventoId===i.eventoId); if(!g){ g={eventoId:i.eventoId,data:i.data,horario:i.horario,evento:i.evento,itens:[]}; grupos.push(g); } g.itens.push(i); });
+  const fmtG=g=>{const x=parse(g.data);return cap(x.toLocaleDateString('pt-BR',{weekday:'short',day:'numeric',month:'short'}).replace(/\./g,''))+(g.horario?', '+g.horario.slice(0,5):'')+' · '+esc(g.evento);};
+  const corpo=!d.vagas?'<div class="empty">Não há vaga aberta de '+esc(SETOR_NAME[currentSetor])+' em '+esc(nomeMes(sugestao.mes))+'.</div>'
+    :'<p class="note" style="margin:0">'+d.preenchidas+' de '+d.vagas+(d.vagas>1?' vagas':' vaga')+' com sugestão. '+
+      (d.semCandidato?d.semCandidato+(d.semCandidato>1?' ficaram':' ficou')+' sem ninguém (ninguém se candidatou ou quem se candidatou já está em outra função daquela missa). ':'')+
+      'Só entra quem tocou em <b>Quero servir</b> naquela função, em rodízio: quem tem menos escalas no mês e serviu menos ultimamente vem primeiro, e ninguém fica em duas funções na mesma missa. Desmarque o que não quiser.</p>'+
+      grupos.map(g=>'<div class="sug-ev"><h4>'+fmtG(g)+'</h4>'+g.itens.map(i=>
+        '<label class="sug-item"><input type="checkbox" checked data-sug="'+i.slotId+'"><span><b>'+esc(i.funcao)+'</b>: '+esc(i.nome)+' <small>· serviu '+i.serviuRecente+'× nos últimos 3 meses'+(i.candidatos>1?' · '+i.candidatos+' candidatos':'')+'</small></span></label>').join('')+'</div>').join('')+
+      (d.semCandidato?'<div class="sug-ev sug-vazia"><h4>Ficaram sem ninguém ('+d.semCandidato+')</h4><p style="margin:0;font-size:13.5px">'+
+        d.itens.filter(i=>!i.usuarioId).map(i=>{const x=parse(i.data);return x.getDate()+'/'+String(x.getMonth()+1).padStart(2,'0')+(i.horario?' '+i.horario.slice(0,5).replace(':00','h').replace(':','h'):'')+' · '+esc(i.funcao);}).join(' &nbsp;•&nbsp; ')+
+        '</p><p class="note" style="margin:6px 0 0">Escale essas à mão, ou peça pra equipe tocar em <b>Quero servir</b> e sugira de novo.</p></div>':'');
+  return '<div class="modal" role="dialog" aria-modal="true" aria-label="Sugestão de escala"><div class="m-head"><h3>Sugestão de escala · '+esc(nomeMes(sugestao.mes))+'</h3><button class="x" data-action="close" aria-label="Fechar">×</button></div>'+
+    '<div class="m-body">'+corpo+(sugestao.publicada?'<p class="note" style="margin:0">⚠️ A escala deste mês já está publicada: quem for escalado agora recebe o aviso na hora.</p>':'<p class="note" style="margin:0">A escala está em montagem: ninguém da equipe vê nada até você publicar.</p>')+'</div>'+
+    '<div class="m-foot"><button class="btn" data-action="close">Cancelar</button><span class="sp"></span>'+(d.preenchidas?'<button class="btn primary" data-action="aplicarSugestao">Escalar os marcados</button>':'')+'</div></div>';
+}
+async function aplicarSugestao(btn){
+  const marcados=[...document.querySelectorAll('#overlay input[data-sug]:checked')].map(x=>Number(x.dataset.sug));
+  const itens=sugestao.dados.itens.filter(i=>i.usuarioId&&marcados.indexOf(i.slotId)>-1).map(i=>({eventoId:i.eventoId,slotId:i.slotId,usuarioId:i.usuarioId}));
+  if(!itens.length){ toast('Nada marcado.','warn'); return; }
+  btn.disabled=true; btn.textContent='Escalando…';
+  try{
+    const r=await api('/escalas/sugestao/aplicar?setor='+sugestao.setor.toUpperCase(),{method:'POST',body:JSON.stringify({itens:itens})});
+    closeModal(); partic.chave=null; await recarregarEventos(); render();
+    toast(r.escalados+(r.escalados===1?' pessoa escalada.':' pessoas escaladas.')+(r.problemas.length?' '+r.problemas.length+' não deram certo: '+r.problemas[0]:' Confira e publique quando estiver pronta.'),r.problemas.length?'warn':undefined);
+  }catch(e){ btn.disabled=false; btn.textContent='Escalar os marcados'; toast(e.message,'warn'); }
+}
 function viewParticipacao(){
   if(!coordenaEscala(currentSetor)){ escalaAba='setor'; return viewEscalas(); }
   if(partic.chave!==currentSetor+'|'+partic.meses) setTimeout(()=>carregarParticipacao(),0);
@@ -1867,7 +1912,8 @@ function viewEscalas(){
   const statusMeses=!mesesKeys.length?'':podeEditarSetor
     ?'<div class="pub-bar">'+mesesKeys.map(m=>{const fech=mesFechado(m+'-01');
         return '<div class="pub-row"><span><b>'+esc(nomeMes(m))+'</b> <span class="pill '+(fech?'':meses[m]?'ok':'warn')+'">'+(fech?'Fechada':meses[m]?'Publicada':'Em montagem')+'</span></span>'+
-        (fech?'<span class="note" style="margin:0">Só a coordenação mexe</span>':meses[m]?'<button class="btn small" data-action="despublicarMes" data-mes="'+m+'">Voltar pra montagem</button>':'<button class="btn small primary" data-action="publicarMes" data-mes="'+m+'">Publicar escala</button>')+'</div>';}).join('')+
+        '<span class="pub-acts"><button class="btn small" data-action="sugerirEscala" data-mes="'+m+'" data-publicada="'+(meses[m]?1:0)+'">Sugerir escala</button>'+
+        (fech?'<span class="note" style="margin:0">Só a coordenação mexe</span>':meses[m]?'<button class="btn small" data-action="despublicarMes" data-mes="'+m+'">Voltar pra montagem</button>':'<button class="btn small primary" data-action="publicarMes" data-mes="'+m+'">Publicar escala</button>')+'</span></div>';}).join('')+
       '<p class="note" style="margin:6px 0 0">Em montagem, só a coordenação vê os nomes. Publicou, a equipe vê a escala final. Quando o mês chega, a escala dele fecha (e, se não tiver sido publicada, é publicada sozinha no dia 1º).</p></div>'
     :(mesesKeys.some(m=>!meses[m])?'<div class="aviso-montagem">A escala de <b>'+mesesKeys.filter(m=>!meses[m]).map(nomeMes).join(' e ')+'</b> está em montagem. Toque em <b>Quero servir</b> nas funções em que você pode; a coordenação escolhe e publica.</div>':'');
   const acoes=(podeEditarSetor?lembretePublicacaoHtml():'')+naoFaz+chips+coord+statusMeses+como;
@@ -3289,6 +3335,8 @@ document.addEventListener('click',e=>{
     case 'novaEscala': abrirNovaEscala(); break;
     case 'adicionarSlotForm': sincronizarSlotFormDoDOM(); escalaFormSlots.push({rotulo:'',tipo:null}); reabrirEscalaModal(); break;
     case 'escalaAba': escalaAba=t.dataset.aba; addSlotEventoId=null; render(); break;
+    case 'sugerirEscala': abrirSugestao(t.dataset.mes,t.dataset.publicada==='1'); break;
+    case 'aplicarSugestao': aplicarSugestao(t); break;
     case 'particPeriodo': partic.meses=Number(t.dataset.meses); render(); break;
     case 'particOrdem': partic.ordem=t.dataset.ordem; render(); break;
     case 'escalaFiltro': escalaFiltro=t.dataset.filtro; render(); break;
