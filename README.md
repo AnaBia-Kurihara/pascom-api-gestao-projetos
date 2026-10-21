@@ -1,173 +1,223 @@
-# Pascom Fátima — Gestão da Comunicação Paroquial
+# Pascom Fátima — Sistema de Gestão de Voluntários (VMS)
 
-Sistema web para organizar o trabalho da **Pascom do Santuário Nossa Senhora de Fátima (Santo Amaro)**: ideias de conteúdo, produção de posts e vídeos, escalas de voluntários, fluxos próprios do Datashow e das Transmissões, e acompanhamento automático do Instagram do santuário.
+![Java](https://img.shields.io/badge/Java-17-ED8B00?logo=openjdk&logoColor=white)
+![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.2-6DB33F?logo=springboot&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Flyway-4169E1?logo=postgresql&logoColor=white)
+![PWA](https://img.shields.io/badge/PWA-Web%20Push-5A0FC8?logo=pwa&logoColor=white)
+![Testes](https://img.shields.io/badge/testes-47%20passando-2C7A57)
+![Custo](https://img.shields.io/badge/hospedagem-%3C%20US%245%2Fm%C3%AAs-0F2456)
 
-**Em produção:** https://pascom-api-gestao-projetos-production.up.railway.app/
+**Do papel ao app:** plataforma web que organiza a Pastoral da Comunicação (Pascom) do Santuário Nossa Senhora de Fátima (Santo Amaro, SP). São mais de 30 voluntários em 5 setores, cuidando de quem fotografa, filma, transmite, projeta e monta os slides de cada missa.
 
-Backend e front-end vivem no mesmo repositório e sobem como **um serviço só**: o Spring Boot serve a API em `/api/**` e o front-end estático na raiz (`/`).
+Antes, a escala era montada no papel, em planilha e em mensagens soltas de WhatsApp. Hoje a coordenação monta o mês com poucos toques, e cada voluntário recebe o lembrete no celular. Tudo roda num único serviço, por menos de **US$ 5 por mês**.
+
+> O sistema tomou forma em cerca de 2 meses, com **IA como parceira de programação**. As versões foram entregues a partir do feedback contínuo da equipe, com o app em uso real.
 
 ---
 
-## Funcionalidades
+## Sumário
+- [O que o sistema faz](#o-que-o-sistema-faz)
+- [Desafios técnicos resolvidos](#desafios-técnicos-resolvidos)
+- [Arquitetura](#arquitetura)
+- [Tecnologias](#tecnologias)
+- [Como rodar localmente](#como-rodar-localmente)
+- [Testes](#testes)
+- [Variáveis de ambiente](#variáveis-de-ambiente)
+- [Deploy](#deploy)
+- [Rotinas automáticas](#rotinas-automáticas)
+- [Evolução guiada por feedback](#evolução-guiada-por-feedback)
 
-| Área | O que faz |
+---
+
+## O que o sistema faz
+
+### 🗓️ Escalas (o coração do sistema)
+| Funcionalidade | Como funciona |
 |---|---|
-| **Espaços por setor** | Quatro espaços isolados — Redes Sociais, Jovens, Datashow e Transmissões/Vídeos — com troca pelo menu lateral (gaveta no celular). |
-| **Quadro de produção** | Kanban de cartões `Ideia → Roteiro → Gravação → Edição → Revisão → Agendado → Publicado`, com checklist de segurança que trava o agendamento. |
-| **Banco de ideias** | Qualquer pessoa sugere e vota; uma ideia vira cartão com um clique. |
-| **Calendário** | Datas editoriais, santos do dia e eventos do santuário. |
-| **Escalas** | Eventos com vagas (Foto, Vídeo, Stories ao vivo…) em que os voluntários se inscrevem; domingos do mês gerados automaticamente. |
-| **Datashow** | Quadro por missa: aguardando músicas → conferindo momentos → montado → passado, com responsável pela montagem e outro por passar. |
-| **Transmissões** | Quadro por transmissão (capa, link, tema litúrgico) + guia rápido de câmeras e de como ir ao vivo. |
-| **Dashboard do Instagram** | Leitura automática de todos os posts, métricas semanais/mensais/anuais e metas de crescimento. |
-| **Assistente de IA** | Chat em português (Gemini) que cria eventos e ideias de verdade e analisa o Instagram. |
-| **Lixeira** | Cartões, ideias e escalas excluídos pedem um motivo e podem ser restaurados. |
-| **Contas** | Login por e-mail/senha ou Google, recuperação de senha por e-mail. |
+| **Geração automática** | No dia 1º, as missas fixas do mês atual e do próximo nascem sozinhas, já com as funções padrão de cada setor (sábado 16h30; domingo 8h, 10h e 18h30). |
+| **Candidatura + sigilo** | O voluntário toca em **"Quero servir"**. A coordenação escala em sigilo: até a publicação, **o servidor esconde quem foi escalado** de quem não coordena, inclusive da própria pessoa. |
+| **Sugestão automática** | Um botão preenche as vagas abertas em rodízio, só com quem se candidatou. Ninguém fica em duas funções na mesma missa, e tem prioridade quem serviu menos. A coordenação revisa e aplica. |
+| **Relatório de participação** | Mostra quem serve mais, quem serve menos e quem está há mais tempo parado, pra equilibrar a escala. |
+| **Ciclo mensal** | Lembrete pra publicar a partir do dia 25, publicação automática no dia 1º e fechamento do mês que chegou. |
+| **Histórico** | Toda mudança fica registrada: quem escalou, trocou, tirou ou publicou. |
+| **PDF** | Escala completa no formato de grade impressa da Pascom, em A4 paisagem (OpenPDF). |
 
-## Papéis e permissões
+### 📲 App instalável e notificações
+- **PWA**: instala na tela inicial do Android, do iPhone e do computador.
+- **Web Push**: avisos de escalação, lembrete **48h antes de servir**, mudanças de última hora e aniversários, mesmo com o app fechado.
+- **Sininho** no app com o histórico de avisos.
 
-| Papel | Pode |
+### 🎵 Setor Holyrics (montagem dos slides das 4 missas do fim de semana)
+- **Liturgia automática do domingo**, lida do site da Paulus (sem API: sitemap + parsing de HTML), com reserva numa API aberta.
+- **Links sem login** (token secreto por fim de semana) pros músicos mandarem o repertório e pras outras pastorais mandarem os avisos.
+- Textos prontos pra colar em slides, lembretes gentis e alerta quando algo muda depois da montagem.
+
+### 📣 Conteúdo e comunicação
+- **Quadro Kanban** de produção (`Ideia → Roteiro → Gravação → Edição → Revisão → Agendado → Publicado`), com checklist de revisão que trava o agendamento.
+- **Banco de ideias** com votação e **calendário editorial**.
+- **Instagram Graph API**: leitura automática dos posts, histórico de métricas e metas de crescimento.
+- **Assistente de IA** (Gemini com *function calling*), que cria eventos e ideias de verdade conversando em português.
+
+### 👥 Equipe
+- Login por e-mail/senha ou **Google**, perfis com foto, setores extras e aniversário.
+- **Post de aniversário gerado no navegador** (Canvas, 1080×1350) no modelo visual da Pascom.
+- Papéis: **Coordenação Geral**, **Coordenação de setor**, **Gestor(a) de escalas** e **Voluntário(a)**.
+- **Lixeira** com motivo de exclusão e restauração.
+
+---
+
+## Desafios técnicos resolvidos
+
+| Problema | Solução |
 |---|---|
-| **Coordenador(a) Geral** (único no sistema) | Tudo: criar/excluir escalas, gerar domingos, conectar o Instagram, alterar a função de alguém. |
-| **Coordenador(a) de setor** | Trabalhar no seu setor e marcar a *conferência doutrinária* do checklist. |
-| **Voluntário(a)** | Criar cartões e ideias, votar, avançar etapas, se inscrever em escalas. |
+| **40 pessoas tocando "Eu vou" na mesma vaga ao mesmo tempo**: o padrão "conferir e depois gravar" deixava todas receberem sucesso | `UPDATE ... WHERE voluntario IS NULL` atômico. Só uma ganha, e as outras recebem "alguém acabou de pegar essa vaga". Coberto por um teste com 8 threads concorrentes. |
+| **Notificações no celular sem pesar na memória** | Web Push implementado **só com o JDK**: criptografia RFC 8291 (ECDH P-256 + HKDF + AES-128-GCM) e assinatura VAPID RFC 8292 (ES256). Validado **byte a byte com o exemplo oficial da RFC** e testado de ponta a ponta no Chrome e no iPhone. |
+| **Caber no plano de US$ 5** | Ajuste da JVM (`-Xmx200m`, SerialGC, menos threads no Tomcat): de ~600 MB para ~250 MB, testado gerando 30 PDFs em paralelo. |
+| **Sigilo da escala** | A regra vive no servidor (`SlotEscalaDTO.oculto`), e não no front: nenhuma chamada direta à API revela a escala em montagem. |
+| **Servidor em UTC, equipe em Brasília** | Fuso padrão `America/Sao_Paulo` na JVM. Antes, os avisos apareciam 3h adiantados e o assistente "achava" que já era amanhã depois das 21h. |
+| **Site sem API (liturgia da Paulus)** | Descoberta da página do dia pelo sitemap, casando pelo número do dia no link (a data do sitemap às vezes vem trocada), e parsing com jsoup. Se o layout mudar, o sistema cai sozinho na fonte reserva. |
+| **E-mail no Railway (SMTP bloqueado)** | Envio por APIs HTTPS: **Gmail API** com OAuth (só o escopo `gmail.send`, refresh token criptografado) e Resend como reserva. |
+| **Segurança de rotas abertas** | Limite de requisições por IP, bloqueio por e-mail após 8 senhas erradas, corpo limitado a 2 MB, `X-Frame-Options`, endpoints de push restritos aos serviços conhecidos (evita SSRF) e tokens secretos (Instagram, Gmail, VAPID) criptografados com AES-GCM. |
+| **Front novo depois do deploy** | ETag pelo conteúdo, porque o build grava datas fixas nos arquivos e o `Last-Modified` sempre batia. Junto, um aviso de "Saiu uma atualização" consultando `/api/versao`. |
+| **Mudanças de schema sem derrubar produção** | Flyway com baseline numa base que já existia, migrações aditivas e versões fixadas (Flyway 11 com Spring Boot 3.2 e PostgreSQL 18). |
+
+---
+
+## Arquitetura
+
+```
+┌────────────────────────────┐        ┌──────────────────────────────────────────┐
+│  Front-end (PWA)           │  JWT   │  Spring Boot (um serviço só)             │
+│  index.html · sw.js        │ ─────▶ │  controller → service → repository       │
+│  HTML/CSS/JS puros         │ /api   │  Spring Security · @Scheduled · Web Push │
+└────────────────────────────┘        └───────────────┬──────────────────────────┘
+        ▲                                             │
+        │ notificação                                 ▼
+ ┌──────┴───────────────┐              ┌──────────────────────────┐
+ │ FCM / Apple / Mozilla │◀── push ────│ PostgreSQL (Flyway)       │
+ └───────────────────────┘             └──────────────────────────┘
+        Integrações: Gmail API · Instagram Graph API · Gemini · Google Login · Paulus (HTML)
+```
+
+- **Camadas**: `controller/` (HTTP ↔ DTO), `service/` (regras de negócio), `repository/` (Spring Data JPA), `model/` (entidades), `dto/` (records com Bean Validation) e `config/` (segurança, filtros, agendamentos).
+- **Front-end sem build**: um único `index.html`, servido pelo próprio Spring Boot na raiz. As chamadas usam caminho relativo (`/api`), então o mesmo código funciona no ambiente local e em produção.
+- **Erros padronizados**: `{"erro": "..."}` para regra de negócio e `{"erros": {campo: msg}}` para validação.
+
+Guia completo de regras de negócio e decisões: [`CLAUDE.md`](CLAUDE.md).
 
 ---
 
 ## Tecnologias
 
-### Backend
-| Tecnologia | Versão | Uso |
-|---|---|---|
-| **Java** | 17 | Linguagem |
-| **Spring Boot** | 3.2.3 | Framework (Web, Data JPA, Validation, Security) |
-| **Spring Security + JWT** (jjwt) | 0.12.6 | Autenticação stateless |
-| **Hibernate / JPA** | 6.4 | Persistência |
-| **Flyway** | 9.22.3 | Migrações do schema em produção |
-| **Lombok** | — | Redução de boilerplate nas entidades |
-| **Maven** | — | Build e dependências |
-
-### Banco de dados
-| Ambiente | Banco |
+| Camada | Tecnologias |
 |---|---|
-| Local / desenvolvimento | **H2** (arquivo em `./data/`) |
-| Produção | **PostgreSQL** |
-
-### Front-end
-- **HTML, CSS e JavaScript puros** em um único arquivo ([`index.html`](src/main/resources/static/index.html)), sem framework nem etapa de build
-- Fontes **Figtree** e **Young Serif** (Google Fonts)
-- Tema claro/escuro automático, layout responsivo (menu em gaveta no celular)
-
-### Integrações externas
-| Serviço | Para quê |
-|---|---|
-| **Instagram Graph API** (Instagram Login) | Ler posts e métricas da conta do santuário |
-| **Google Gemini** (`gemini-3.6-flash`, function calling) | Assistente de IA |
-| **Google Identity Services** | Entrar com Google |
-| **Resend** (API HTTPS) | E-mails de recuperação de senha |
-
-### Infraestrutura
-- **Railway** — hospedagem do app e do PostgreSQL
-- **Railway CLI** — deploy manual (`railway up`)
-- **GitHub** — versionamento
-
----
-
-## Estrutura do projeto
-
-```
-src/main/
-├── java/br/org/pascom/
-│   ├── controller/   # Endpoints REST (/api/**)
-│   ├── service/      # Regras de negócio e integrações
-│   ├── repository/   # Spring Data JPA
-│   ├── model/        # Entidades e enums
-│   ├── dto/          # Requests/responses (records)
-│   └── config/       # Segurança, CORS, tratamento de erros
-└── resources/
-    ├── application.yml      # Config (perfil default = H2, perfil prod = PostgreSQL)
-    ├── db/migration/        # Migrações Flyway (produção)
-    └── static/index.html    # Front-end
-```
-
-Guia detalhado de decisões e regras de negócio: [`CLAUDE.md`](CLAUDE.md).
+| **Backend** | Java 17, Spring Boot 3.2 (Web, Data JPA, Validation, Security), JWT (jjwt 0.12), Hibernate 6, Lombok, Maven |
+| **Banco** | PostgreSQL + Flyway 11 em produção · H2 local |
+| **Front-end** | HTML, CSS e JavaScript puros, PWA (manifest + service worker), Canvas, tema claro/escuro, mobile-first |
+| **Bibliotecas** | OpenPDF (PDF da escala), jsoup (leitura de HTML) |
+| **Integrações** | Gmail API, Instagram Graph API, Google Gemini (function calling), Google Identity Services, Resend, Web Push (FCM, Apple, Mozilla) |
+| **Testes** | JUnit 5, Spring Boot Test, MockMvc, AssertJ |
+| **Infra** | Railway (app + Postgres), Railway CLI |
 
 ---
 
 ## Como rodar localmente
 
-**Pré-requisitos:** JDK 17 e Maven. (Com JDK mais novo, como o 26, o Lombok 1.18.30 não compila — use o 17.)
+**Pré-requisitos:** JDK 17 e Maven. (Com JDK mais novo, o Lombok desta versão não compila: use o 17.)
 
 ```bash
 mvn spring-boot:run
 ```
 
-Abra http://localhost:8080. O banco H2 é criado sozinho em `./data/pascomdb` (console em `/h2-console`). Crie uma conta pela tela de cadastro — a primeira pessoa a escolher *Coordenador(a) Geral* ocupa essa vaga.
+Abra http://localhost:8080. O banco H2 é criado sozinho em `./data/pascomdb`. Crie uma conta na tela de cadastro: a primeira pessoa a escolher *Coordenação Geral* ocupa essa vaga (só existe uma).
 
-Sem chaves de integração, o app funciona normalmente; só ficam inativos o assistente de IA, o Instagram e o envio de e-mail.
+Sem chaves de integração, o app funciona normalmente. Ficam inativos só o assistente de IA, o Instagram e o envio de e-mail.
 
 ```bash
-mvn clean package   # gera o .jar
+mvn clean package   # gera o .jar em target/
 ```
 
-> Ainda não há testes automatizados (`src/test/java` está vazio).
+---
+
+## Testes
+
+```bash
+mvn test
+```
+
+**47 testes**, rodados antes de cada deploy:
+
+| Classe | Cobre |
+|---|---|
+| `ApiIntegracaoTest` | O sistema inteiro pela API, com H2 em memória e sem internet: cadastro e login, permissões, **sigilo da escala até publicar**, **8 pessoas disputando a mesma vaga**, sugestão de escala em rodízio, relatório de participação, links sem login do Holyrics, limites de tentativas (429/413), notificações e recuperação de senha. |
+| `WebPushCriptoTest` | Criptografia das notificações **idêntica ao exemplo oficial da RFC 8291**, ida e volta e assinatura VAPID. |
+| `PaulusLiturgiaServiceTest` | Leitura da liturgia em páginas-modelo com a estrutura real do site (texto inventado). |
+| `GmailServiceTest` | Formato do e-mail em UTF-8 e proteção contra injeção de cabeçalho. |
+
+O perfil de teste (`application-test.yml`) desliga os agendamentos e aponta as integrações para endereços fechados, então nenhum teste manda e-mail, notificação ou chamada pra internet.
+
+---
 
 ## Variáveis de ambiente
 
-Os valores padrão do `application.yml` servem **só para desenvolvimento** — em produção defina todos.
+Os valores padrão do `application.yml` servem **só para desenvolvimento**.
 
 | Variável | Para quê |
 |---|---|
 | `SPRING_PROFILES_ACTIVE=prod` | Ativa PostgreSQL + Flyway |
-| `PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER`, `PGPASSWORD` | Conexão com o Postgres (o Railway injeta sozinho) |
+| `PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER`, `PGPASSWORD` | Conexão com o Postgres (o Railway injeta) |
 | `PORT` | Porta do servidor (padrão `8080`) |
-| `JWT_SECRET` | Chave de assinatura dos tokens |
-| `INSTAGRAM_TOKEN_KEY` | Chave AES-GCM que criptografa o token do Instagram no banco |
-| `GOOGLE_CLIENT_ID` | Login com Google |
+| `APP_BASE_URL` | URL pública (links de senha, dos músicos e das pastorais) |
+| `JWT_SECRET` | Assinatura dos tokens de login |
+| `INSTAGRAM_TOKEN_KEY` | Chave AES-GCM dos segredos guardados no banco |
+| `ADMIN_EMAILS` | E-mails com poderes de Coordenação Geral |
+| `GOOGLE_CLIENT_ID`, `GMAIL_CLIENT_SECRET` | Login com Google e envio de e-mail pelo Gmail da Pascom |
 | `GEMINI_API_KEY` | Assistente de IA |
-| `RESEND_API_KEY`, `RESEND_FROM` | Envio de e-mail |
-| `APP_BASE_URL` | URL pública, usada no link de redefinição de senha |
-
-## Deploy
-
-Hospedado no Railway. A integração automática com o GitHub está desativada, então o deploy é feito pela CLI, depois de dar `git push`:
-
-```bash
-railway up --ci --message "o que mudou"
-```
-
-Em produção o schema é gerenciado pelo **Flyway** (baseline na versão 1; novas migrações em `src/main/resources/db/migration/`, a partir de `V2__*.sql`). Veja o README dessa pasta.
+| `RESEND_API_KEY`, `RESEND_FROM` | E-mail de reserva |
+| `JAVA_TOOL_OPTIONS` | Limites de memória da JVM (economia na hospedagem) |
 
 ---
 
-## API
+## Deploy
 
-Todos os endpoints exigem `Authorization: Bearer <token>`, exceto os de autenticação. Erros voltam como `{"erro": "mensagem"}`.
+Hospedado no **Railway** (app + PostgreSQL), com deploy pela CLI:
 
-| Recurso | Base | Operações principais |
-|---|---|---|
-| Usuários / auth | `/api/usuarios` | `cadastro`, `login`, `google`, `esqueci-senha`, `redefinir-senha`, `{id}/role` |
-| Cartões | `/api/cartoes` | CRUD, `{id}/etapa`, `{id}/comentarios`, `lixeira`, `{id}/restaurar` |
-| Ideias | `/api/ideias` | listar, criar, `{id}/votar`, `{id}/adotar`, lixeira |
-| Eventos / escalas | `/api/eventos` | criar, `{id}/slots`, `inscrever`/`desinscrever`, `gerar-escalas-mes`, lixeira |
-| Datashow | `/api/datashow/missas` | CRUD, `{id}/etapa` |
-| Transmissões | `/api/transmissoes` | CRUD, `{id}/etapa`, `gerar-mes` |
-| Instagram | `/api/instagram` | `status`, `conectar`, `sincronizar`, `resumo?periodo=`, `metas` |
-| Assistente | `/api/agente` | `mensagem` |
+```bash
+mvn test
+railway up --ci --message "o que mudou"
+```
+
+O healthcheck em `/api/versao` faz o Railway trocar o tráfego só quando a versão nova já respondeu, sem queda para quem está usando. Em produção, o schema é versionado pelo **Flyway** (`src/main/resources/db/migration`, a partir de `V2__*.sql`).
+
+---
 
 ## Rotinas automáticas
 
 | Quando | O que roda |
 |---|---|
-| A cada 6 horas | Sincroniza os posts e métricas do Instagram |
-| Dia 1 de cada mês, 6h | Gera as escalas e as transmissões dos domingos do mês (sem duplicar) |
+| A cada 15 min | Lembrete (app + e-mail + celular) pra quem serve nas próximas 48h |
+| Todo dia, 7h | Avisos de aniversário e convite pra coordenação gerar o post |
+| Quinta e sexta, 10h | Lembretes gentis do Holyrics (músicas e montagem) |
+| Dia 1º, 6h | Gera as missas do mês, publica as escalas pendentes e fecha o mês que chegou |
+| A cada 6h | Sincroniza posts e métricas do Instagram e busca antes a liturgia dos próximos domingos |
+| Segunda, 4h | Renova o token do Instagram (que vence em 60 dias) |
 
 ---
 
-## Pontos de atenção
+## Evolução guiada por feedback
 
-- Sem testes automatizados ainda.
-- A Lixeira cobre Cartão, Ideia e Escala; Datashow e Transmissões ainda excluem em definitivo.
-- Não há tela para promover alguém a Coordenador — o endpoint existe (`PATCH /api/usuarios/{id}/role`), mas o front não o usa.
-- O plano gratuito do Gemini limita a ~5 requisições por minuto para o app inteiro.
-- Os e-mails saem de `onboarding@resend.dev` até um domínio próprio ser verificado no Resend.
+O sistema foi para produção cedo e evoluiu em ciclos curtos, a partir do que a equipe pedia:
+
+| Feedback da equipe | Entrega |
+|---|---|
+| "Só a coordenação deveria ver a escala antes de fechar" | Montagem em sigilo + publicação por mês e setor |
+| "A missa de sábado mudou de horário" | Migração automática dos eventos futuros, sem perder quem já estava escalado |
+| "A gente esquece que vai servir" | Lembrete de 48h e notificações no celular |
+| "Queremos a liturgia da Paulus, que é a mais confiável" | Leitura automática do site da Paulus |
+| "Controlo à mão quem serve mais e quem serve menos" | Relatório de participação |
+| "Montar o mês leva muito tempo" | Sugestão automática de escala |
+| "Pedi nova senha e não chegou" | Envio pelo Gmail da Pascom + aviso à coordenação como reserva |
+
+---
+
+Feito com 💙 para a Pascom do Santuário Nossa Senhora de Fátima.
