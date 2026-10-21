@@ -225,6 +225,20 @@ class ApiIntegracaoTest {
     }
 
     @Test
+    void pdfDaEscalaCompletaEDeUmSetorSaem() throws Exception {
+        criarEvento("Evento de teste do PDF", "Foto", "REDES_SOCIAIS");
+        String mes = YearMonth.now(FUSO).plusMonths(1).toString();
+        for (String setor : new String[]{null, "REDES_SOCIAIS"}) {
+            MockHttpServletRequestBuilder req = get("/api/escalas/completa/pdf").param("mes", mes);
+            if (setor != null) req.param("setor", setor);
+            MvcResult r = mvc.perform(autenticado(req, geral)).andReturn();
+            assertThat(r.getResponse().getStatus()).isEqualTo(200);
+            assertThat(r.getResponse().getContentType()).contains("pdf");
+            assertThat(new String(r.getResponse().getContentAsByteArray(), 0, 5)).isEqualTo("%PDF-");
+        }
+    }
+
+    @Test
     void voluntarioNaoEscalaNinguem() throws Exception {
         Pessoa vol = cadastrarELogar("VOLUNTARIO", "REDES_SOCIAIS");
         Pessoa outro = cadastrarELogar("VOLUNTARIO", "REDES_SOCIAIS");
