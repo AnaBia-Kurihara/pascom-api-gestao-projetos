@@ -11,6 +11,8 @@
 
 Antes, a escala era montada no papel, em planilha e em mensagens soltas de WhatsApp. Hoje a coordenação monta o mês com poucos toques, e cada voluntário recebe o lembrete no celular. Tudo roda num único serviço, por menos de **US$ 5 por mês**.
 
+> 🔒 **Sistema de uso exclusivo da Pascom.** Só voluntários da pastoral têm acesso. Este repositório está público **apenas como portfólio**: o código não é aberto para uso, cópia ou modificação. Veja [Uso restrito e direitos autorais](#uso-restrito-e-direitos-autorais).
+
 > O sistema tomou forma em cerca de 2 meses, com **IA como parceira de programação**. As versões foram entregues a partir do feedback contínuo da equipe, com o app em uso real.
 
 ---
@@ -20,12 +22,10 @@ Antes, a escala era montada no papel, em planilha e em mensagens soltas de Whats
 - [Desafios técnicos resolvidos](#desafios-técnicos-resolvidos)
 - [Arquitetura](#arquitetura)
 - [Tecnologias](#tecnologias)
-- [Como rodar localmente](#como-rodar-localmente)
-- [Testes](#testes)
-- [Variáveis de ambiente](#variáveis-de-ambiente)
-- [Deploy](#deploy)
+- [Qualidade e testes](#qualidade-e-testes)
 - [Rotinas automáticas](#rotinas-automáticas)
 - [Evolução guiada por feedback](#evolução-guiada-por-feedback)
+- [Uso restrito e direitos autorais](#uso-restrito-e-direitos-autorais)
 
 ---
 
@@ -103,8 +103,6 @@ Antes, a escala era montada no papel, em planilha e em mensagens soltas de Whats
 - **Front-end sem build**: um único `index.html`, servido pelo próprio Spring Boot na raiz. As chamadas usam caminho relativo (`/api`), então o mesmo código funciona no ambiente local e em produção.
 - **Erros padronizados**: `{"erro": "..."}` para regra de negócio e `{"erros": {campo: msg}}` para validação.
 
-Guia completo de regras de negócio e decisões: [`CLAUDE.md`](CLAUDE.md).
-
 ---
 
 ## Tecnologias
@@ -121,31 +119,9 @@ Guia completo de regras de negócio e decisões: [`CLAUDE.md`](CLAUDE.md).
 
 ---
 
-## Como rodar localmente
+## Qualidade e testes
 
-**Pré-requisitos:** JDK 17 e Maven. (Com JDK mais novo, o Lombok desta versão não compila: use o 17.)
-
-```bash
-mvn spring-boot:run
-```
-
-Abra http://localhost:8080. O banco H2 é criado sozinho em `./data/pascomdb`. Crie uma conta na tela de cadastro: a primeira pessoa a escolher *Coordenação Geral* ocupa essa vaga (só existe uma).
-
-Sem chaves de integração, o app funciona normalmente. Ficam inativos só o assistente de IA, o Instagram e o envio de e-mail.
-
-```bash
-mvn clean package   # gera o .jar em target/
-```
-
----
-
-## Testes
-
-```bash
-mvn test
-```
-
-**47 testes**, rodados antes de cada deploy:
+**47 testes automáticos**, rodados antes de cada atualização em produção:
 
 | Classe | Cobre |
 |---|---|
@@ -154,40 +130,7 @@ mvn test
 | `PaulusLiturgiaServiceTest` | Leitura da liturgia em páginas-modelo com a estrutura real do site (texto inventado). |
 | `GmailServiceTest` | Formato do e-mail em UTF-8 e proteção contra injeção de cabeçalho. |
 
-O perfil de teste (`application-test.yml`) desliga os agendamentos e aponta as integrações para endereços fechados, então nenhum teste manda e-mail, notificação ou chamada pra internet.
-
----
-
-## Variáveis de ambiente
-
-Os valores padrão do `application.yml` servem **só para desenvolvimento**.
-
-| Variável | Para quê |
-|---|---|
-| `SPRING_PROFILES_ACTIVE=prod` | Ativa PostgreSQL + Flyway |
-| `PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER`, `PGPASSWORD` | Conexão com o Postgres (o Railway injeta) |
-| `PORT` | Porta do servidor (padrão `8080`) |
-| `APP_BASE_URL` | URL pública (links de senha, dos músicos e das pastorais) |
-| `JWT_SECRET` | Assinatura dos tokens de login |
-| `INSTAGRAM_TOKEN_KEY` | Chave AES-GCM dos segredos guardados no banco |
-| `ADMIN_EMAILS` | E-mails com poderes de Coordenação Geral |
-| `GOOGLE_CLIENT_ID`, `GMAIL_CLIENT_SECRET` | Login com Google e envio de e-mail pelo Gmail da Pascom |
-| `GEMINI_API_KEY` | Assistente de IA |
-| `RESEND_API_KEY`, `RESEND_FROM` | E-mail de reserva |
-| `JAVA_TOOL_OPTIONS` | Limites de memória da JVM (economia na hospedagem) |
-
----
-
-## Deploy
-
-Hospedado no **Railway** (app + PostgreSQL), com deploy pela CLI:
-
-```bash
-mvn test
-railway up --ci --message "o que mudou"
-```
-
-O healthcheck em `/api/versao` faz o Railway trocar o tráfego só quando a versão nova já respondeu, sem queda para quem está usando. Em produção, o schema é versionado pelo **Flyway** (`src/main/resources/db/migration`, a partir de `V2__*.sql`).
+Os testes rodam num ambiente isolado, sem agendamentos e sem acesso à internet: nenhum teste manda e-mail, notificação ou chamada para fora.
 
 ---
 
@@ -217,6 +160,19 @@ O sistema foi para produção cedo e evoluiu em ciclos curtos, a partir do que a
 | "Controlo à mão quem serve mais e quem serve menos" | Relatório de participação |
 | "Montar o mês leva muito tempo" | Sugestão automática de escala |
 | "Pedi nova senha e não chegou" | Envio pelo Gmail da Pascom + aviso à coordenação como reserva |
+
+---
+
+## Uso restrito e direitos autorais
+
+© 2026 Ana Beatriz de Oliveira Kurihara. **Todos os direitos reservados.**
+
+- Este é um sistema **interno e exclusivo** da Pascom do Santuário Nossa Senhora de Fátima. O acesso é **somente para voluntários da pastoral**.
+- O código está visível **apenas para fins de portfólio**. **Não é permitido** usar, copiar, modificar, hospedar ou distribuir este software, no todo ou em parte, sem autorização por escrito da autora.
+- Não há licença de código aberto: sem uma licença, a lei garante todos os direitos à autora (Lei nº 9.610/98 e Lei nº 9.609/98).
+- Contribuições externas (*pull requests*) não são aceitas.
+
+Interesse no projeto ou em algo parecido para a sua comunidade? Entre em contato pelo [LinkedIn](https://www.linkedin.com/).
 
 ---
 
