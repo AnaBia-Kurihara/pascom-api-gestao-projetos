@@ -68,6 +68,9 @@ api:
       # Chave usada para criptografar o access token do Instagram no banco.
       # Em produção, defina a variável de ambiente INSTAGRAM_TOKEN_KEY com um valor forte e secreto.
       chave: ${INSTAGRAM_TOKEN_KEY:pascom-fatima-chave-de-criptografia-dev-trocar-em-producao}
+      # Só durante a troca da chave: a chave antiga, pra abrir o que foi gravado com ela e regravar
+      # com a nova na subida (CriptografiaService). Depois do deploy, pode apagar a variável.
+      chave-anterior: ${INSTAGRAM_TOKEN_KEY_ANTERIOR:}
     google:
       # ID do cliente OAuth do Google (não é secreto — o mesmo valor também fica hardcoded no front-end).
       client-id: ${GOOGLE_CLIENT_ID:}

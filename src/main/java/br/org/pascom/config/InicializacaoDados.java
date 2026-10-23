@@ -39,10 +39,13 @@ public class InicializacaoDados {
     private final EventoService eventoService;
     private final br.org.pascom.service.AniversarioService aniversarioService;
     private final String adminEmails;
+    private final br.org.pascom.service.TrocaDeChaveService trocaDeChave;
 
     public InicializacaoDados(UsuarioRepository usuarioRepository, SlotEscalaRepository slotEscalaRepository,
                               EventoService eventoService, br.org.pascom.service.AniversarioService aniversarioService,
-                              @Value("${app.admin-emails:}") String adminEmails) {
+                              @Value("${app.admin-emails:}") String adminEmails,
+                              br.org.pascom.service.TrocaDeChaveService trocaDeChave) {
+        this.trocaDeChave = trocaDeChave;
         this.aniversarioService = aniversarioService;
         this.usuarioRepository = usuarioRepository;
         this.slotEscalaRepository = slotEscalaRepository;
@@ -54,6 +57,10 @@ public class InicializacaoDados {
     // numa delas não marcar tudo como rollback (e derrubar a inicialização da aplicação).
     @EventListener(ApplicationReadyEvent.class)
     public void aoIniciar() {
+        executarComSeguranca("regravar segredos com a chave nova", () -> {
+            int n = trocaDeChave.regravarComChaveNova();
+            if (n > 0) log.info("Segredos regravados com a chave nova (INSTAGRAM_TOKEN_KEY): {}. Já dá pra apagar INSTAGRAM_TOKEN_KEY_ANTERIOR.", n);
+        });
         executarComSeguranca("normalizar e-mails", this::normalizarEmails);
         executarComSeguranca("aplicar ADMIN_EMAILS", this::aplicarAdmins);
         executarComSeguranca("definir setor das funções antigas", this::definirSetorDasFuncoesAntigas);
