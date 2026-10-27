@@ -9,7 +9,6 @@ import br.org.pascom.model.Usuario;
 import br.org.pascom.model.enums.Setor;
 import br.org.pascom.repository.EventoRepository;
 import br.org.pascom.repository.MontagemFimDeSemanaRepository;
-import br.org.pascom.repository.PublicacaoEscalaRepository;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -21,7 +20,6 @@ import java.security.SecureRandom;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.YearMonth;
 import java.time.temporal.TemporalAdjusters;
 import java.util.*;
 
@@ -54,23 +52,23 @@ public class HolyricsService {
 
     private final MontagemFimDeSemanaRepository montagemRepository;
     private final EventoRepository eventoRepository;
-    private final PublicacaoEscalaRepository publicacaoRepository;
     private final LiturgiaService liturgiaService;
     private final AvisoService avisoService;
     private final CalendarioService calendarioService;
     private final EmailService emailService;
     private final SecureRandom random = new SecureRandom();
     private final TransactionTemplate novaTransacao;
+    private final EventoService eventoService;
 
     public HolyricsService(MontagemFimDeSemanaRepository montagemRepository, EventoRepository eventoRepository,
-                           PublicacaoEscalaRepository publicacaoRepository, LiturgiaService liturgiaService,
+                           LiturgiaService liturgiaService,
                            AvisoService avisoService, CalendarioService calendarioService, EmailService emailService,
-                           PlatformTransactionManager transactionManager) {
+                           PlatformTransactionManager transactionManager, @org.springframework.context.annotation.Lazy EventoService eventoService) {
+        this.eventoService = eventoService;
         this.novaTransacao = new TransactionTemplate(transactionManager);
         this.novaTransacao.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
         this.montagemRepository = montagemRepository;
         this.eventoRepository = eventoRepository;
-        this.publicacaoRepository = publicacaoRepository;
         this.liturgiaService = liturgiaService;
         this.avisoService = avisoService;
         this.calendarioService = calendarioService;
@@ -291,7 +289,7 @@ public class HolyricsService {
         escalado(m.getSabado(), true).ifPresent(u -> pessoas.put(u.getId(), u));
         for (Missa x : missas) {
             LocalDate dia = m.getSabado().plusDays(x.diasDepoisDoSabado());
-            if (publicacaoRepository.findByMesAndSetor(YearMonth.from(dia).toString(), Setor.DATASHOW).isEmpty()) continue;
+            if (!eventoService.escalaPublicada(dia, Setor.DATASHOW)) continue;
             eventoRepository.findFirstByDataAndTituloAndExcluidoEmIsNull(dia, x.titulo()).ifPresent(e ->
                     e.getSlots().stream().filter(s -> s.getSetor() == Setor.DATASHOW && s.getVoluntario() != null)
                             .forEach(s -> pessoas.put(s.getVoluntario().getId(), s.getVoluntario())));
@@ -388,7 +386,7 @@ public class HolyricsService {
     }
 
     private Optional<Usuario> escalado(LocalDate sabado, boolean soSePublicada) {
-        if (soSePublicada && publicacaoRepository.findByMesAndSetor(YearMonth.from(sabado).toString(), Setor.HOLYRICS).isEmpty()) {
+        if (soSePublicada && !eventoService.escalaPublicada(sabado, Setor.HOLYRICS)) {
             return Optional.empty();
         }
         Optional<Evento> ev = eventoRepository.findFirstByDataAndTituloAndExcluidoEmIsNull(sabado, EventoService.TITULO_MONTAGEM_HOLYRICS);

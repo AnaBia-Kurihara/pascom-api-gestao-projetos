@@ -30,6 +30,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -51,6 +52,7 @@ class ApiIntegracaoTest {
     @Autowired private ObjectMapper json;
     @Autowired private br.org.pascom.repository.EventoRepository eventoRepository;
     @Autowired private br.org.pascom.repository.UsuarioRepository usuarioRepository;
+    @Autowired private br.org.pascom.service.CalendarioService calendario;
 
     /** Só pode existir um Coordenador Geral no sistema: é criado uma vez e usado em todos os testes. */
     private String geral;
@@ -350,7 +352,7 @@ class ApiIntegracaoTest {
         Pessoa novato = cadastrarELogar("VOLUNTARIO", "TRANSMISSOES_VIDEOS");
 
         // Missa que já aconteceu (há 20 dias), com "antigo" escalado. Gravada direto: a API não cria evento no passado.
-        LocalDate passado = LocalDate.now(FUSO).minusDays(20);
+        LocalDate passado = calendario.hoje().minusDays(20);
         br.org.pascom.model.Evento ev = br.org.pascom.model.Evento.builder().titulo("Missa passada de teste")
                 .data(passado).horario(java.time.LocalTime.of(10, 0)).local("Santuário").build();
         ev.getSlots().add(br.org.pascom.model.SlotEscala.builder().rotulo("Câmera 1")
@@ -480,6 +482,72 @@ class ApiIntegracaoTest {
     private void candidatar(Pessoa p, JsonNode evento, long slotId) throws Exception {
         assertThat(enviar(post("/api/eventos/" + evento.path("id").asLong() + "/slots/" + slotId + "/candidatura"), p.token, null)
                 .getResponse().getStatus()).isEqualTo(200);
+    }
+
+    // ---------------------------------------------------------------- equipe: coordenação inclui e tira pessoas
+
+    @Test
+    void coordenacaoDoHolyricsIncluiQuemEhDoDatashow() throws Exception {
+        Pessoa coordHoly = cadastrarELogar("COORDENADOR", "HOLYRICS");
+        Pessoa coordJovens = cadastrarELogar("COORDENADOR", "JOVENS");
+        Pessoa juliana = cadastrarELogar("VOLUNTARIO", "DATASHOW");
+
+        MvcResult r = enviar(post("/api/usuarios/" + juliana.id + "/setores/HOLYRICS"), coordHoly.token, null);
+        assertThat(r.getResponse().getStatus()).isEqualTo(200);
+        assertThat(corpo(r).path("setor").asText()).isEqualTo("DATASHOW"); // o setor principal continua
+        assertThat(corpo(r).path("setoresExtras").toString()).contains("HOLYRICS");
+        // A pessoa fica sabendo.
+        boolean avisada = false;
+        for (JsonNode a : corpo(mvc.perform(autenticado(get("/api/avisos"), juliana.token)).andReturn()).path("avisos")) {
+            if (a.path("texto").asText().contains("equipe de Holyrics")) avisada = true;
+        }
+        assertThat(avisada).isTrue();
+        // E agora pode entrar na Montagem do Holyrics.
+        assertThat(mvc.perform(autenticado(get("/api/holyrics/fins-de-semana"), juliana.token)).andReturn().getResponse().getStatus()).isEqualTo(200);
+
+        // Coordenador de outro setor não mexe na equipe do Holyrics.
+        assertThat(enviar(delete("/api/usuarios/" + juliana.id + "/setores/HOLYRICS"), coordJovens.token, null)
+                .getResponse().getStatus()).isEqualTo(400);
+        // Nem a coordenação do Holyrics tira o setor principal dela.
+        assertThat(enviar(delete("/api/usuarios/" + juliana.id + "/setores/DATASHOW"), coordHoly.token, null)
+                .getResponse().getStatus()).isEqualTo(400);
+        // A Coordenação Geral tira do Holyrics.
+        r = enviar(delete("/api/usuarios/" + juliana.id + "/setores/HOLYRICS"), geral, null);
+        assertThat(r.getResponse().getStatus()).isEqualTo(200);
+        assertThat(corpo(r).path("setoresExtras").toString()).doesNotContain("HOLYRICS");
+    }
+
+    @Test
+    void voluntarioNaoMudaAEquipeDeNinguem() throws Exception {
+        Pessoa vol = cadastrarELogar("VOLUNTARIO", "DATASHOW");
+        Pessoa outro = cadastrarELogar("VOLUNTARIO", "DATASHOW");
+        assertThat(enviar(post("/api/usuarios/" + outro.id + "/setores/HOLYRICS"), vol.token, null).getResponse().getStatus()).isEqualTo(400);
+    }
+
+    // ---------------------------------------------------------------- ciclo: janela de candidaturas
+
+    @Test
+    void candidaturaForaDaJanelaEhRecusadaComADataQueAbre() throws Exception {
+        // "Hoje" dos testes é dia 15: o mês que vem está aberto, o seguinte só abre no dia 11 do mês que vem.
+        Pessoa vol = cadastrarELogar("VOLUNTARIO", "REDES_SOCIAIS");
+        LocalDate daqui2Meses = YearMonth.from(calendario.hoje()).plusMonths(2).atDay(1).with(TemporalAdjusters.nextOrSame(DayOfWeek.WEDNESDAY));
+        Map<String, Object> slot = new LinkedHashMap<>();
+        slot.put("rotulo", "Foto");
+        slot.put("setor", "REDES_SOCIAIS");
+        Map<String, Object> ev = new LinkedHashMap<>();
+        ev.put("titulo", "Evento de teste da janela " + UUID.randomUUID().toString().substring(0, 6));
+        ev.put("data", daqui2Meses.toString());
+        ev.put("horario", "19:00");
+        ev.put("local", "Santuário");
+        ev.put("slots", List.of(slot));
+        JsonNode criado = corpo(enviar(post("/api/eventos"), geral, ev));
+        assertThat(criado.path("candidaturaAberta").asBoolean()).isFalse();
+        assertThat(criado.path("candidaturasAbrem").asText()).endsWith("-11");
+
+        MvcResult r = enviar(post("/api/eventos/" + criado.path("id").asLong() + "/slots/" + criado.path("slots").get(0).path("id").asLong() + "/candidatura"),
+                vol.token, null);
+        assertThat(r.getResponse().getStatus()).isEqualTo(400);
+        assertThat(corpo(r).path("erro").asText()).contains("abrem dia 11/");
     }
 
     // ---------------------------------------------------------------- notificações no celular

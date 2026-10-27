@@ -104,6 +104,19 @@ public class UsuarioController {
     }
 
     /** Só Coordenação Geral: gera um link de nova senha pra mandar por fora (ex.: WhatsApp). */
+    /** Coordenação inclui (POST) ou tira (DELETE) a pessoa da equipe de um setor, como setor extra. */
+    @PostMapping("/{id}/setores/{setor}")
+    public ResponseEntity<UsuarioResponseDTO> incluirNoSetor(@PathVariable Long id, @PathVariable br.org.pascom.model.enums.Setor setor,
+                                                             @AuthenticationPrincipal Usuario solicitante) {
+        return ResponseEntity.ok(usuarioService.alterarSetorExtra(id, setor, true, solicitante));
+    }
+
+    @DeleteMapping("/{id}/setores/{setor}")
+    public ResponseEntity<UsuarioResponseDTO> tirarDoSetor(@PathVariable Long id, @PathVariable br.org.pascom.model.enums.Setor setor,
+                                                           @AuthenticationPrincipal Usuario solicitante) {
+        return ResponseEntity.ok(usuarioService.alterarSetorExtra(id, setor, false, solicitante));
+    }
+
     @PostMapping("/{id}/link-redefinicao")
     public ResponseEntity<java.util.Map<String, String>> linkRedefinicao(@PathVariable Long id,
                                                                          @AuthenticationPrincipal Usuario solicitante) {

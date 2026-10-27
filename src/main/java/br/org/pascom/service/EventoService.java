@@ -307,11 +307,8 @@ public class EventoService {
             throw new IllegalStateException("Essa função é de " + nomeSetor(slot.getSetor())
                     + ". Se você também serve nesse setor, adicione ele no seu perfil.");
         }
-        exigirMesAberto(slot.getEvento().getData());
-        Set<String> publicados = publicacaoRepository.findByMesAndSetor(
-                YearMonth.from(slot.getEvento().getData()).toString(), slot.getSetor()).isPresent()
-                ? Set.of(chavePublicacao(slot.getEvento().getData(), slot.getSetor())) : Set.of();
-        if (publicada(slot, publicados) && slot.getVoluntario() != null
+        exigirCandidaturaAberta(slot.getEvento().getData());
+        if (funcaoPublicada(slot) && slot.getVoluntario() != null
                 && !slot.getVoluntario().getId().equals(voluntario.getId())) {
             throw new IllegalStateException("Vaga ocupada, tente servir outro dia.");
         }
@@ -325,7 +322,7 @@ public class EventoService {
     @Transactional
     public EventoDTO desistirCandidatura(Long eventoId, Long slotId, Usuario voluntario) {
         SlotEscala slot = slotDoEvento(eventoId, slotId);
-        exigirMesAberto(slot.getEvento().getData());
+        exigirCandidaturaAberta(slot.getEvento().getData());
         candidaturaRepository.findBySlotIdAndUsuarioId(slotId, voluntario.getId())
                 .ifPresent(candidaturaRepository::delete);
         return toDTO(eventoRepository.findById(eventoId).orElseThrow(), voluntario);
@@ -389,8 +386,8 @@ public class EventoService {
     @Transactional
     public void despublicar(YearMonth mes, Setor setor, Usuario solicitante) {
         exigirCoordenaSetor(setor, solicitante);
-        if (mesFechado(mes.atDay(1))) {
-            throw new IllegalStateException("A escala desse mês já está fechada e não pode voltar pra montagem.");
+        if (CicloEscala.fechado(mes, calendarioService.hoje())) {
+            throw new IllegalStateException("A escala desse mês já começou e não pode voltar pra montagem.");
         }
         publicacaoRepository.findByMesAndSetor(mes.toString(), setor).ifPresent(p -> {
             publicacaoRepository.delete(p);
@@ -443,7 +440,7 @@ public class EventoService {
         // Mês que já chegou tem a escala fechada: quem precisar sair fala com a coordenação,
         // que continua podendo trocar/tirar pra cobrir imprevistos.
         if (!coordenaEquipeDela && mesFechado(slot.getEvento().getData())) {
-            throw new IllegalStateException("A escala de " + nomeMesExtenso(slot.getEvento().getData())
+            throw new IllegalStateException("A escala de " + nomeMesExtenso(CicloEscala.mesDaEscala(slot.getEvento().getData()).atDay(1))
                     + " já está fechada. Pra sair, fale com a coordenação do seu setor.");
         }
 
@@ -543,7 +540,7 @@ public class EventoService {
         if (setor == null) return;
         historicoRepository.save(AlteracaoEscala.builder()
                 .setor(setor)
-                .mes(YearMonth.from(dataEvento).toString())
+                .mes(CicloEscala.mesDaEscala(dataEvento).toString())
                 .texto(texto.length() > 500 ? texto.substring(0, 497) + "..." : texto)
                 .autor(autor)
                 .criadoEm(LocalDateTime.now())
@@ -553,7 +550,7 @@ public class EventoService {
     /** Ao publicar, cada pessoa escalada naquele setor/mês recebe um aviso com as funções dela. */
     private void avisarPublicacao(YearMonth mes, Setor setor) {
         List<Evento> eventos = eventoRepository.findByDataBetweenAndExcluidoEmIsNullOrderByDataAscHorarioAsc(
-                mes.atDay(1), mes.atEndOfMonth());
+                CicloEscala.inicio(mes), CicloEscala.fim(mes));
         Map<Long, List<String>> porPessoa = new java.util.LinkedHashMap<>();
         Map<Long, Usuario> pessoas = new java.util.HashMap<>();
         for (Evento e : eventos) {
@@ -571,8 +568,16 @@ public class EventoService {
     }
 
     private boolean funcaoPublicada(SlotEscala s) {
-        return s.getSetor() == null || publicacaoRepository.findByMesAndSetor(
-                YearMonth.from(s.getEvento().getData()).toString(), s.getSetor()).isPresent();
+        return s.getSetor() == null || escalaPublicada(s.getEvento().getData(), s.getSetor());
+    }
+
+    /** A escala do setor que vale pra esse dia já foi publicada? (usado também pelo Holyrics) */
+    public boolean escalaPublicada(LocalDate data, Setor setor) {
+        for (String chave : CicloEscala.chavesPublicacao(data, setor)) {
+            String[] p = chave.split("\\|");
+            if (publicacaoRepository.findByMesAndSetor(p[0], setor).isPresent()) return true;
+        }
+        return false;
     }
 
     /** "Missa das 10h de domingo, 22/11" */
@@ -667,12 +672,19 @@ public class EventoService {
      */
     @Transactional
     public int garantirEscalasDoMesAtualEProximo() {
-        YearMonth atual = YearMonth.from(calendarioService.hoje());
-        return gerarEscalasDoMes(atual) + gerarEscalasDoMes(atual.plusMonths(1));
+        LocalDate hoje = calendarioService.hoje();
+        YearMonth atual = YearMonth.from(hoje);
+        int criados = gerarEscalasDoMes(atual);
+        // O mês seguinte entra no dia em que as candidaturas dele abrem (dia 11), ou antes, nos meses
+        // da regra antiga. Novembro/2026 já existia.
+        YearMonth proximo = atual.plusMonths(1);
+        LocalDate abre = CicloEscala.abreCandidaturas(proximo);
+        if (abre == null || !hoje.isBefore(abre)) criados += gerarEscalasDoMes(proximo);
+        return criados;
     }
 
-    /** Roda no dia 1 de cada mês às 6h (horário de Brasília). */
-    @Scheduled(cron = "0 0 6 1 * *", zone = CalendarioService.FUSO)
+    /** Roda todo dia às 6h (horário de Brasília): cada etapa só faz algo no dia certo e não repete. */
+    @Scheduled(cron = "0 0 6 * * *", zone = CalendarioService.FUSO)
     @Transactional
     public void gerarEscalasDoMesAgendado() {
         try {
@@ -688,48 +700,58 @@ public class EventoService {
     }
 
     /**
-     * O mês que chegou não pode ficar "em montagem": no dia 1 (e na subida da aplicação, caso o
-     * servidor estivesse fora do ar no dia 1), publica a escala do mês atual de todo setor que a
-     * coordenação não publicou. A partir do dia 25 do mês anterior o front já avisa a coordenação.
+     * A escala não pode começar "em montagem": na véspera do primeiro dia da escala do mês (e na
+     * subida da aplicação, caso o servidor estivesse fora), publica de todo setor que a coordenação
+     * não publicou. A partir do dia 21 do mês anterior o front já avisa a coordenação.
      *
      * @return quantos setores foram publicados agora
      */
     @Transactional
     public int publicarMesQueChegou() {
-        String mes = YearMonth.from(calendarioService.hoje()).toString();
+        LocalDate hoje = calendarioService.hoje();
         int publicados = 0;
-        for (Setor setor : Setor.values()) {
-            if (publicacaoRepository.findByMesAndSetor(mes, setor).isEmpty()) {
-                publicacaoRepository.save(PublicacaoEscala.builder()
-                        .mes(mes).setor(setor).publicadaEm(LocalDateTime.now()).build());
-                publicados++;
-                LocalDate primeiro = YearMonth.parse(mes).atDay(1);
-                registrar(setor, primeiro, null, "Escala de " + nomeMesExtenso(primeiro)
-                        + " publicada automaticamente no dia 1º (ninguém tinha publicado).");
-                avisarPublicacao(YearMonth.parse(mes), setor);
+        YearMonth daEscala = CicloEscala.mesDaEscala(hoje);
+        for (YearMonth m : List.of(daEscala, daEscala.plusMonths(1))) {
+            if (hoje.isBefore(CicloEscala.publicacaoAutomatica(m))) continue;
+            for (Setor setor : Setor.values()) {
+                if (publicacaoRepository.findByMesAndSetor(m.toString(), setor).isEmpty()) {
+                    publicacaoRepository.save(PublicacaoEscala.builder()
+                            .mes(m.toString()).setor(setor).publicadaEm(LocalDateTime.now()).build());
+                    publicados++;
+                    registrar(setor, m.atDay(1), null, "Escala de " + nomeMesExtenso(m.atDay(1))
+                            + " publicada automaticamente na véspera do início (ninguém tinha publicado).");
+                    avisarPublicacao(m, setor);
+                }
             }
         }
         return publicados;
     }
 
-    /**
-     * Primeiro mês em que o fechamento vale. O sistema começou a ser usado no meio de outubro de
-     * 2026, então a escala de outubro fica aberta até o fim; de novembro em diante, todo mês fecha
-     * quando chega.
-     */
-    static final YearMonth PRIMEIRO_MES_COM_FECHAMENTO = YearMonth.of(2026, 11);
-
-    /** Mês que já chegou (ou passou): a escala está fechada pra equipe. */
+    /** Escala do mês daquele dia já começou: fechada pra equipe. */
     private boolean mesFechado(LocalDate data) {
-        YearMonth m = YearMonth.from(data);
-        return !m.isBefore(PRIMEIRO_MES_COM_FECHAMENTO) && !m.isAfter(YearMonth.from(calendarioService.hoje()));
+        return CicloEscala.fechado(data, calendarioService.hoje());
     }
 
     private void exigirMesAberto(LocalDate data) {
         if (mesFechado(data)) {
-            throw new IllegalStateException("A escala de " + nomeMesExtenso(data)
+            throw new IllegalStateException("A escala de " + nomeMesExtenso(CicloEscala.mesDaEscala(data).atDay(1))
                     + " já está fechada. Se precisar mudar algo, fale com a coordenação do seu setor.");
         }
+    }
+
+    /** "Quero servir"/desistir: só entre o dia 11 e o dia 20 do mês anterior (a partir do dia 21, a coordenação monta). */
+    private void exigirCandidaturaAberta(LocalDate data) {
+        exigirMesAberto(data);
+        if (CicloEscala.candidaturaAberta(data, calendarioService.hoje())) return;
+        YearMonth m = CicloEscala.mesDaEscala(data);
+        java.time.format.DateTimeFormatter dm = java.time.format.DateTimeFormatter.ofPattern("dd/MM");
+        LocalDate abre = CicloEscala.abreCandidaturas(m);
+        if (abre != null && calendarioService.hoje().isBefore(abre)) {
+            throw new IllegalStateException("As candidaturas da escala de " + nomeMesExtenso(m.atDay(1)) + " abrem dia "
+                    + abre.format(dm) + ".");
+        }
+        throw new IllegalStateException("As candidaturas da escala de " + nomeMesExtenso(m.atDay(1)) + " fecharam dia "
+                + CicloEscala.fechaCandidaturas(m).format(dm) + ": a coordenação está montando. Se precisar, fale com ela.");
     }
 
     private static String nomeMesExtenso(LocalDate data) {
@@ -750,7 +772,7 @@ public class EventoService {
      */
     public EscalaCompletaDTO escalaCompleta(YearMonth mes, Setor setor, Usuario viewer) {
         List<Evento> eventos = eventoRepository.findByDataBetweenAndExcluidoEmIsNullOrderByDataAscHorarioAsc(
-                mes.atDay(1), mes.atEndOfMonth());
+                CicloEscala.inicio(mes), CicloEscala.fim(mes));
 
         Visao v = visao(viewer, eventos);
         List<Setor> ordem = new ArrayList<>();
@@ -861,13 +883,10 @@ public class EventoService {
         return new Visao(viewer, publicados, cands);
     }
 
-    private static String chavePublicacao(LocalDate data, Setor setor) {
-        return YearMonth.from(data) + "|" + setor.name();
-    }
-
     /** Função geral (sem setor) não passa por montagem/publicação. */
     private static boolean publicada(SlotEscala s, Set<String> publicados) {
-        return s.getSetor() == null || publicados.contains(chavePublicacao(s.getEvento().getData(), s.getSetor()));
+        return s.getSetor() == null || CicloEscala.chavesPublicacao(s.getEvento().getData(), s.getSetor()).stream()
+                .anyMatch(publicados::contains);
     }
 
     /** Quem monta a escala da função: coordenação do setor ou Coordenação Geral (função geral: só a Geral). */
@@ -907,10 +926,14 @@ public class EventoService {
     private EventoDTO toDTO(Evento e, Visao v) {
         List<SlotEscalaDTO> slotsDto = e.getSlots().stream().map(sl -> toSlotDTO(sl, v)).toList();
 
+        LocalDate hoje = calendarioService.hoje();
+        YearMonth m = CicloEscala.mesDaEscala(e.getData());
         return new EventoDTO(
                 e.getId(), e.getTitulo(), e.getData(), e.getHorario(),
                 e.getLocal(), e.getEventoGrande(), slotsDto,
-                e.getExcluidoEm(), e.getMotivoExclusao(), e.getDetalheExclusao()
+                e.getExcluidoEm(), e.getMotivoExclusao(), e.getDetalheExclusao(),
+                m.toString(), CicloEscala.candidaturaAberta(e.getData(), hoje), CicloEscala.fechado(m, hoje),
+                CicloEscala.abreCandidaturas(m), CicloEscala.fechaCandidaturas(m)
         );
     }
 }

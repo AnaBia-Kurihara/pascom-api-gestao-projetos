@@ -18,5 +18,14 @@ public record EventoDTO(
         List<SlotEscalaDTO> slots,
         LocalDateTime excluidoEm,
         MotivoExclusao motivoExclusao,
-        String detalheExclusao
+        String detalheExclusao,
+        /** Mês da escala (o sábado antes de um domingo dia 1º entra no mês seguinte). Ver CicloEscala. */
+        String mesEscala,
+        /** Hoje dá pra se candidatar ("Quero servir") nas funções desse evento. */
+        boolean candidaturaAberta,
+        /** A escala desse mês já começou: fechada pra equipe. */
+        boolean fechado,
+        /** Dia em que as candidaturas abrem (null = já nasceu aberta) e em que fecham. */
+        LocalDate candidaturasAbrem,
+        LocalDate candidaturasFecham
 ) {}

@@ -240,6 +240,42 @@ public class UsuarioService {
      * na verdade é subcoordenadora). Só pode existir um COORDENADOR_GERAL, e ninguém muda o
      * próprio papel (evita a Coordenação Geral se trancar pra fora sem querer).
      */
+    /**
+     * A coordenação inclui ou tira alguém da equipe de um setor (setor extra), ex.: pôr o Holyrics pra
+     * quem já é do Datashow. Coordenação Geral e gestor(a) de escalas mexem em qualquer setor; o
+     * coordenador de setor, só no dele. O setor principal continua sendo mudado só no "Gerenciar".
+     */
+    @Transactional
+    public UsuarioResponseDTO alterarSetorExtra(Long id, Setor setor, boolean incluir, Usuario solicitante) {
+        if (setor == null) throw new IllegalArgumentException("Escolha o setor.");
+        boolean pode = solicitante.temPoderesDeCoordenadorGeral() || solicitante.gereTodasAsEscalas()
+                || (solicitante.getRole() == Role.COORDENADOR && solicitante.getSetor() == setor);
+        if (!pode) {
+            throw new IllegalStateException("Só a coordenação de " + nomeSetor(setor) + " pode mudar quem faz parte dessa equipe.");
+        }
+        Usuario usuario = buscar(id);
+        if (usuario.getRole() == Role.COORDENADOR_GERAL) {
+            throw new IllegalStateException("A Coordenação Geral já faz parte de todos os setores.");
+        }
+        if (usuario.getSetor() == setor) {
+            if (incluir) return UsuarioResponseDTO.from(usuario);
+            throw new IllegalStateException(nomeSetor(setor) + " é o setor principal de " + usuario.getNome()
+                    + ". Só a Coordenação Geral muda isso, em Gerenciar.");
+        }
+        boolean mudou = incluir ? usuario.getSetoresExtras().add(setor) : usuario.getSetoresExtras().remove(setor);
+        usuarioRepository.save(usuario);
+        if (mudou && !usuario.getId().equals(solicitante.getId())) {
+            avisoService.avisar(usuario, incluir
+                    ? "🎉 " + solicitante.getNome() + " incluiu você na equipe de " + nomeSetor(setor) + ". Agora você vê as escalas desse setor e pode se candidatar."
+                    : solicitante.getNome() + " tirou você da equipe de " + nomeSetor(setor) + ".");
+        }
+        return UsuarioResponseDTO.from(usuario);
+    }
+
+    private static String nomeSetor(Setor s) {
+        return EventoService.nomeSetor(s);
+    }
+
     @Transactional
     public UsuarioResponseDTO alterarPapel(Long id, PapelUpdateDTO dados, Usuario solicitante) {
         if (!solicitante.temPoderesDeCoordenadorGeral()) {

@@ -173,6 +173,8 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center;justify-conten
 .sug-item input{width:20px;height:20px;flex:0 0 auto}
 .sug-item small{color:var(--ink3);font-size:12.5px}
 .sug-vazia{color:var(--ink3)}
+.inc-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--line)}
+.inc-row:first-child{border-top:0}
 .ev-cheio{margin:0 16px 12px;padding:10px 12px;border-radius:10px;background:var(--tint);color:var(--ink2);font-size:14px}
 .note{font-size:13px;color:var(--ink3);margin-top:8px}
 
@@ -884,7 +886,11 @@ function eventoFromApi(e){
       // Escala com candidatura: a coordenação monta em sigilo e publica por mês/setor.
       publicada:s.publicada!==false, oculto:!!s.oculto, euCand:!!s.euMeCandidatei,
       candidatos:s.candidatos?s.candidatos.map(c=>String(c.id)):null})),
-    excluidoEm:e.excluidoEm||null, motivoExclusao:e.motivoExclusao||null, detalheExclusao:e.detalheExclusao||null
+    excluidoEm:e.excluidoEm||null, motivoExclusao:e.motivoExclusao||null, detalheExclusao:e.detalheExclusao||null,
+    // Ciclo da escala, calculado no servidor (CicloEscala): mês da escala (o sábado antes de um domingo
+    // dia 1º é do mês seguinte), candidatura aberta (dia 11 a 20 do mês anterior) e mês já fechado.
+    mesEscala:e.mesEscala||(e.data||'').slice(0,7), candAberta:e.candidaturaAberta!==false, fechado:!!e.fechado,
+    candAbrem:e.candidaturasAbrem||null, candFecham:e.candidaturasFecham||null
   };
 }
 function missaFromApi(m){
@@ -1190,18 +1196,17 @@ const hojeISO=()=>{const a=new Date();return a.getFullYear()+'-'+String(a.getMon
 const doSetorAtual=s=>s.setor===currentSetor||s.setor===null;
 // Mês que já chegou: escala fechada pra equipe (só a coordenação mexe). Mesma regra do backend:
 // vale de novembro/2026 em diante (outubro, quando o sistema começou, fica aberto até o fim).
-const PRIMEIRO_MES_COM_FECHAMENTO='2026-11';
-const mesFechado=iso=>{const m=iso.slice(0,7);return m>=PRIMEIRO_MES_COM_FECHAMENTO&&m<=hojeISO().slice(0,7);};
+const fmtDM=iso=>{const p=String(iso).split('-');return p[2]+'/'+p[1];};
 function proximoMesISO(){const a=new Date();const d=new Date(a.getFullYear(),a.getMonth()+1,1);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');}
-/* A partir do dia 25, quem coordena vê o que falta publicar do mês que vem. Se ninguém publicar,
-   o servidor publica sozinho no dia 1º (EventoService.publicarMesQueChegou). */
+/* A partir do dia 21 (quando as candidaturas do mês que vem fecham), quem coordena vê o que falta
+   publicar. Se ninguém publicar, o servidor publica sozinho na véspera do início (publicarMesQueChegou). */
 function lembretePublicacaoHtml(){
-  const m=me(); if(!m||new Date().getDate()<25) return '';
+  const m=me(); if(!m||new Date().getDate()<21) return '';
   const meus=gereEscalas()?SETORES.map(x=>x.id):(m.role==='coordenador'&&m.setor?[m.setor]:[]);
   const prox=proximoMesISO();
-  const pend=meus.filter(st=>state.events.some(e=>e.date.slice(0,7)===prox&&e.slots.some(s=>s.setor===st&&!s.publicada)));
+  const pend=meus.filter(st=>state.events.some(e=>e.mesEscala===prox&&e.slots.some(s=>s.setor===st&&!s.publicada)));
   if(!pend.length) return '';
-  return '<div class="lembrete-pub"><div><b>Falta publicar a escala de '+esc(nomeMes(prox))+'</b><span>'+pend.map(st=>esc(SETOR_NAME[st])).join(', ')+'. Se ninguém publicar, ela é publicada sozinha no dia 1º, do jeito que estiver.</span></div>'+
+  return '<div class="lembrete-pub"><div><b>Falta publicar a escala de '+esc(nomeMes(prox))+'</b><span>'+pend.map(st=>esc(SETOR_NAME[st])).join(', ')+'. As candidaturas já fecharam: é hora de montar. Se ninguém publicar, ela é publicada sozinha na véspera do início, do jeito que estiver.</span></div>'+
     pend.map(st=>'<button class="btn small gold" data-action="irPublicar" data-setor="'+st+'">'+(pend.length>1?esc(SETOR_NAME[st]):'Revisar e publicar')+'</button>').join('')+'</div>';
 }
 function dbadgeHtml(iso){const d=parse(iso);return '<div class="dbadge"><b>'+d.getDate()+'</b><span>'+d.toLocaleDateString('pt-BR',{month:'short'}).replace('.','')+'</span></div>';}
@@ -1213,7 +1218,7 @@ function minhasEscalas(){
 function eventosComVagaNoSetor(){
   const h=hojeISO();
   const coord=coordenaEscala(currentSetor);
-  return state.events.filter(e=>e.date>=h&&(coord||!mesFechado(e.date))&&e.slots.some(s=>doSetorAtual(s)&&!s.who&&!s.oculto))
+  return state.events.filter(e=>e.date>=h&&(coord||e.candAberta)&&e.slots.some(s=>doSetorAtual(s)&&!s.who&&!s.oculto))
     .sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
 }
 /* Aniversários no Painel: mensagem pra todo mundo, pedido de data pra quem ainda não informou e,
@@ -1891,7 +1896,7 @@ function viewEscalas(){
     .filter(e=>e.slots.some(doSetor)||(podeEditarSetor&&!/^(missa das \d{1,2}h(\d{2})?|montagem holyrics)$/i.test((e.title||'').trim())))
     .sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
   // Filtro rápido: todas / só onde ainda falta gente / só onde eu estou.
-  const comVaga=e=>(podeEditarSetor||!mesFechado(e.date))&&e.slots.some(s=>doSetor(s)&&!s.who), minha=e=>e.slots.some(s=>s.who===state.me||s.euCand);
+  const comVaga=e=>(podeEditarSetor||e.candAberta)&&e.slots.some(s=>doSetor(s)&&!s.who), minha=e=>e.slots.some(s=>s.who===state.me||s.euCand);
   const n={todas:evs.length,vagas:evs.filter(comVaga).length,minhas:evs.filter(minha).length};
   const filtrados=escalaFiltro==='vagas'?evs.filter(comVaga):escalaFiltro==='minhas'?evs.filter(minha):evs;
   const chips='<div class="dash-tabs chips-esc">'+[['todas','Todas'],['vagas','Com vaga'],['minhas','Minhas']].map(x=>
@@ -1899,23 +1904,24 @@ function viewEscalas(){
   const coord=(podeCriar||gereEscalas())?'<div class="filters" style="margin-bottom:12px">'+
     (podeCriar?'<button class="btn primary" data-action="novaEscala">+ Evento extra com escala</button>':'')+
     (gereEscalas()?'<button class="btn" data-action="gerarEscalasMes">Gerar missas do mês</button>':'')+'</div>':'';
-  const como='<details class="como"><summary>Como funciona a escala</summary><p>Todo mês a escala começa nova: as missas de domingo (e, pro Datashow, as das 8h, 18h30 e a de sábado às 16h30; pro Holyrics, a montagem de cada fim de semana) entram sozinhas, já com as funções de cada setor. '+
+  const como='<details class="como"><summary>Como funciona a escala</summary><p>Todo mês a escala começa nova: as missas de domingo (e, pro Datashow, as das 8h, 18h30 e a de sábado às 16h30; pro Holyrics, a montagem de cada fim de semana) entram sozinhas, já com as funções de cada setor, no dia 11 do mês anterior. Do <b>dia 11 ao 20</b> a equipe se candidata; do <b>dia 21 ao fim do mês</b> a coordenação monta e publica. O sábado antes de um domingo dia 1º entra na escala do mês do domingo. '+
     (podeEditarSetor
       ?'Enquanto a escala do mês está <b>em montagem</b>, só a coordenação vê quem foi escalado: veja os candidatos de cada função, toque em <b>Escalar</b> ou <b>Trocar</b> e, quando estiver pronta, <b>publique</b>. Você também pode renomear, remover ou adicionar funções de '+esc(SETOR_NAME[currentSetor])+'.'
-      :'Toque em <b>Quero servir</b> nas funções em que você pode servir. A coordenação escolhe quem fica em cada uma e, quando a escala for <b>publicada</b>, ela aparece aqui pra todo mundo. Quando o mês chega, a escala dele <b>fecha</b>: se precisar sair, fale com a coordenação do seu setor.')+
+      :'Toque em <b>Quero servir</b> nas funções em que você pode servir. A coordenação escolhe quem fica em cada uma e, quando a escala for <b>publicada</b>, ela aparece aqui pra todo mundo. Quando a escala do mês começa, ela <b>fecha</b>: se precisar sair, fale com a coordenação do seu setor.')+
     (podeCriar?' Se tiver outro evento que precise de gente, marque como evento extra.':'')+'</p></details>';
   const naoFaz=me()&&!pertenceSetor(me(),currentSetor)&&!gereEscalas()?'<div class="aviso-equipe"><span>Você ainda não faz parte de <b>'+esc(SETOR_NAME[currentSetor])+'</b>, então não pode se inscrever nas vagas daqui. Se você também serve neste setor, adicione ele no seu perfil.</span><button class="btn small primary" data-action="abrirPerfil">Ir pro meu perfil</button></div>':'';
   // Status de cada mês da lista (em montagem / publicada) pro setor atual.
   const meses={};
-  evs.forEach(e=>e.slots.filter(s=>s.setor===currentSetor).forEach(s=>{const m=e.date.slice(0,7); if(!(m in meses)) meses[m]=s.publicada;}));
+  const fechadoMes={}, janela={};
+  evs.forEach(e=>e.slots.filter(s=>s.setor===currentSetor).forEach(s=>{const m=e.mesEscala; meses[m]=(m in meses?meses[m]:true)&&s.publicada; if(e.fechado) fechadoMes[m]=true; if(!janela[m]) janela[m]=e;}));
   const mesesKeys=Object.keys(meses).sort();
   const statusMeses=!mesesKeys.length?'':podeEditarSetor
-    ?'<div class="pub-bar">'+mesesKeys.map(m=>{const fech=mesFechado(m+'-01');
+    ?'<div class="pub-bar">'+mesesKeys.map(m=>{const fech=!!fechadoMes[m];
         return '<div class="pub-row"><span><b>'+esc(nomeMes(m))+'</b> <span class="pill '+(fech?'':meses[m]?'ok':'warn')+'">'+(fech?'Fechada':meses[m]?'Publicada':'Em montagem')+'</span></span>'+
         '<span class="pub-acts"><button class="btn small" data-action="sugerirEscala" data-mes="'+m+'" data-publicada="'+(meses[m]?1:0)+'">Sugerir escala</button>'+
         (fech?'<span class="note" style="margin:0">Só a coordenação mexe</span>':meses[m]?'<button class="btn small" data-action="despublicarMes" data-mes="'+m+'">Voltar pra montagem</button>':'<button class="btn small primary" data-action="publicarMes" data-mes="'+m+'">Publicar escala</button>')+'</span></div>';}).join('')+
-      '<p class="note" style="margin:6px 0 0">Em montagem, só a coordenação vê os nomes. Publicou, a equipe vê a escala final. Quando o mês chega, a escala dele fecha (e, se não tiver sido publicada, é publicada sozinha no dia 1º).</p></div>'
-    :(mesesKeys.some(m=>!meses[m])?'<div class="aviso-montagem">A escala de <b>'+mesesKeys.filter(m=>!meses[m]).map(nomeMes).join(' e ')+'</b> está em montagem. Toque em <b>Quero servir</b> nas funções em que você pode; a coordenação escolhe e publica.</div>':'');
+      '<p class="note" style="margin:6px 0 0">Candidaturas de cada mês: do dia 11 ao 20 do mês anterior. Do dia 21 até o fim do mês a coordenação monta e publica (em montagem, só a coordenação vê os nomes). Se ninguém publicar, a escala sai sozinha na véspera do início, e quando ela começa, fecha. O sábado antes de um domingo dia 1º entra na escala do mês do domingo.</p></div>'
+    :(mesesKeys.some(m=>!meses[m])?'<div class="aviso-montagem">A escala de <b>'+mesesKeys.filter(m=>!meses[m]).map(nomeMes).join(' e ')+'</b> está em montagem. As candidaturas vão do dia 11 ao 20 do mês anterior: toque em <b>Quero servir</b> nas funções em que você pode, e a coordenação escolhe e publica.</div>':'');
   const acoes=(podeEditarSetor?lembretePublicacaoHtml():'')+naoFaz+chips+coord+statusMeses+como;
   const rodape=(podeEditarSetor?historicoHtml():'')+pdfBarHtml(currentSetor);
   const vazio=escalaFiltro==='minhas'?'Você ainda não está em nenhuma escala de '+esc(SETOR_NAME[currentSetor])+'.':escalaFiltro==='vagas'?'Vagas ocupadas, tente servir outro dia. Se alguém sair da escala, a vaga volta a aparecer aqui.':'Nenhuma escala aberta pra '+esc(SETOR_NAME[currentSetor])+' por enquanto.';
@@ -1935,8 +1941,11 @@ function viewEscalas(){
         const podeEntrar=!s.setor||pertenceSetor(me(),s.setor);
         const key=e.id+':'+s.id, editavel=podeEditarFuncao(s);
         const ds=' data-ev="'+e.id+'" data-slot="'+s.id+'"';
-        const fechado=mesFechado(e.date);
+        const fechado=e.fechado;
+        // Fora da janela (dia 11 a 20 do mês anterior): mostra quando abre, ou que a coordenação está montando.
+        const foraDaJanela=()=>e.candAbrem&&hojeISO()<e.candAbrem?'Candidaturas a partir de '+fmtDM(e.candAbrem):'Coordenação montando';
         const candBtn=()=>!podeEntrar?'<span class="so-setor">Só pra '+esc(SETOR_NAME[s.setor])+'</span>'
+          :!e.candAberta?'<span class="so-setor">'+(s.euCand?'✓ Você se candidatou · ':'')+foraDaJanela()+'</span>'
           :s.euCand?'<button class="btn small cand-ok" data-action="desistir"'+ds+' title="Toque pra desistir">✓ Me candidatei</button>'
           :'<button class="btn small primary" data-action="candidatar"'+ds+'>Quero servir</button>';
         if(fechado&&!editavel){
@@ -1987,15 +1996,17 @@ function viewEscalas(){
 function pdfBarHtml(setor){
   const dl='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>';
   return '<div class="pdf-bar'+(setor?' pdf-bar-setor':'')+'">'+
-    (setor?'<span class="pdf-k">Escala em PDF</span>':'')+
+    (setor?'<span class="pdf-k">Escala do mês</span>':'')+
     '<div class="mes-nav"><button class="btn small" data-action="escalaMes" data-delta="-1" aria-label="Mês anterior">‹</button>'+
     '<b>'+esc(nomeMes(escalaMes))+'</b>'+
     '<button class="btn small" data-action="escalaMes" data-delta="1" aria-label="Próximo mês">›</button></div>'+
     '<div class="pdf-acoes">'+
       (setor
-        ?'<button class="btn primary" data-action="baixarEscalaPdf" data-setor="'+setor+'">'+dl+'Baixar PDF de '+esc(SETOR_NAME[setor])+'</button>'
-        :'<button class="btn" data-action="baixarEscalaPdf" data-setor="'+currentSetor+'">'+dl+'Só '+esc(SETOR_NAME[currentSetor])+'</button>'+
-         '<button class="btn primary" data-action="baixarEscalaPdf">'+dl+'PDF completo</button>')+
+        ?'<button class="btn primary" data-action="baixarEscalaImagem" data-setor="'+setor+'">'+dl+'Imagem de '+esc(SETOR_NAME[setor])+'</button>'+
+         '<button class="btn small" data-action="baixarEscalaPdf" data-setor="'+setor+'">PDF</button>'
+        :'<button class="btn" data-action="baixarEscalaImagem" data-setor="'+currentSetor+'">'+dl+'Só '+esc(SETOR_NAME[currentSetor])+'</button>'+
+         '<button class="btn primary" data-action="baixarEscalaImagem">'+dl+'Imagem completa</button>'+
+         '<button class="btn small" data-action="baixarEscalaPdf">PDF</button>')+
     '</div></div>';
 }
 function viewEscalaCompleta(){
@@ -2024,6 +2035,136 @@ async function carregarEscalaCompleta(mes){
   catch(e){ escalaCompletaCache[mes]={erro:e.message}; }
   escalaCompletaLoading=false;
   if(view==='escalas'&&escalaAba==='completa') render();
+}
+// ---------------------------------------------------------------- escala em imagem (JPEG), no formato da planilha
+// Desenhada no próprio aparelho (canvas), com os mesmos dados e regras do PDF (EscalaPdfService):
+// coluna por dia, linha por setor + horário, primeiros nomes empilhados, Holyrics ocupando o fim de semana.
+function desenharEscalaImagem(d){
+  const COR={azul:'#2B57B8',prof:'#14306B',ouro:'#C79A2E',ouroClaro:'#F8EED2',tinta:'#E8EDF7',sem:'#C9D7F2',vaga:'#FFF1A8',borda:'#B4C2DE',txt:'#14203D',suave:'#6B7590',aviso:'#B4404A',livre:'#6E500B'};
+  const ORDEM=['HOLYRICS','DATASHOW','TRANSMISSOES_VIDEOS','REDES_SOCIAIS','JOVENS',null];
+  const evs=d.eventos||[];
+  const dias=[...new Set(evs.map(e=>e.data))].sort();
+  const hora=h=>{ if(!h) return ''; const [H,M]=h.split(':'); return Number(H)+'h'+(M!=='00'?M:''); };
+  const rotulo=(s,nome)=>s==null?'GERAL':s==='TRANSMISSOES_VIDEOS'?'TRANSMISSÃO':s==='REDES_SOCIAIS'?'REDES SOCIAIS':String(nome||s).toUpperCase();
+  // linhas (setor, horário)
+  const linhas=[];
+  ORDEM.forEach(s=>{
+    const hs=new Set(); let nome=null;
+    evs.forEach(e=>e.setores.forEach(g=>{ if((g.setor||null)===s&&g.funcoes.length){ nome=g.nomeSetor; hs.add(s==='HOLYRICS'?'':(e.horario||'').slice(0,5)); } }));
+    [...hs].sort().forEach(h=>linhas.push({setor:s,nome:nome,hora:s==='HOLYRICS'?null:h}));
+  });
+  // nomes curtos: primeiro nome; inicial do sobrenome se dois do mês tiverem o mesmo primeiro nome
+  const todos=new Set(); evs.forEach(e=>e.setores.forEach(g=>g.funcoes.forEach(f=>{ if(f.voluntarioNome) todos.add(f.voluntarioNome.trim()); })));
+  const conta={}; todos.forEach(n=>{ const p=n.split(/\s+/)[0].toLowerCase(); conta[p]=(conta[p]||0)+1; });
+  const curto=n=>{ const p=n.trim().split(/\s+/); return conta[p[0].toLowerCase()]>1&&p.length>1?p[0]+' '+p[p.length-1][0]+'.':p[0]; };
+  const funcoes=(l,dia)=>{ const r=[]; evs.forEach(e=>{ if(e.data!==dia) return; if(l.setor!=='HOLYRICS'&&(e.horario||'').slice(0,5)!==l.hora) return;
+      e.setores.forEach(g=>{ if((g.setor||null)===l.setor) r.push(...g.funcoes); }); }); return r; };
+  const celula=fs=>{
+    if(!fs.length) return {tipo:'sem',linhas:[]};
+    if(fs.every(f=>f.oculto)) return {tipo:'montagem',linhas:['em montagem']};
+    const nomes=fs.filter(f=>!f.oculto&&f.voluntarioNome).map(f=>curto(f.voluntarioNome));
+    const livres=fs.filter(f=>!f.oculto&&!f.voluntarioNome).length;
+    if(!nomes.length) return {tipo:'livre',linhas:['Livre']};
+    return {tipo:'nomes',linhas:nomes,livres:livres};
+  };
+  // grade de células (com o Holyrics ocupando sábado + domingo)
+  const grade=linhas.map(l=>{ const cs=[]; for(let k=0;k<dias.length;k++){ const fs=funcoes(l,dias[k]); let span=1;
+      if(l.setor==='HOLYRICS'&&fs.length&&k+1<dias.length){ const a=parse(dias[k]), b=parse(dias[k+1]); if((b-a)/864e5===1&&!funcoes(l,dias[k+1]).length) span=2; }
+      cs.push({k:k,span:span,c:celula(fs)}); k+=span-1; } return cs; });
+  // medidas
+  const S=2, M=28, W_AT=150, W_HR=76, W_DIA=Math.max(104,Math.min(140,Math.floor(1240/Math.max(1,dias.length))));
+  const LH=17, PAD=9, CAB=56, TOPO=146;
+  const alturas=grade.map(cs=>Math.max(34,...cs.map(x=>x.c.linhas.length*LH+(x.c.livres?LH:0)+PAD*2)));
+  const largura=M*2+W_AT+W_HR+W_DIA*dias.length;
+  const msg='Chegue com 1 hora de antecedência para a missa. Vá até a Capela do Santíssimo, faça uma oração com calma e prepare seu coração para a celebração. Esse hábito ajuda a cuidar do emocional e favorece mais atenção e concentração durante a missa.';
+  const cv=document.createElement('canvas'), x=cv.getContext('2d');
+  x.font='700 15px Figtree, Arial, sans-serif';
+  const quebra=(txt,max)=>{ const ws=txt.split(' '), out=[]; let l=''; ws.forEach(w=>{ const t=l?l+' '+w:w; if(x.measureText(t).width>max&&l){ out.push(l); l=w; } else l=t; }); if(l) out.push(l); return out; };
+  const msgLinhas=quebra(msg,largura-M*2-40);
+  const altGrade=CAB+alturas.reduce((a,b)=>a+b,0);
+  const altura=TOPO+altGrade+40+msgLinhas.length*22+30+M;
+  cv.width=largura*S; cv.height=altura*S; x.scale(S,S);
+  x.fillStyle='#FFFFFF'; x.fillRect(0,0,largura,altura);
+  x.textBaseline='middle'; x.textAlign='center';
+  // cabeçalho
+  const [ano,mm]=d.mes.split('-');
+  const mesNome=new Date(Number(ano),Number(mm)-1,1).toLocaleDateString('pt-BR',{month:'long'}).toUpperCase();
+  x.fillStyle=COR.prof; x.font='800 34px Figtree, Arial, sans-serif'; x.fillText(d.setor?'ESCALA · '+String(d.nomeSetor||'').toUpperCase():'PASCOM · ESCALA',largura/2,M+20);
+  x.fillStyle=COR.ouro; x.font='800 26px Figtree, Arial, sans-serif'; x.fillText(mesNome+'/'+ano,largura/2,M+56);
+  const agora=new Date();
+  x.fillStyle=COR.suave; x.font='500 13px Figtree, Arial, sans-serif';
+  x.fillText((d.setor?'Funções do setor e funções gerais':'Todos os setores da pastoral')+' · Atualizado em '+agora.toLocaleDateString('pt-BR')+' às '+agora.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}),largura/2,M+82);
+  const estrela=(cx,cy,r)=>{ x.strokeStyle=COR.ouro; x.lineWidth=1.6; x.beginPath(); x.arc(cx,cy,r,0,Math.PI*2); x.stroke();
+    const k=r*2/40, pts=[[20,6],[23.4,16.6],[34,20],[23.4,23.4],[20,34],[16.6,23.4],[6,20],[16.6,16.6]]; x.fillStyle=COR.ouro; x.beginPath();
+    pts.forEach((p,i)=>{ const px=cx-r+p[0]*k, py=cy-r+p[1]*k; i?x.lineTo(px,py):x.moveTo(px,py); }); x.closePath(); x.fill(); };
+  estrela(M+30,M+44,26); estrela(largura-M-30,M+44,26);
+  x.fillStyle=COR.ouro; x.fillRect(M,TOPO-22,largura-M*2,3);
+  // grade
+  const X0=M, Y0=TOPO;
+  const caixa=(px,py,w,h,fundo)=>{ x.fillStyle=fundo; x.fillRect(px,py,w,h); x.strokeStyle=COR.borda; x.lineWidth=1; x.strokeRect(px+0.5,py+0.5,w,h); };
+  caixa(X0,Y0,W_AT,CAB,COR.prof); caixa(X0+W_AT,Y0,W_HR,CAB,COR.prof);
+  x.fillStyle='#fff'; x.font='800 12px Figtree, Arial, sans-serif'; x.fillText('ATIVIDADE',X0+W_AT/2,Y0+CAB/2); x.fillText('HORÁRIO',X0+W_AT+W_HR/2,Y0+CAB/2);
+  dias.forEach((dia,k)=>{
+    const doDia=evs.filter(e=>e.data===dia), dd=parse(dia), px=X0+W_AT+W_HR+k*W_DIA;
+    const extras=[...new Set(doDia.map(e=>e.titulo).filter(t=>t&&!/^(missa das \d{1,2}h(\d{2})?|montagem holyrics)$/i.test(t.trim())))];
+    caixa(px,Y0,W_DIA,CAB,doDia.some(e=>e.eventoGrande)?COR.ouro:COR.azul);
+    x.fillStyle='#fff'; x.font='800 17px Figtree, Arial, sans-serif';
+    x.fillText(String(dd.getDate()).padStart(2,'0')+'/'+String(dd.getMonth()+1).padStart(2,'0'),px+W_DIA/2,Y0+(extras.length?15:20));
+    x.font='500 11.5px Figtree, Arial, sans-serif'; x.fillText(cap(dd.toLocaleDateString('pt-BR',{weekday:'long'})),px+W_DIA/2,Y0+(extras.length?31:38));
+    if(extras.length){ x.fillStyle=COR.ouroClaro; x.font='italic 700 10.5px Figtree, Arial, sans-serif'; let tx=extras.join(' · '); while(x.measureText(tx).width>W_DIA-8&&tx.length>4) tx=tx.slice(0,-2); x.fillText(tx===extras.join(' · ')?tx:tx+'…',px+W_DIA/2,Y0+46); }
+  });
+  let y=Y0+CAB;
+  for(let i=0;i<linhas.length;){
+    let fim=i; while(fim<linhas.length&&linhas[fim].setor===linhas[i].setor) fim++;
+    const hTot=alturas.slice(i,fim).reduce((a,b)=>a+b,0);
+    caixa(X0,y,W_AT,hTot,COR.tinta);
+    x.fillStyle=COR.prof; x.font='800 13px Figtree, Arial, sans-serif'; x.fillText(rotulo(linhas[i].setor,linhas[i].nome),X0+W_AT/2,y+hTot/2);
+    let yy=y;
+    for(let j=i;j<fim;j++){
+      const h=alturas[j];
+      caixa(X0+W_AT,yy,W_HR,h,'#fff'); x.fillStyle=COR.txt; x.font='500 14px Figtree, Arial, sans-serif'; x.fillText(linhas[j].hora?hora(linhas[j].hora):'',X0+W_AT+W_HR/2,yy+h/2);
+      grade[j].forEach(cel=>{
+        const px=X0+W_AT+W_HR+cel.k*W_DIA, w=W_DIA*cel.span, c=cel.c;
+        caixa(px,yy,w,h,c.tipo==='sem'?COR.sem:c.tipo==='livre'?COR.vaga:c.tipo==='montagem'?COR.tinta:'#fff');
+        const n=c.linhas.length+(c.livres?1:0); let ty=yy+h/2-(n-1)*LH/2;
+        c.linhas.forEach(l=>{ x.fillStyle=c.tipo==='livre'?COR.livre:c.tipo==='montagem'?COR.suave:COR.txt;
+          x.font=c.tipo==='livre'?'italic 800 14px Figtree, Arial, sans-serif':c.tipo==='montagem'?'italic 500 12.5px Figtree, Arial, sans-serif':'500 14px Figtree, Arial, sans-serif';
+          x.fillText(l,px+w/2,ty); ty+=LH; });
+        if(c.livres){ x.fillStyle=COR.livre; x.font='italic 700 12.5px Figtree, Arial, sans-serif'; x.fillText('+'+c.livres+(c.livres>1?' livres':' livre'),px+w/2,ty); }
+      });
+      yy+=h;
+    }
+    y+=hTot; i=fim;
+  }
+  if(!linhas.length){ x.fillStyle=COR.suave; x.font='italic 600 16px Figtree, Arial, sans-serif'; x.fillText('Nenhuma escala cadastrada para este mês ainda.',largura/2,y+30); y+=60; }
+  // legenda e recado
+  y+=22; x.textAlign='left'; x.font='500 12px Figtree, Arial, sans-serif'; let lx=M;
+  [[COR.vaga,'vaga livre'],[COR.sem,'o setor não serve nesse dia/horário'],[COR.ouro,'dia de evento especial'],[COR.tinta,'em montagem']].forEach(([c,t])=>{ x.fillStyle=c; x.fillRect(lx,y-6,14,12); x.fillStyle=COR.suave; x.fillText(t,lx+20,y); lx+=20+x.measureText(t).width+26; });
+  y+=20; const hMsg=msgLinhas.length*22+18;
+  x.fillStyle='#FDF1F2'; x.fillRect(M,y,largura-M*2,hMsg); x.strokeStyle=COR.aviso; x.lineWidth=1.6; x.strokeRect(M,y,largura-M*2,hMsg);
+  x.textAlign='center'; x.fillStyle=COR.aviso; x.font='700 15px Figtree, Arial, sans-serif';
+  msgLinhas.forEach((l,i)=>x.fillText(l,largura/2,y+20+i*22));
+  return cv;
+}
+async function baixarEscalaImagem(setor,btn){
+  const txt=btn?btn.innerHTML:'';
+  if(btn){ btn.disabled=true; btn.textContent='Gerando imagem…'; }
+  try{
+    try{ await document.fonts.ready; }catch(_){}
+    const d=await api('/escalas/completa?mes='+escalaMes+(setor?'&setor='+setor.toUpperCase():''));
+    const cv=desenharEscalaImagem(d);
+    const blob=await new Promise((ok,erro)=>cv.toBlob(b=>b?ok(b):erro(new Error('Não foi possível gerar a imagem.')),'image/jpeg',0.92));
+    const nome='escala-'+(setor?setor.toLowerCase().replace(/_/g,'-'):'completa')+'-'+escalaMes+'.jpg';
+    const f=new File([blob],nome,{type:'image/jpeg'});
+    const celular=matchMedia('(pointer:coarse)').matches;
+    if(celular&&navigator.canShare&&navigator.canShare({files:[f]})){
+      try{ await navigator.share({files:[f],title:'Escala '+nomeMes(escalaMes)}); }catch(e){ if(e&&e.name!=='AbortError') throw e; }
+    }else{
+      const url=URL.createObjectURL(blob), a=document.createElement('a'); a.href=url; a.download=nome;
+      document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),1000);
+    }
+  }catch(e){ toast(e.message,'warn'); }
+  finally{ if(btn){ btn.disabled=false; btn.innerHTML=txt; } }
 }
 async function baixarEscalaPdf(setor){
   try{
@@ -2279,16 +2420,51 @@ function viewEquipeSetor(){
       '<div class="fn">'+esc(m.funcao||'—')+'</div>'+
       '<div class="note" style="margin-top:2px"><span class="pill'+(r<2?' warn':'')+'">'+esc(papelNoSetor(m,s))+'</span> Disponível: '+esc((m.disp||'').toLowerCase())+'</div>'+
       (cs.length?'<ul>'+cs.map(c=>'<li>'+esc(c.title)+'</li>').join('')+'</ul>':(ehSetorDeConteudo()?'<p class="note">Sem cartões em andamento neste setor.</p>':''))+
-      (isCoordenadorGeral()&&m.id!==state.me?'<button type="button" class="link-btn mem-link" data-action="gerenciarPessoa" data-id="'+m.id+'">Gerenciar (papel, setor, senha)</button>':'')+'</div></div>';
+      (isCoordenadorGeral()&&m.id!==state.me?'<button type="button" class="link-btn mem-link" data-action="gerenciarPessoa" data-id="'+m.id+'">Gerenciar (papel, setor, senha)</button>':'')+
+      // Quem entrou neste setor como extra pode ser tirado pela coordenação do setor.
+      (podeMexerNaEquipe(s)&&m.setor!==s&&m.role!=='coordenador_geral'&&(m.extras||[]).indexOf(s)>-1?'<button type="button" class="link-btn mem-link" data-action="tirarDaEquipe" data-id="'+m.id+'">Tirar da equipe de '+esc(SETOR_NAME[s])+'</button>':'')+'</div></div>';
   };
   const aviso=eu&&!pertenceSetor(eu,s)
     ?'<div class="aviso-equipe"><span>Você ainda não faz parte da equipe de <b>'+esc(SETOR_NAME[s])+'</b>. Se você também serve aqui, adicione este setor no seu perfil.</span><button class="btn small primary" data-action="abrirPerfil">Ir pro meu perfil</button></div>'
     :'<p class="note" style="margin:0 0 16px">Aparece aqui quem se cadastrou neste setor ou adicionou ele no perfil, junto com a coordenação do setor e a Coordenação Geral. Também serve em outro setor? <button type="button" class="link-btn" data-action="abrirPerfil">Adicione no seu perfil</button>.</p>';
-  return aviso+
+  const incluir=podeMexerNaEquipe(s)?'<div class="filters" style="margin:0 0 16px"><button class="btn primary" data-action="incluirNaEquipe">+ Incluir pessoa na equipe de '+esc(SETOR_NAME[s])+'</button></div>':'';
+  return aviso+incluir+
     '<h2 class="eq-h">Coordenação <small>'+coord.length+'</small></h2>'+
     (coord.length?'<div class="team">'+coord.map(card).join('')+'</div>':'<div class="empty">Ninguém na coordenação deste setor ainda.</div>')+
     '<h2 class="eq-h">Voluntários <small>'+vol.length+'</small></h2>'+
     (vol.length?'<div class="team">'+vol.map(card).join('')+'</div>':'<div class="empty">Nenhum voluntário em '+esc(SETOR_NAME[s])+' ainda.</div>');
+}
+/** Coordenação do setor (ou Geral/gestor de escalas) inclui e tira pessoas da equipe como setor extra. */
+function podeMexerNaEquipe(s){ const m=me(); return !!m&&(isCoordenadorGeral()||gereEscalas()||(m.role==='coordenador'&&m.setor===s)); }
+function incluirNaEquipeModal(filtro){
+  const s=currentSetor, f=(filtro||'').trim().toLowerCase();
+  const fora=MEMBERS.filter(m=>m.role!=='coordenador_geral'&&!pertenceSetor(m,s)&&(!f||m.nome.toLowerCase().indexOf(f)>-1))
+    .sort((a,b)=>a.nome.localeCompare(b.nome));
+  const lista=fora.length?fora.slice(0,60).map(m=>'<div class="inc-row">'+avatar(m.id)+'<div style="flex:1;min-width:0"><b>'+esc(m.nome)+'</b><small class="rt-sub">'+esc((m.setor?SETOR_NAME[m.setor]:'')+((m.extras||[]).length?' · '+m.extras.map(x=>SETOR_NAME[x]).join(', '):''))+'</small></div>'+
+      '<button class="btn small primary" data-action="confirmarIncluir" data-id="'+m.id+'">Incluir</button></div>').join('')
+    :'<div class="empty">'+(f?'Ninguém com esse nome fora da equipe.':'Todo mundo já faz parte da equipe de '+esc(SETOR_NAME[s])+'.')+'</div>';
+  return '<div class="modal" role="dialog" aria-modal="true" aria-label="Incluir na equipe"><div class="m-head"><h3>Incluir na equipe de '+esc(SETOR_NAME[s])+'</h3><button class="x" data-action="close" aria-label="Fechar">×</button></div>'+
+    '<div class="m-body"><p class="note" style="margin:0">A pessoa continua no setor dela e passa a fazer parte de '+esc(SETOR_NAME[s])+' também: vê as escalas daqui e pode se candidatar. Ela recebe um aviso.</p>'+
+    '<label class="fld"><span>Buscar pelo nome</span><input id="inc-busca" value="'+esc(filtro||'')+'" placeholder="Ex.: Juliana" autocomplete="off"></label>'+
+    '<div id="inc-lista">'+lista+'</div></div></div>';
+}
+function abrirIncluirNaEquipe(){
+  const o=$('#overlay'); o.innerHTML=incluirNaEquipeModal(''); o.hidden=false;
+  const b=$('#inc-busca');
+  b.addEventListener('input',()=>{ const v=b.value; const tmp=document.createElement('div'); tmp.innerHTML=incluirNaEquipeModal(v); $('#inc-lista').innerHTML=tmp.querySelector('#inc-lista').innerHTML; });
+  setTimeout(()=>b.focus(),50);
+}
+async function mudarEquipe(id,incluir,btn){
+  const m=mem(id), s=currentSetor; if(!m) return;
+  if(!incluir&&!confirm('Tirar '+m.nome+' da equipe de '+SETOR_NAME[s]+'? As escalas em que a pessoa já está continuam como estão.')) return;
+  if(btn){ btn.disabled=true; btn.textContent=incluir?'Incluindo…':'Tirando…'; }
+  try{
+    const u=await api('/usuarios/'+id+'/setores/'+s.toUpperCase(),{method:incluir?'POST':'DELETE'});
+    const i=MEMBERS.findIndex(x=>x.id===String(u.id)); if(i>-1) MEMBERS[i]=memberFromApi(u);
+    partic.chave=null;
+    if(incluir&&btn){ const row=btn.closest('.inc-row'); if(row) row.remove(); } else closeModal();
+    render(); toast(incluir?m.nome+' agora faz parte de '+SETOR_NAME[s]+'.':m.nome+' saiu da equipe de '+SETOR_NAME[s]+'.');
+  }catch(e){ if(btn){ btn.disabled=false; btn.textContent=incluir?'Incluir':'Tirar'; } toast(e.message,'warn'); }
 }
 function timePessoaHtml(m,s){
   const coordena=s&&m.role==='coordenador'&&m.setor===s;
@@ -3382,6 +3558,7 @@ document.addEventListener('click',e=>{
     case 'escalaFiltro': escalaFiltro=t.dataset.filtro; render(); break;
     case 'escalaMes': escalaMes=shiftMes(escalaMes,Number(t.dataset.delta)); render(); break;
     case 'baixarEscalaPdf': baixarEscalaPdf(t.dataset.setor||null); break;
+    case 'baixarEscalaImagem': baixarEscalaImagem(t.dataset.setor||null,t); break;
     case 'equipeAba': equipeAba=t.dataset.aba; render(); break;
     case 'timeFiltro': timeFiltro=t.dataset.filtro; render(); break;
     case 'verTime': view='equipe'; equipeAba='time'; render(); $('.main').scrollTop=0; break;
@@ -3389,6 +3566,9 @@ document.addEventListener('click',e=>{
     case 'salvarPerfil': salvarPerfil(); break;
     case 'linkSenha': gerarLinkSenha(id); break;
     case 'gerenciarPessoa': gerenciarPessoa(id); break;
+    case 'incluirNaEquipe': abrirIncluirNaEquipe(); break;
+    case 'confirmarIncluir': mudarEquipe(id,true,t); break;
+    case 'tirarDaEquipe': mudarEquipe(id,false,null); break;
     case 'holySel': holy.missa=null; carregarHolyrics(t.dataset.sabado); break;
     case 'holyMissa': holy.missa=t.dataset.missa; render(); break;
     case 'copiarLit': copiarTexto(liturgiaCopias[t.dataset.k]||'','Copiado! É só colar no Holyrics.'); break;

@@ -51,7 +51,7 @@ public class SugestaoEscalaService {
     public Map<String, Object> sugerir(YearMonth mes, Setor setor, Usuario solicitante) {
         exigirCoordenacao(setor, solicitante);
         LocalDate hoje = calendarioService.hoje();
-        LocalDate inicio = mes.atDay(1).isBefore(hoje) ? hoje : mes.atDay(1), fim = mes.atEndOfMonth();
+        LocalDate inicio = CicloEscala.inicio(mes).isBefore(hoje) ? hoje : CicloEscala.inicio(mes), fim = CicloEscala.fim(mes);
         List<Evento> eventos = inicio.isAfter(fim) ? List.of()
                 : eventoRepository.findByDataBetweenAndExcluidoEmIsNullOrderByDataAscHorarioAsc(inicio, fim);
 

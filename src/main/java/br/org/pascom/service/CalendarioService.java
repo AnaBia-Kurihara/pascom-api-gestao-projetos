@@ -24,7 +24,15 @@ public class CalendarioService {
     public static final String FUSO = "America/Sao_Paulo";
     private static final ZoneId ZONA = ZoneId.of(FUSO);
 
+    /**
+     * Só nos testes automáticos (app.teste.hoje-dia): "hoje" vira esse dia do mês atual, pra as regras
+     * de janela de candidatura (dia 11 a 20) não dependerem do dia em que o teste roda.
+     */
+    @org.springframework.beans.factory.annotation.Value("${app.teste.hoje-dia:0}")
+    private int diaFixoDosTestes;
+
     public LocalDate hoje() {
+        if (diaFixoDosTestes > 0) return YearMonth.now(ZONA).atDay(diaFixoDosTestes);
         return LocalDate.now(ZONA);
     }
 
