@@ -971,7 +971,8 @@ async function doCadastro(){
   if(senha.length<6){ authError='A senha precisa ter pelo menos 6 caracteres.'; renderAuth(); return; }
   if(role!=='coordenador_geral'&&!setor){ authError='Selecione o setor.'; renderAuth(); return; }
   const aniv=lerAniversario('au');
-  if(aniv.erro||aniv.vazio){ authError=aniv.erro||'Informe o dia e o mês do seu aniversário.'; renderAuth(); return; }
+  // Aniversário é opcional no cadastro: quem não informar vê o pedido no Painel até preencher.
+  if(aniv.erro){ authError=aniv.erro; renderAuth(); return; }
   try{
     await api('/usuarios/cadastro',{method:'POST',body:JSON.stringify({
       nome:nome, email:email, senha:senha, funcao:funcao||null, aniversarioDia:aniv.dia, aniversarioMes:aniv.mes,
@@ -1024,7 +1025,8 @@ async function doCompletarGoogle(){
   const role=$('#au-role').value, setor=$('#au-setor').value;
   if(role!=='coordenador_geral'&&!setor){ authError='Selecione o setor.'; renderAuth(); return; }
   const aniv=lerAniversario('au');
-  if(aniv.erro||aniv.vazio){ authError=aniv.erro||'Informe o dia e o mês do seu aniversário.'; renderAuth(); return; }
+  // Aniversário é opcional no cadastro: quem não informar vê o pedido no Painel até preencher.
+  if(aniv.erro){ authError=aniv.erro; renderAuth(); return; }
   try{
     const dto=await api('/usuarios/google',{method:'POST',body:JSON.stringify({
       idToken:pendingGoogle.idToken, role:role.toUpperCase(), aniversarioDia:aniv.dia, aniversarioMes:aniv.mes,
@@ -3457,7 +3459,7 @@ function cadastroHtml(){
     '<label class="fld" style="margin-top:10px"><span>Senha (mínimo 6 caracteres)</span><input id="au-senha" type="password" autocomplete="new-password"></label>'+
     '<label class="fld" style="margin-top:10px"><span>Você é...</span><select id="au-role">'+ROLES.map(r=>'<option value="'+r.id+'">'+r.nome+'</option>').join('')+'</select></label>'+
     '<label class="fld" id="au-setor-wrap" style="margin-top:10px"><span>Setor</span><select id="au-setor">'+SETORES.map(s=>'<option value="'+s.id+'">'+s.nome+'</option>').join('')+'</select></label>'+
-    '<div style="margin-top:10px">'+aniversarioCamposHtml('au',null,null,true)+'</div>'+
+    '<div style="margin-top:10px">'+aniversarioCamposHtml('au',null,null,false)+'<p class="note" style="margin:4px 0 0">Opcional. Se preferir, coloque depois no seu perfil.</p></div>'+
     '<label class="fld" style="margin-top:10px"><span>Função (opcional)</span><input id="au-funcao" type="text" placeholder="Ex.: Edição de vídeo"></label>'+
     '<button class="btn primary" style="width:100%;margin-top:18px" data-action="doCadastro">Criar conta</button>'+
     '<div style="display:flex;align-items:center;gap:10px;margin:16px 0"><hr style="flex:1;border:none;border-top:1px solid #ddd"><span class="note">ou</span><hr style="flex:1;border:none;border-top:1px solid #ddd"></div>'+
@@ -3475,7 +3477,7 @@ function completarGoogleHtml(){
     '<label class="fld" style="margin-top:10px"><span>E-mail</span><input type="text" value="'+esc(g.email)+'" disabled></label>'+
     '<label class="fld" style="margin-top:10px"><span>Você é...</span><select id="au-role">'+ROLES.map(r=>'<option value="'+r.id+'">'+r.nome+'</option>').join('')+'</select></label>'+
     '<label class="fld" id="au-setor-wrap" style="margin-top:10px"><span>Setor</span><select id="au-setor">'+SETORES.map(s=>'<option value="'+s.id+'">'+s.nome+'</option>').join('')+'</select></label>'+
-    '<div style="margin-top:10px">'+aniversarioCamposHtml('au',null,null,true)+'</div>'+
+    '<div style="margin-top:10px">'+aniversarioCamposHtml('au',null,null,false)+'<p class="note" style="margin:4px 0 0">Opcional. Se preferir, coloque depois no seu perfil.</p></div>'+
     '<label class="fld" style="margin-top:10px"><span>Função (opcional)</span><input id="au-funcao" type="text" placeholder="Ex.: Edição de vídeo"></label>'+
     '<button class="btn primary" style="width:100%;margin-top:18px" data-action="doCompletarGoogle">Concluir cadastro</button>'+
     '<p class="note" style="margin-top:16px;text-align:center"><button type="button" class="link-btn" data-action="toLogin">Cancelar</button></p>'+

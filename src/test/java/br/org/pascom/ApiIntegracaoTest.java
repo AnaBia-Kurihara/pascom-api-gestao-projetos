@@ -90,6 +90,19 @@ class ApiIntegracaoTest {
     }
 
     @Test
+    void cadastroSemAniversarioFunciona() throws Exception {
+        Map<String, Object> dados = new LinkedHashMap<>();
+        dados.put("nome", "Sem Aniversário");
+        dados.put("email", emailNovo());
+        dados.put("senha", "senha123");
+        dados.put("role", "VOLUNTARIO");
+        dados.put("setor", "JOVENS");
+        MvcResult r = enviar(post("/api/usuarios/cadastro"), null, dados);
+        assertThat(r.getResponse().getStatus()).isEqualTo(201);
+        assertThat(corpo(r).path("aniversarioDia").isNull()).isTrue();
+    }
+
+    @Test
     void senhaErradaNaoEntra() throws Exception {
         Pessoa p = cadastrarELogar("VOLUNTARIO", "JOVENS");
         MvcResult r = enviar(post("/api/usuarios/login"), null, Map.of("email", p.email, "senha", "errada!!"));
