@@ -15,5 +15,9 @@ public record PerfilUpdateDTO(
         Set<Setor> setoresExtras,
         /** Aniversário (só dia e mês); null nos dois = não muda. */
         Integer aniversarioDia,
-        Integer aniversarioMes
+        Integer aniversarioMes,
+        /** WhatsApp (só pra coordenação, no botão de ajuda); null = não muda, "" = apaga. */
+        String whatsapp,
+        /** Mostrar o WhatsApp no "Precisa de ajuda?"; null = não muda. */
+        Boolean whatsappNaAjuda
 ) {}

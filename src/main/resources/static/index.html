@@ -184,6 +184,32 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center;justify-conten
 .sug-item small{color:var(--ink3);font-size:12.5px}
 .sug-vazia{color:var(--ink3)}
 .cad-vol{display:flex;flex-direction:column;gap:10px;margin-top:8px}
+.mem[hidden]{display:none}
+.tour .m-body{text-align:center;align-items:center;padding-top:26px}
+.tour h3{font-family:var(--serif);font-weight:400;font-size:22px;margin:0}
+.tour p{color:var(--ink2);font-size:15.5px;line-height:1.5;margin:0;max-width:420px}
+.tour-oi{font-weight:600;color:var(--ink)!important}
+.tour-ic{font-size:44px;line-height:1}
+.tour-acoes{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.tour-pontos{display:flex;gap:6px;margin-top:4px}
+.tour-ponto{width:8px;height:8px;border-radius:99px;background:var(--line)}
+.tour-ponto.on{background:var(--brand)}
+.auth-marca{display:flex;align-items:center;gap:14px;margin:0 0 20px}
+.auth-marca h2{margin:0}
+.auth-dica{font-size:14px;color:var(--ink2);margin:0 0 8px;text-align:center}
+.auth-google{display:flex;justify-content:center;min-height:44px}
+.auth-ajuda{width:100%;margin-top:14px}
+.ajuda-opcoes{display:flex;flex-wrap:wrap;gap:8px}
+.ajuda-opcoes.grande{flex-direction:column}
+.ajuda-opcoes.grande .btn{text-align:left;padding:14px 16px;font-size:16px}
+.ajuda-opcoes.grande small{display:block;font-weight:500;font-size:13px;opacity:.85;margin-top:2px}
+.ajuda-contato{display:flex;align-items:center;gap:10px;padding:12px 14px;border:1px solid var(--line);border-radius:12px;text-decoration:none;color:var(--ink)}
+.ajuda-contato small{margin-left:auto;color:var(--brand);font-weight:600}
+.side-foot-acts{display:flex;gap:8px}
+.fds{margin:0 0 22px}
+.fds-h{font-family:var(--serif);font-size:20px;font-weight:400;margin:0 0 10px;padding-bottom:6px;border-bottom:2px solid var(--gold)}
+.fds .ev .dbadge{display:none}
+.eq-busca{width:100%;margin:0 0 14px}
 .mem-acoes{display:flex;flex-wrap:wrap;gap:4px 14px}
 .inc-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--line)}
 .inc-row:first-child{border-top:0}
@@ -844,7 +870,7 @@ function memberFromApi(u){
     email:u.email, poderesGeral:!!u.poderesCoordenadorGeral, gestorEscalas:!!u.gestorEscalas,
     anivDia:u.aniversarioDia||null, anivMes:u.aniversarioMes||null,
     extras:(u.setoresExtras||[]).map(x=>SETOR_FROM_API[x]).filter(Boolean),
-    foto:u.fotoVersao||null
+    foto:u.fotoVersao||null, whatsapp:u.whatsapp||null, whatsappNaAjuda:!!u.whatsappNaAjuda
   };
 }
 function checksFromApi(checklist){
@@ -958,6 +984,8 @@ async function carregarTudo(meId){
   currentSetor=SETOR_NAME[salvo]?salvo:((m&&m.setor)?m.setor:'redes_sociais');
   carregarAvisos();
   setTimeout(()=>atualizarPush(true),0);
+  setTimeout(renovarLoginSeVelho,0);
+  setTimeout(mostrarTourSePrimeiraVez,700);
 }
 const SETOR_KEY='pascom-fatima-setor';
 function lembrarSetor(){ try{ localStorage.setItem(SETOR_KEY,currentSetor); }catch(e){} }
@@ -1195,7 +1223,7 @@ const VIEWS={
   calendario:{label:'Calendário',icon:'cal',title:()=>'Calendário editorial',sub:()=>'O que vai ao ar, junto com os santos do dia e os eventos do santuário.',render:viewCalendario},
   dashboard:{label:'Dashboard',icon:'chart',title:()=>'Dashboard',sub:()=>'Andamento e engajamento das publicações — semana, mês e ano.',render:viewDashboard},
   ideias:{label:'Ideias',icon:'bulb',title:()=>'Banco de ideias',sub:()=>'Qualquer pessoa da equipe sugere. As mais votadas viram cartões.',render:viewIdeias},
-  escalas:{label:'Escalas',icon:'cam',title:()=>'Escalas de cobertura',sub:()=>'Quem vai montar, projetar, fotografar, filmar e transmitir cada celebração.',render:viewEscalas},
+  escalas:{label:'Escalas',icon:'cam',title:()=>'Escalas',sub:()=>'Quem vai montar, projetar, fotografar, filmar e transmitir cada celebração.',render:viewEscalas},
   montagem:{label:'Montagem',icon:'music',title:()=>'Montagem do fim de semana',sub:()=>'Liturgia, músicas e avisos das 4 missas, prontos pra montar no Holyrics.',render:()=>viewMontagem()},
   guia:{label:'Guia',icon:'book',title:()=>'Guia da transmissão',sub:()=>'Roteiro de câmeras por momento da missa e o passo a passo pra entrar ao vivo.',render:()=>transmissaoGuiaHtml()},
   equipe:{label:'Equipe',icon:'users',title:()=>equipeAba==='time'?'Time da Pascom':'Equipe de '+SETOR_NAME[currentSetor],sub:()=>equipeAba==='time'?'Todo mundo que serve na Pascom, setor por setor.':'Quem serve neste setor: coordenação, Coordenação Geral e voluntários.',render:viewEquipe},
@@ -1456,7 +1484,7 @@ function viewPainelEscala(){
     const d=parse(prox.date), vag=prox.slots.filter(s=>doSetorAtual(s)&&!s.who&&!s.oculto).length, euVou=prox.slots.some(s=>s.who===state.me);
     const montagem=prox.slots.some(s=>doSetorAtual(s)&&s.oculto), cand=prox.slots.some(s=>s.euCand);
     hero='<section class="hero hero-escala"><div><small class="hero-k">Próxima missa de '+esc(SETOR_NAME[currentSetor])+'</small><h2>'+cap(d.toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long'}))+', '+prox.time+'</h2>'+
-      '<p>'+esc(prox.title)+' · '+(euVou?'você está escalado(a)':montagem?(cand?'escala em montagem, você se candidatou':'escala em montagem, candidate-se'):vag?vag+(vag>1?' vagas abertas':' vaga aberta'):'escala completa')+'</p></div>'+
+      '<p>'+esc(prox.title)+' · '+(euVou?'você está escalado(a)':montagem?(cand?'você se candidatou, a coordenação está escolhendo':'aberta pra candidatura: toque em Ver escala'):vag?vag+(vag>1?' vagas abertas':' vaga aberta'):'escala completa')+'</p></div>'+
       '<div class="hero-act"><button class="btn gold" data-action="nav" data-view="escalas">Ver escala</button></div></section>';
   }
   return aniversarioPainelHtml()+pushPainelHtml()+lembretePublicacaoHtml()+hero+'<div class="cols"><div>'+minhasEscalasPanelHtml()+vagasPanelHtml()+'</div><div>'+timePainelHtml()+'</div></div>';
@@ -1932,6 +1960,22 @@ function viewParticipacao(){
       (ps.length?'<div class="part-lista">'+linhas+'</div>':'<div class="empty">Ninguém neste setor ainda.</div>')+
       '<p class="note">Conta as funções de '+esc(SETOR_NAME[currentSetor])+' em que a pessoa estava escalada, em celebrações que já aconteceram. "Próxima" é o que já está marcado; "candidaturas" são os "Quero servir" ainda abertos. O sistema começou em outubro de 2026, então antes disso não há histórico.</p></section>';
 }
+// ---------------------------------------------------------------- escala agrupada por fim de semana
+// Sábado e domingo juntos num bloco só ("Sábado 7 e domingo 8 de novembro"), com as missas dentro: a
+// pessoa vê o fim de semana inteiro e toca em "Quero servir" em cada horário, sem rolar 15 cartões soltos.
+function chaveFimDeSemana(iso){ const d=parse(iso); if(d.getDay()===0) d.setDate(d.getDate()-1); return d.getDay()===6?'fds:'+isoDe(d):'dia:'+iso; }
+function isoDe(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function tituloFimDeSemana(datas){
+  const ds=[...new Set(datas)].sort().map(parse);
+  const dia=d=>d.toLocaleDateString('pt-BR',{weekday:'long'}).replace('-feira','')+' '+d.getDate();
+  const mes=ds[ds.length-1].toLocaleDateString('pt-BR',{month:'long'});
+  return cap(ds.length>1?dia(ds[0])+' e '+dia(ds[ds.length-1])+' de '+mes:dia(ds[0])+' de '+mes);
+}
+function agruparPorFimDeSemana(evs,html){
+  const grupos=[];
+  evs.forEach(e=>{ const k=chaveFimDeSemana(e.date); let g=grupos.find(x=>x.k===k); if(!g){ g={k:k,evs:[]}; grupos.push(g); } g.evs.push(e); });
+  return grupos.map(g=>'<section class="fds"><h3 class="fds-h">'+esc(tituloFimDeSemana(g.evs.map(e=>e.date)))+'</h3><div class="evs">'+g.evs.map(html).join('')+'</div></section>').join('');
+}
 function viewEscalas(){
   if(escalaAba==='completa') return escalaTabsHtml()+viewEscalaCompleta();
   if(escalaAba==='participacao') return viewParticipacao();
@@ -1957,7 +2001,7 @@ function viewEscalas(){
     (gereEscalas()?'<button class="btn" data-action="gerarEscalasMes">Gerar missas do mês</button>':'')+'</div>':'';
   const como='<details class="como"><summary>Como funciona a escala</summary><p>Todo mês a escala começa nova: as missas de domingo (e, pro Datashow, as das 8h, 18h30 e a de sábado às 16h30; pro Holyrics, a montagem de cada fim de semana) entram sozinhas, já com as funções de cada setor, no dia 15 do mês anterior. Do <b>dia 15 até 3 dias antes do fim do mês</b> a equipe se candidata (ex.: 15 a 29 em outubro); nos <b>2 últimos dias</b> a coordenação monta e publica. O sábado antes de um domingo dia 1º entra na escala do mês do domingo. '+
     (podeEditarSetor
-      ?'Enquanto a escala do mês está <b>em montagem</b>, só a coordenação vê quem foi escalado: veja os candidatos de cada função, toque em <b>Escalar</b> ou <b>Trocar</b> e, quando estiver pronta, <b>publique</b>. Você também pode renomear, remover ou adicionar funções de '+esc(SETOR_NAME[currentSetor])+'.'
+      ?'Enquanto a escala do mês está <b>em montagem</b>, só a coordenação vê quem foi escalado: veja os candidatos de cada função, toque em <b>Escalar</b> ou <b>Trocar</b> e, quando estiver pronta, <b>publique</b>. Se ninguém publicar, ela é publicada sozinha na véspera do primeiro dia; quando a escala começa, ela fecha pra equipe (você continua podendo trocar e tirar pessoas). <b>Sugerir escala</b> monta uma proposta em rodízio com quem se candidatou. Você também pode renomear, remover ou adicionar funções de '+esc(SETOR_NAME[currentSetor])+'.'
       :'Toque em <b>Quero servir</b> nas funções em que você pode servir. A coordenação escolhe quem fica em cada uma e, quando a escala for <b>publicada</b>, ela aparece aqui pra todo mundo. Quando a escala do mês começa, ela <b>fecha</b>: se precisar sair, fale com a coordenação do seu setor.')+
     (podeCriar?' Se tiver outro evento que precise de gente, marque como evento extra.':'')+'</p></details>';
   const naoFaz=me()&&!pertenceSetor(me(),currentSetor)&&!gereEscalas()?'<div class="aviso-equipe"><span>Você ainda não faz parte de <b>'+esc(SETOR_NAME[currentSetor])+'</b>, então não pode se inscrever nas vagas daqui. Se você também serve neste setor, adicione ele no seu perfil.</span><button class="btn small primary" data-action="abrirPerfil">Ir pro meu perfil</button></div>':'';
@@ -1978,13 +2022,13 @@ function viewEscalas(){
   const rodape=(podeEditarSetor?historicoHtml():'')+pdfBarHtml(currentSetor);
   const vazio=escalaFiltro==='minhas'?'Você ainda não está em nenhuma escala de '+esc(SETOR_NAME[currentSetor])+'.':escalaFiltro==='vagas'?'Vagas ocupadas, tente servir outro dia. Se alguém sair da escala, a vaga volta a aparecer aqui.':'Nenhuma escala aberta pra '+esc(SETOR_NAME[currentSetor])+' por enquanto.';
   if(!filtrados.length) return escalaTabsHtml()+acoes+'<div class="empty">'+vazio+'</div>'+rodape;
-  return escalaTabsHtml()+acoes+'<div class="evs">'+filtrados.map(e=>{
+  return escalaTabsHtml()+acoes+agruparPorFimDeSemana(filtrados,e=>{
     const slots=e.slots.filter(doSetor);
     const open=slots.filter(s=>!s.who&&!s.oculto).length, d=parse(e.date);
     const montagem=slots.length&&slots.every(s=>s.oculto);
     const joined=e.slots.some(s=>s.who===state.me);
     const cheio=slots.length&&!montagem&&!open&&!joined&&!podeEditarSetor&&!slots.some(s=>s.euCand);
-    const pillEv=!slots.length?'':montagem?'<span class="pill">Em montagem</span>':'<span class="pill '+(open?'warn':'ok')+'">'+(open?open+(open>1?' vagas':' vaga'):'Completa')+'</span>';
+    const pillEv=!slots.length?'':montagem?(podeEditarSetor?'<span class="pill">Em montagem</span>':e.candAberta?'<span class="pill warn">Aberta pra candidatura</span>':'<span class="pill">Coordenação escolhendo</span>'):'<span class="pill '+(open?'warn':'ok')+'">'+(open?open+(open>1?' vagas':' vaga'):'Completa')+'</span>';
     return '<article class="ev'+(e.big?' big':'')+'"><div class="ev-h"><div class="dbadge"><b>'+d.getDate()+'</b><span>'+d.toLocaleDateString('pt-BR',{month:'short'}).replace('.','')+'</span></div><div style="flex:1;min-width:120px"><h3>'+esc(e.title)+'</h3><small>'+cap(d.toLocaleDateString('pt-BR',{weekday:'long'}))+', '+e.time+(e.place?' · '+esc(e.place):'')+'</small></div><div class="ev-h-actions">'+pillEv+
       (gereEscalas()?'<button class="btn small danger" data-action="excluirEvento" data-id="'+e.id+'" title="Excluir escala">Excluir</button>':'')+'</div></div>'+
       (cheio?'<div class="ev-cheio">Vagas ocupadas, tente servir outro dia.</div>':'')+
@@ -2038,12 +2082,12 @@ function viewEscalas(){
         const ferramentas=editavel?'<span class="slot-tools">'+
           '<button type="button" class="icon-btn" data-action="renomearSlot" data-ev="'+e.id+'" data-slot="'+s.id+'" title="Renomear função" aria-label="Renomear '+esc(s.label)+'"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4zM14 6l4 4"/></svg></button>'+
           '<button type="button" class="icon-btn" data-action="removerSlot" data-ev="'+e.id+'" data-slot="'+s.id+'" title="Remover função" aria-label="Remover '+esc(s.label)+'"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></span>':'';
-        const quem=whoMem?avatar(s.who)+esc(whoMem.nome):s.oculto?'<span class="muted">Em montagem</span>':'<span class="muted">Vaga aberta</span>';
+        const quem=whoMem?avatar(s.who)+esc(whoMem.nome):s.oculto?'<span class="muted">'+(e.candAberta?'Aberta pra candidatura':'Coordenação escolhendo')+'</span>':'<span class="muted">Vaga aberta</span>';
         return '<div class="slot'+(extra?' slot-mais':'')+'"><span class="sl">'+esc(s.label)+ferramentas+'</span><span class="sw">'+quem+'</span><span class="slot-acts">'+act+'</span>'+extra+'</div>';
       }).join(''):'<div class="slot"><span class="muted">Nenhuma função de '+esc(SETOR_NAME[currentSetor])+' neste evento ainda.</span></div>')+
       (podeEditarSetor?'<div style="padding:0 16px 12px"><button type="button" class="btn small" style="margin-top:8px" data-action="toggleAddSlot" data-ev="'+e.id+'">'+(addSlotEventoId===e.id?'Cancelar':'+ função de '+esc(SETOR_NAME[currentSetor]))+'</button></div>'+addSlotFormHtml(e.id):'')+
     '</article>';
-  }).join('')+'</div>'+rodape;
+  })+rodape;
 }
 // Navegação de mês + download do PDF: setor = só a escala daquele setor; null = todos os setores juntos.
 function pdfBarHtml(setor){
@@ -2071,7 +2115,7 @@ function viewEscalaCompleta(){
     return '<article class="ev'+(e.eventoGrande?' big':'')+'"><div class="ev-h"><div class="dbadge"><b>'+d.getDate()+'</b><span>'+d.toLocaleDateString('pt-BR',{month:'short'}).replace('.','')+'</span></div><div style="flex:1;min-width:120px"><h3>'+esc(e.titulo)+'</h3><small>'+cap(d.toLocaleDateString('pt-BR',{weekday:'long'}))+', '+(e.horario||'').slice(0,5)+' no '+esc(e.local)+'</small></div><div class="ev-h-actions"><span class="pill '+(e.vagasAbertas?'warn':'ok')+'">'+(e.vagasAbertas?e.vagasAbertas+(e.vagasAbertas>1?' vagas':' vaga'):'Completa')+'</span></div></div>'+
       e.setores.map(g=>'<div class="slot-grp">'+esc(g.nomeSetor)+'</div>'+g.funcoes.map(f=>{
         const quem=f.voluntarioId!=null?String(f.voluntarioId):null;
-        return '<div class="slot"><span class="sl">'+esc(f.rotulo)+'</span><span class="sw">'+(f.voluntarioNome?(mem(quem)?avatar(quem):'')+esc(f.voluntarioNome):'<span class="muted">'+(f.oculto?'Em montagem':'Vaga aberta')+'</span>')+'</span></div>';
+        return '<div class="slot"><span class="sl">'+esc(f.rotulo)+'</span><span class="sw">'+(f.voluntarioNome?(mem(quem)?avatar(quem):'')+esc(f.voluntarioNome):'<span class="muted">'+(f.oculto?(e.candidaturaAberta?'Aberta pra candidatura':'Coordenação escolhendo'):'Vaga aberta')+'</span>')+'</span></div>';
       }).join('')).join('')+
     '</article>';
   }).join('')+'</div>';
@@ -2496,9 +2540,9 @@ function viewEquipeSetor(){
   const card=m=>{
     const cs=state.cards.filter(c=>c.owner===m.id&&c.stage!=='publicado'&&c.setor===s);
     const r=rankNoSetor(m,s);
-    return '<div class="mem">'+avatar(m.id,true)+'<div><h3>'+esc(m.nome)+(m.id===state.me?' <span class="pill">você</span>':'')+'</h3>'+
-      '<div class="fn">'+esc(m.funcao||'—')+(semEmail(m)?' <span class="pill" title="Cadastrado pela coordenação sem e-mail: não entra no app nem recebe lembretes por e-mail">sem e-mail</span>':'')+'</div>'+
-      '<div class="note" style="margin-top:2px"><span class="pill'+(r<2?' warn':'')+'">'+esc(papelNoSetor(m,s))+'</span> Disponível: '+esc((m.disp||'').toLowerCase())+'</div>'+
+    return '<div class="mem" data-nome="'+esc((m.nome+' '+(m.funcao||'')).toLowerCase())+'">'+avatar(m.id,true)+'<div><h3>'+esc(m.nome)+(m.id===state.me?' <span class="pill">você</span>':'')+'</h3>'+
+      '<div class="fn">'+esc(m.funcao||'')+(semEmail(m)?' <span class="pill" title="Cadastrado pela coordenação sem e-mail: não entra no app nem recebe lembretes por e-mail">sem e-mail</span>':'')+'</div>'+
+      '<div class="note" style="margin-top:2px"><span class="pill'+(r<2?' warn':'')+'">'+esc(papelNoSetor(m,s))+'</span>'+(m.disp&&m.disp!=='Não informado'?' Disponível: '+esc(m.disp.toLowerCase()):'')+'</div>'+
       (cs.length?'<ul>'+cs.map(c=>'<li>'+esc(c.title)+'</li>').join('')+'</ul>':(ehSetorDeConteudo()?'<p class="note">Sem cartões em andamento neste setor.</p>':''))+
       (isCoordenadorGeral()&&m.id!==state.me?'<button type="button" class="link-btn mem-link" data-action="gerenciarPessoa" data-id="'+m.id+'">Gerenciar (papel, setor, senha)</button>':'')+
       // Quem entrou neste setor como extra pode ser tirado pela coordenação do setor.
@@ -2510,7 +2554,8 @@ function viewEquipeSetor(){
     :'<p class="note" style="margin:0 0 16px">Aparece aqui quem se cadastrou neste setor ou adicionou ele no perfil, junto com a coordenação do setor e a Coordenação Geral. Também serve em outro setor? <button type="button" class="link-btn" data-action="abrirPerfil">Adicione no seu perfil</button>.</p>';
   const incluir=podeMexerNaEquipe(s)?'<div class="filters" style="margin:0 0 16px"><button class="btn primary" data-action="incluirNaEquipe">+ Incluir pessoa na equipe de '+esc(SETOR_NAME[s])+'</button>'+
     '<button class="btn" data-action="cadastrarVoluntario">+ Cadastrar voluntário sem cadastro</button></div>':'';
-  return aviso+incluir+
+  const busca=lista.length>8?'<input id="eq-busca" class="time-busca eq-busca" type="search" placeholder="Buscar pelo nome" aria-label="Buscar na equipe" autocomplete="off">':'';
+  return aviso+incluir+busca+
     '<h2 class="eq-h">Coordenação <small>'+coord.length+'</small></h2>'+
     (coord.length?'<div class="team">'+coord.map(card).join('')+'</div>':'<div class="empty">Ninguém na coordenação deste setor ainda.</div>')+
     '<h2 class="eq-h">Voluntários <small>'+vol.length+'</small></h2>'+
@@ -2684,7 +2729,7 @@ function viewTime(){
 let perfilRascunho=null; // guarda o que já foi digitado quando a tela re-renderiza (ex.: ao trocar a foto)
 function viewPerfil(){
   const m=me(); if(!m) return '';
-  const r=perfilRascunho||{nome:m.nome,funcao:m.funcao,disp:m.disp==='Não informado'?'':m.disp,extras:m.extras||[],anivDia:m.anivDia,anivMes:m.anivMes};
+  const r=perfilRascunho||{nome:m.nome,funcao:m.funcao,disp:m.disp==='Não informado'?'':m.disp,extras:m.extras||[],anivDia:m.anivDia,anivMes:m.anivMes,whats:m.whatsapp?formatarWhats(m.whatsapp):'',whatsAjuda:!!m.whatsappNaAjuda};
   const geral=m.role==='coordenador_geral';
   const papel=ROLE_NAME[m.role]+(m.setor?' · '+SETOR_NAME[m.setor]:'');
   return '<div class="perfil">'+
@@ -2702,6 +2747,10 @@ function viewPerfil(){
       '<label class="fld"><span>Nome</span><input id="pf-nome" value="'+esc(r.nome)+'" maxlength="120" autocomplete="name"></label>'+
       '<label class="fld"><span>Função</span><input id="pf-funcao" value="'+esc(r.funcao||'')+'" maxlength="120" placeholder="Ex.: Edição de vídeo, fotografia"></label>'+
       '<label class="fld"><span>Disponibilidade</span><input id="pf-disp" value="'+esc(r.disp||'')+'" maxlength="200" placeholder="Ex.: Domingos de manhã"></label>'+
+      // Só a coordenação: o WhatsApp aparece no "Precisa de ajuda?" (tela de entrada) se marcar a caixinha.
+      (ehCoordenacaoAlguma()?'<label class="fld"><span>Seu WhatsApp (opcional)</span><input id="pf-whats" inputmode="tel" value="'+esc(r.whats||'')+'" maxlength="20" placeholder="(11) 91234-5678"></label>'+
+        '<label class="chk"><input type="checkbox" id="pf-whats-ajuda"'+(r.whatsAjuda?' checked':'')+'> Aparecer no botão "Precisa de ajuda?" pra equipe falar comigo</label>'+
+        '<p class="note" style="margin:0">Esse botão fica também na tela de entrada, que qualquer pessoa com o link do app vê. Se não quiser, deixe desmarcado.</p>':'')+
       aniversarioCamposHtml('pf',r.anivDia,r.anivMes,false)+
     '</section>'+
     '<section class="perfil-card"><h2>Setores</h2>'+
@@ -2718,8 +2767,11 @@ function capturarRascunhoPerfil(){
   if(!$('#pf-nome')) return;
   perfilRascunho={nome:$('#pf-nome').value,funcao:$('#pf-funcao').value,disp:$('#pf-disp').value,
     extras:$$('[data-pf-setor]').filter(x=>x.checked).map(x=>x.dataset.pfSetor),
-    anivDia:Number(($('#pf-aniv-dia')||{}).value)||null, anivMes:Number(($('#pf-aniv-mes')||{}).value)||null};
+    anivDia:Number(($('#pf-aniv-dia')||{}).value)||null, anivMes:Number(($('#pf-aniv-mes')||{}).value)||null,
+    whats:$('#pf-whats')?$('#pf-whats').value:null, whatsAjuda:$('#pf-whats-ajuda')?$('#pf-whats-ajuda').checked:null};
 }
+/** "5511912345678" → "(11) 91234-5678" pra mostrar no campo. */
+function formatarWhats(n){ const d=String(n||'').replace(/^55/,''); return d.length===11?'('+d.slice(0,2)+') '+d.slice(2,7)+'-'+d.slice(7):d.length===10?'('+d.slice(0,2)+') '+d.slice(2,6)+'-'+d.slice(6):d; }
 function atualizarMembro(u){
   const nm=memberFromApi(u), i=MEMBERS.findIndex(x=>x.id===nm.id);
   if(i>-1) MEMBERS[i]=nm; else MEMBERS.push(nm);
@@ -2777,8 +2829,11 @@ async function salvarPerfil(){
   try{
     const u=await api('/usuarios/me',{method:'PUT',body:JSON.stringify({
       nome:r.nome.trim(), funcao:r.funcao.trim()||null, disponibilidade:r.disp.trim()||null,
-      setoresExtras:r.extras.map(x=>x.toUpperCase()), aniversarioDia:aniv.dia, aniversarioMes:aniv.mes
+      setoresExtras:r.extras.map(x=>x.toUpperCase()), aniversarioDia:aniv.dia, aniversarioMes:aniv.mes,
+      // Só vai quando o campo existe (coordenação): null = não mexe no que já estava salvo.
+      whatsapp:r.whats==null?null:r.whats, whatsappNaAjuda:r.whatsAjuda==null?null:r.whatsAjuda
     })});
+    ajudaCache=null;
     atualizarMembro(u); perfilRascunho=null; render(); toast('Perfil salvo.');
   }catch(e){ toast(e.message,'warn'); }
 }
@@ -3218,7 +3273,7 @@ function setorSwitchHtml(){
   return '<div class="setor-switch">'+
     '<button type="button" class="setor-btn'+(setorMenuOpen?' open':'')+'" data-action="toggleSetorMenu">'+
       '<span class="ico"><svg viewBox="0 0 24 24" aria-hidden="true">'+ICONS[SETOR_ICON[currentSetor]]+'</svg></span>'+
-      '<span class="tx"><small>Espaço</small><b>'+esc(SETOR_NAME[currentSetor])+'</b></span>'+
+      '<span class="tx"><small>Setor</small><b>'+esc(SETOR_NAME[currentSetor])+'</b></span>'+
       '<svg class="chev" viewBox="0 0 24 24" aria-hidden="true">'+ICONS.chev+'</svg>'+
     '</button>'+
     (setorMenuOpen?('<div class="setor-menu">'+SETORES.map(s=>
@@ -3237,7 +3292,7 @@ function renderSide(){
     setorSwitchHtml()+
     '<div class="nav">'+Object.keys(VIEWS).filter(viewDisponivel).map(k=>'<button data-action="nav" data-view="'+k+'"'+(k===view?' aria-current="page"':'')+'><svg viewBox="0 0 24 24" aria-hidden="true">'+ICONS[VIEWS[k].icon]+'</svg><span>'+VIEWS[k].label+'</span></button>').join('')+'</div>'+
     '<div class="side-foot">'+(m?'<button type="button" class="side-me'+(view==='perfil'?' active':'')+'" data-action="abrirPerfil" title="Meu perfil">'+avatar(m.id)+'<span><b>'+esc(m.nome)+'</b><small>'+esc(ROLE_NAME[m.role])+' · Meu perfil</small></span></button>':'')+
-    '<button data-action="logout">Sair</button></div>';
+    '<div class="side-foot-acts"><button data-action="abrirAjuda">💬 Ajuda</button><button data-action="logout">Sair</button></div></div>';
 }
 /* Produção, Dashboard e Ideias só existem pra Redes sociais e Jovens (quem produz conteúdo);
    Datashow e Transmissões trabalham pela escala. O Guia é só de Transmissões. */
@@ -3246,7 +3301,9 @@ const SETORES_CONTEUDO=['redes_sociais','jovens'];
 // escala (Datashow, Transmissões, Holyrics) só confundiam ("Planejar neste dia", Reels, Carrossel).
 const VIEWS_POR_SETOR={quadro:SETORES_CONTEUDO,dashboard:SETORES_CONTEUDO,ideias:SETORES_CONTEUDO,calendario:SETORES_CONTEUDO,materiais:SETORES_CONTEUDO,guia:['transmissoes_videos'],montagem:['holyrics']};
 const ehSetorDeConteudo=()=>SETORES_CONTEUDO.indexOf(currentSetor)>-1;
-const viewDisponivel=k=>!!VIEWS[k]&&!VIEWS[k].hidden&&(!VIEWS_POR_SETOR[k]||VIEWS_POR_SETOR[k].indexOf(currentSetor)>-1);
+// Lixeira só pra coordenação (de setor, Geral ou gestor de escalas): voluntário não exclui nem restaura escala.
+const ehCoordenacaoAlguma=()=>{const m=me();return !!m&&(m.role==='coordenador'||isCoordenadorGeral()||gereEscalas());};
+const viewDisponivel=k=>!!VIEWS[k]&&!VIEWS[k].hidden&&(!VIEWS_POR_SETOR[k]||VIEWS_POR_SETOR[k].indexOf(currentSetor)>-1)&&(k!=='lixeira'||ehCoordenacaoAlguma());
 // Abas principais da barra de baixo no celular (o resto fica em "Mais").
 function abasPrincipais(){
   if(currentSetor==='transmissoes_videos') return ['painel','escalas','guia','equipe'];
@@ -3435,6 +3492,68 @@ function pushPerfilHtml(){
   }[pushEstado];
   return '<section class="perfil-card"><h2>📲 App e notificações</h2><div class="push-linha">'+app+'</div><div class="push-linha">'+txt+'</div></section>';
 }
+// ---------------------------------------------------------------- "Precisa de ajuda?" (tela de entrada e dentro do app)
+// Por enquanto leva pro WhatsApp de quem da coordenação aceitou aparecer (Meu perfil). Ideia pro futuro:
+// um chat dentro do próprio app.
+let ajudaCache=null;
+const linkWhats=(numero,nome)=>'https://wa.me/'+numero+'?text='+encodeURIComponent('Oi, '+nome.split(' ')[0]+'! Sou da Pascom e preciso de ajuda com o app.');
+async function abrirAjuda(passo,setor){
+  const o=$('#overlay'), cab=t=>'<div class="modal" role="dialog" aria-modal="true" aria-label="Ajuda"><div class="m-head"><h3>'+t+'</h3><button class="x" data-action="close" aria-label="Fechar">×</button></div><div class="m-body">';
+  const pe='</div><div class="m-foot"><span class="sp"></span><button class="btn" data-action="close">Fechar</button></div></div>';
+  if(!ajudaCache){ o.innerHTML=cab('Precisa de ajuda?')+'<p class="note" style="margin:0">Carregando…</p>'+pe; o.hidden=false;
+    try{ const r=await fetch(API_BASE+'/publico/ajuda'); ajudaCache=await r.json(); }catch(e){ ajudaCache={app:[],setores:[]}; } }
+  const contatos=l=>l.length?l.map(c=>'<a class="ajuda-contato" href="'+linkWhats(c.whatsapp,c.nome)+'" target="_blank" rel="noopener"><span>💬</span><b>'+esc(c.nome)+'</b><small>Abrir no WhatsApp</small></a>').join('')
+    :'<div class="empty">Ninguém daqui colocou o WhatsApp no app ainda. Fale com a coordenação no grupo da Pascom.</div>';
+  let corpo;
+  if(passo==='app') corpo='<p class="note" style="margin:0">Dúvida sobre entrar, senha, escalas ou notificações? Fale com a Coordenação Geral:</p>'+contatos(ajudaCache.app||[]);
+  else if(passo==='setor'&&setor){ const g=(ajudaCache.setores||[]).find(x=>x.setor===setor)||{contatos:[],nomeSetor:''};
+    corpo='<p class="note" style="margin:0">Coordenação de <b>'+esc(g.nomeSetor)+'</b>:</p>'+contatos(g.contatos); }
+  else if(passo==='setor') corpo='<p class="note" style="margin:0">De qual setor você é?</p><div class="ajuda-opcoes">'+(ajudaCache.setores||[]).map(g=>'<button class="btn" data-action="ajudaSetor" data-setor="'+g.setor+'">'+esc(g.nomeSetor)+'</button>').join('')+'</div>';
+  else corpo='<div class="ajuda-opcoes grande"><button class="btn primary" data-action="ajudaApp">📱 Ajuda com o app<small>Entrar, senha, escalas, notificações</small></button>'+
+    '<button class="btn" data-action="ajudaSetores">🙋 Falar com o coordenador do meu setor</button></div>';
+  o.innerHTML=cab(passo==='app'?'Ajuda com o app':passo==='setor'?'Falar com a coordenação':'Precisa de ajuda?')+corpo+
+    (passo?'<button type="button" class="link-btn" data-action="abrirAjuda" style="margin-top:4px">← Voltar</button>':'')+pe;
+  o.hidden=false;
+}
+// ---------------------------------------------------------------- login que não expira pra quem usa
+// O login vale 30 dias; a cada abertura (no máximo 1x a cada 12h) o app pede um novo, e o prazo volta
+// a contar. Quem abre o app pelo menos uma vez por mês nunca precisa digitar a senha de novo.
+async function renovarLoginSeVelho(){
+  const c=decodeJwt(authToken||''); if(!c||!c.iat) return;
+  if(Date.now()/1000-c.iat<12*3600) return;
+  try{
+    const r=await api('/usuarios/renovar-token',{method:'POST'});
+    if(r&&r.token){ authToken=r.token; try{ localStorage.setItem(TOKEN_KEY,authToken); }catch(e){} }
+  }catch(e){}
+}
+// ---------------------------------------------------------------- primeiro acesso guiado (3 telinhas)
+const TOUR_KEY=id=>'pascom-tour-visto-'+id;
+let tourPasso=0;
+const TOUR=[
+  {ic:'🙋',t:'Como me candidato',p:'Na aba <b>Escalas</b>, toque em <b>Quero servir</b> nas missas em que você pode. As candidaturas do mês que vem abrem no <b>dia 15</b>. Depois a coordenação escolhe quem serve e publica a escala.'},
+  {ic:'📅',t:'Onde vejo minhas escalas',p:'No <b>Painel</b>, em <b>Suas próximas escalas</b>, e na aba <b>Escalas</b>, no filtro <b>Minhas</b>. Quando a escala for publicada, chega um aviso no sininho 🔔.'},
+  {ic:'📲',t:'Instale o app e ative as notificações',p:'Assim os lembretes chegam no celular, até 2 dias antes de você servir. Você também pode fazer isso depois em <b>Meu perfil</b>.',acoes:true}
+];
+function mostrarTourSePrimeiraVez(){
+  if(!state.me||document.getElementById('splash')&&!document.getElementById('splash').hidden) return;
+  try{ if(localStorage.getItem(TOUR_KEY(state.me))) return; }catch(e){ return; }
+  if(!$('#overlay').hidden) return; // não atrapalha outra janela aberta
+  tourPasso=0; desenharTour();
+}
+function desenharTour(){
+  const s=TOUR[tourPasso], ult=tourPasso===TOUR.length-1;
+  const pontos=TOUR.map((_,i)=>'<span class="tour-ponto'+(i===tourPasso?' on':'')+'"></span>').join('');
+  $('#overlay').innerHTML='<div class="modal tour" role="dialog" aria-modal="true" aria-label="Bem-vindo(a)"><div class="m-body">'+
+    (tourPasso===0?'<p class="tour-oi">Que bom ter você na Pascom! 💙 Três coisas rápidas:</p>':'')+
+    '<div class="tour-ic">'+s.ic+'</div><h3>'+s.t+'</h3><p>'+s.p+'</p>'+
+    (s.acoes?'<div class="tour-acoes">'+(ehStandalone()?'':'<button class="btn" data-action="comoInstalar">Como instalar</button>')+(pushEstado==='desligado'?'<button class="btn primary" data-action="ativarPush">Ativar notificações</button>':'')+'</div>':'')+
+    '<div class="tour-pontos">'+pontos+'</div></div>'+
+    '<div class="m-foot"><button class="btn" data-action="tourPular">'+(ult?'Fechar':'Pular')+'</button><span class="sp"></span>'+
+    (tourPasso>0?'<button class="btn" data-action="tourVoltar">Voltar</button>':'')+
+    '<button class="btn primary" data-action="tourProximo">'+(ult?'Começar':'Próximo')+'</button></div></div>';
+  $('#overlay').hidden=false;
+}
+function fecharTour(){ try{ localStorage.setItem(TOUR_KEY(state.me),'1'); }catch(e){} closeModal(); }
 async function abrirAvisos(){
   await carregarAvisos();
   const o=$('#overlay');
@@ -3460,7 +3579,7 @@ function renderMobileBars(){
   $('#mbar').innerHTML=
     '<button type="button" class="mbar-setor" data-action="abrirTrocaSetor" aria-label="Trocar de espaço">'+
       '<span class="ico"><svg viewBox="0 0 24 24" aria-hidden="true">'+ICONS[SETOR_ICON[currentSetor]]+'</svg></span>'+
-      '<span class="tx"><small>Espaço</small><b>'+esc(SETOR_NAME[currentSetor])+'</b></span>'+
+      '<span class="tx"><small>Setor</small><b>'+esc(SETOR_NAME[currentSetor])+'</b></span>'+
       '<svg class="chev" viewBox="0 0 24 24" aria-hidden="true">'+ICONS.chev+'</svg>'+
     '</button>'+
     '<span class="bell-slot">'+sininhoHtml()+'</span>'+
@@ -3490,18 +3609,21 @@ function render(){
   main.scrollTop=ms;
 }
 function loginHtml(){
+  // Entrar com Google primeiro (é o jeito mais fácil, sem senha); e-mail e senha logo abaixo.
   return '<div class="authwrap"><div class="authbox">'+
-    '<h2>Pascom Fátima</h2><p class="note" style="margin:4px 0 20px">Entrar na conta da equipe</p>'+
-    (authOk?'<p class="note" style="margin-bottom:14px;color:#2a7d46">'+esc(authOk)+'</p>':'')+
-    (authError?'<p class="late" style="margin-bottom:14px">'+esc(authError)+'</p>':'')+
+    '<div class="auth-marca"><svg width="52" height="52" viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="18.5" fill="none" stroke="#E2BA5C" stroke-width="1.5"/><path d="M20 6L23.4 16.6 34 20 23.4 23.4 20 34 16.6 23.4 6 20 16.6 16.6Z" fill="#E2BA5C"/></svg><div><h2>Pascom Fátima</h2><p class="note" style="margin:2px 0 0">App da Pastoral da Comunicação do Santuário de Fátima</p></div></div>'+
+    (authOk?'<p class="note" style="margin:0 0 14px;color:#2a7d46">'+esc(authOk)+'</p>':'')+
+    (authError?'<p class="late" style="margin:0 0 14px">'+esc(authError)+'</p>':'')+
+    '<p class="auth-dica">Tem Gmail? Entre com um toque, sem precisar de senha:</p>'+
+    '<div id="google-btn-login" class="auth-google"></div>'+
+    '<div style="display:flex;align-items:center;gap:10px;margin:18px 0 14px"><hr style="flex:1;border:none;border-top:1px solid var(--line)"><span class="note">ou com e-mail e senha</span><hr style="flex:1;border:none;border-top:1px solid var(--line)"></div>'+
     '<label class="fld"><span>E-mail</span><input id="au-email" type="email" autocomplete="username"></label>'+
     '<label class="fld" style="margin-top:10px"><span>Senha</span><input id="au-senha" type="password" autocomplete="current-password"></label>'+
     '<p class="note" style="margin-top:8px;text-align:right"><button type="button" class="link-btn" data-action="toEsqueciSenha">Esqueceu a senha?</button></p>'+
     '<button class="btn primary" style="width:100%;margin-top:10px" data-action="doLogin">Entrar</button>'+
-    '<div style="display:flex;align-items:center;gap:10px;margin:16px 0"><hr style="flex:1;border:none;border-top:1px solid #ddd"><span class="note">ou</span><hr style="flex:1;border:none;border-top:1px solid #ddd"></div>'+
-    '<div id="google-btn-login" style="display:flex;justify-content:center"></div>'+
     '<p class="note" style="margin-top:16px;text-align:center">Ainda não tem conta? <button type="button" class="link-btn" data-action="toCadastro">Criar conta</button></p>'+
-    '<p class="note" style="margin-top:10px;text-align:center"><a href="/privacidade.html" class="link-btn">Política de Privacidade</a></p>'+
+    '<button type="button" class="btn auth-ajuda" data-action="abrirAjuda">💬 Precisa de ajuda? Fale com a coordenação</button>'+
+    '<p class="note" style="margin-top:12px;text-align:center"><a href="/privacidade.html" class="link-btn">Política de Privacidade</a></p>'+
     '</div></div>';
 }
 function esqueciSenhaHtml(){
@@ -3681,6 +3803,12 @@ async function leaveSlot(evId,slotId){
 /* =====================================================================
    9. EVENTOS
    ===================================================================== */
+document.addEventListener('input',e=>{
+  if(e.target&&e.target.id==='eq-busca'){
+    const q=e.target.value.trim().toLowerCase();
+    document.querySelectorAll('.team .mem').forEach(c=>{ c.hidden=!!q&&(c.dataset.nome||'').indexOf(q)<0; });
+  }
+});
 document.addEventListener('click',e=>{
   if(e.target.id==='overlay'){closeModal();return;}
   if(setorMenuOpen&&!e.target.closest('.setor-switch')){setorMenuOpen=false;renderSide();}
@@ -3711,6 +3839,13 @@ document.addEventListener('click',e=>{
     case 'prev': {const c=card(id);moveCard(id,STAGES[stageIdx(c.stage)-1].id);break;}
     case 'next': {const c=card(id);moveCard(id,STAGES[stageIdx(c.stage)+1].id);break;}
     case 'close': closeModal(); break;
+    case 'abrirAjuda': abrirAjuda(); break;
+    case 'tourProximo': if(tourPasso<TOUR.length-1){ tourPasso++; desenharTour(); } else fecharTour(); break;
+    case 'tourVoltar': if(tourPasso>0){ tourPasso--; desenharTour(); } break;
+    case 'tourPular': fecharTour(); break;
+    case 'ajudaApp': abrirAjuda('app'); break;
+    case 'ajudaSetores': abrirAjuda('setor'); break;
+    case 'ajudaSetor': abrirAjuda('setor',t.dataset.setor); break;
     case 'ativarPush': ativarPush(); break;
     case 'conectarGmail': conectarGmail(); break;
     case 'testeGmail': testeGmail(); break;

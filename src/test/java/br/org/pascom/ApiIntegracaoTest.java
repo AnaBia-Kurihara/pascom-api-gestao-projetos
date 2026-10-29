@@ -742,6 +742,71 @@ class ApiIntegracaoTest {
                 "auth", br.org.pascom.service.WebPushCripto.b64(auth)));
     }
 
+    // ---------------------------------------------------------------- ajuda, WhatsApp e login renovado
+
+    private Map<String, Object> perfil(String nome, String whatsapp, Boolean naAjuda) {
+        Map<String, Object> d = new LinkedHashMap<>();
+        d.put("nome", nome);
+        d.put("whatsapp", whatsapp);
+        d.put("whatsappNaAjuda", naAjuda);
+        return d;
+    }
+
+    @Test
+    void ajudaMostraSoCoordenacaoQueAceitouENuncaVoluntario() throws Exception {
+        String sufixo = UUID.randomUUID().toString().substring(0, 6);
+        Pessoa coordSim = cadastrarELogar("COORDENADOR", "JOVENS");
+        Pessoa coordNao = cadastrarELogar("COORDENADOR", "JOVENS");
+        Pessoa vol = cadastrarELogar("VOLUNTARIO", "JOVENS");
+        assertThat(enviar(put("/api/usuarios/me"), coordSim.token, perfil("Coord Sim " + sufixo, "(11) 91234-5678", true)).getResponse().getStatus()).isEqualTo(200);
+        assertThat(enviar(put("/api/usuarios/me"), coordNao.token, perfil("Coord Nao " + sufixo, "11 98888-7777", false)).getResponse().getStatus()).isEqualTo(200);
+        assertThat(enviar(put("/api/usuarios/me"), vol.token, perfil("Vol " + sufixo, "11 97777-6666", true)).getResponse().getStatus()).isEqualTo(200);
+
+        MvcResult r = mvc.perform(get("/api/publico/ajuda")).andReturn(); // sem login
+        assertThat(r.getResponse().getStatus()).isEqualTo(200);
+        String texto = r.getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
+        assertThat(texto).contains("Coord Sim " + sufixo).contains("5511912345678");
+        assertThat(texto).doesNotContain("Coord Nao " + sufixo).doesNotContain("Vol " + sufixo).doesNotContain("5511977776666");
+    }
+
+    @Test
+    void whatsappInvalidoDaErroESalvarSemOCampoNaoApaga() throws Exception {
+        Pessoa c = cadastrarELogar("COORDENADOR", "DATASHOW");
+        MvcResult ruim = enviar(put("/api/usuarios/me"), c.token, perfil("Coord", "123", true));
+        assertThat(ruim.getResponse().getStatus()).isEqualTo(400);
+        assertThat(corpo(ruim).path("erro").asText()).contains("WhatsApp");
+
+        enviar(put("/api/usuarios/me"), c.token, perfil("Coord", "+55 (21) 3456-7890", true));
+        // versão antiga do app não manda o campo (null): o número continua salvo
+        JsonNode depois = corpo(enviar(put("/api/usuarios/me"), c.token, perfil("Coord Renomeado", null, null)));
+        assertThat(depois.path("whatsapp").asText()).isEqualTo("552134567890");
+        assertThat(depois.path("whatsappNaAjuda").asBoolean()).isTrue();
+        // "" apaga
+        assertThat(corpo(enviar(put("/api/usuarios/me"), c.token, perfil("Coord", "", null))).path("whatsapp").isNull()).isTrue();
+    }
+
+    @Test
+    void listaDaEquipeNaoMostraWhatsappDosOutros() throws Exception {
+        Pessoa c = cadastrarELogar("COORDENADOR", "TRANSMISSOES_VIDEOS");
+        enviar(put("/api/usuarios/me"), c.token, perfil("Coord Privado", "11 95555-4444", false));
+        Pessoa vol = cadastrarELogar("VOLUNTARIO", "TRANSMISSOES_VIDEOS");
+        for (JsonNode u : corpo(enviar(get("/api/usuarios"), vol.token, null))) {
+            if (u.path("id").asLong() == c.id) assertThat(u.path("whatsapp").isNull()).isTrue();
+        }
+        for (JsonNode u : corpo(enviar(get("/api/usuarios"), c.token, null))) {
+            if (u.path("id").asLong() == c.id) assertThat(u.path("whatsapp").asText()).isEqualTo("5511955554444");
+        }
+    }
+
+    @Test
+    void renovarLoginDevolveTokenQueFunciona() throws Exception {
+        Pessoa p = cadastrarELogar("VOLUNTARIO", "REDES_SOCIAIS");
+        assertThat(enviar(post("/api/usuarios/renovar-token"), null, null).getResponse().getStatus()).isEqualTo(401);
+        String novo = corpo(enviar(post("/api/usuarios/renovar-token"), p.token, null)).path("token").asText();
+        assertThat(novo).isNotBlank();
+        assertThat(enviar(get("/api/eventos"), novo, null).getResponse().getStatus()).isEqualTo(200);
+    }
+
     // ---------------------------------------------------------------- apoio
 
     private record Pessoa(long id, String email, String token) {}

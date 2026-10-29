@@ -75,6 +75,13 @@ public class Usuario implements UserDetails {
     private Integer avatarHue;
 
     /**
+     * WhatsApp da coordenação (só dígitos, com DDI 55), pro botão "Precisa de ajuda?". Opcional, e só
+     * aparece pra equipe/tela de entrada se a pessoa marcar {@link #whatsappNaAjuda}.
+     */
+    private String whatsapp;
+    private Boolean whatsappNaAjuda;
+
+    /**
      * Quando a foto de perfil foi trocada pela última vez (null = sem foto). A imagem em si fica
      * em {@link FotoUsuario}, numa tabela separada, pra não ser carregada a cada request
      * autenticado; isto aqui serve de "versão" pro front saber quando buscar de novo.

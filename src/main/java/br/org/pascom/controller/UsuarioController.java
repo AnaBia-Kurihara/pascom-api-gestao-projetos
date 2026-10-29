@@ -35,8 +35,8 @@ public class UsuarioController {
     }
 
     @GetMapping
-    public ResponseEntity<List<UsuarioResponseDTO>> listar() {
-        return ResponseEntity.ok(usuarioService.listarTodos());
+    public ResponseEntity<List<UsuarioResponseDTO>> listar(@AuthenticationPrincipal Usuario usuario) {
+        return ResponseEntity.ok(usuarioService.listarTodos(usuario));
     }
 
     @PostMapping("/cadastro")
@@ -104,6 +104,15 @@ public class UsuarioController {
     }
 
     /** Só Coordenação Geral: gera um link de nova senha pra mandar por fora (ex.: WhatsApp). */
+    /**
+     * Renova o login de quem já está logado (o app chama ao abrir, uma vez por dia): o prazo volta a
+     * contar do zero, então quem usa o app não precisa entrar de novo com a senha.
+     */
+    @PostMapping("/renovar-token")
+    public ResponseEntity<java.util.Map<String, String>> renovarToken(@AuthenticationPrincipal Usuario usuario) {
+        return ResponseEntity.ok(java.util.Map.of("token", usuarioService.renovarToken(usuario)));
+    }
+
     /** Coordenação cadastra um voluntário que não conseguiu se cadastrar sozinho (e-mail opcional). */
     @PostMapping("/pela-coordenacao")
     public ResponseEntity<UsuarioResponseDTO> cadastrarPelaCoordenacao(@Valid @RequestBody br.org.pascom.dto.CadastroPelaCoordenacaoDTO dados,

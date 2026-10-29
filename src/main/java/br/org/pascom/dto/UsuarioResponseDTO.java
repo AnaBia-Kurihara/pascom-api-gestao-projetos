@@ -29,9 +29,17 @@ public record UsuarioResponseDTO(
         boolean gestorEscalas,
         /** Aniversário (só dia e mês); null = ainda não informado. */
         Integer aniversarioDia,
-        Integer aniversarioMes
+        Integer aniversarioMes,
+        /** WhatsApp (coordenação) e se aparece no botão de ajuda. */
+        String whatsapp,
+        boolean whatsappNaAjuda
 ) {
     public static UsuarioResponseDTO from(Usuario u) {
+        return from(u, true);
+    }
+
+    /** mostrarWhatsapp = false esconde o número (lista da equipe vista por outra pessoa). */
+    public static UsuarioResponseDTO from(Usuario u, boolean mostrarWhatsapp) {
         return new UsuarioResponseDTO(
                 u.getId(), u.getNome(), u.getEmail(), u.getRole(), u.getSetor(),
                 u.getFuncao(), u.getDisponibilidade(), u.getAvatarHue(),
@@ -41,7 +49,9 @@ public record UsuarioResponseDTO(
                         : u.getFotoAtualizadaEm().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli(),
                 Boolean.TRUE.equals(u.getGestorEscalas()),
                 u.getAniversarioDia(),
-                u.getAniversarioMes()
+                u.getAniversarioMes(),
+                mostrarWhatsapp ? u.getWhatsapp() : null,
+                Boolean.TRUE.equals(u.getWhatsappNaAjuda())
         );
     }
 

@@ -61,9 +61,10 @@ api:
     token:
       # Em produção, defina a variável de ambiente JWT_SECRET com um valor forte e secreto.
       secret: ${JWT_SECRET:pascom-fatima-chave-secreta-de-desenvolvimento-trocar-em-producao}
-      # Quanto tempo o login vale (em horas). Como o token é assinado com JWT_SECRET, ele continua
-      # valendo depois de um deploy: atualizar o sistema não desloga ninguém.
-      validade-horas: ${JWT_VALIDADE_HORAS:168}
+      # Quanto tempo o login vale (em horas, 720 = 30 dias). Como o token é assinado com JWT_SECRET, ele continua
+      # valendo depois de um deploy. E o app renova sozinho a cada abertura (POST /api/usuarios/renovar-token):
+      # quem abre pelo menos uma vez a cada 30 dias nunca precisa digitar a senha de novo.
+      validade-horas: ${JWT_VALIDADE_HORAS:720}
     instagram:
       # Chave usada para criptografar o access token do Instagram no banco.
       # Em produção, defina a variável de ambiente INSTAGRAM_TOKEN_KEY com um valor forte e secreto.

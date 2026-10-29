@@ -58,6 +58,14 @@ public class UsuarioService {
         return usuarioRepository.findAll().stream().map(UsuarioResponseDTO::from).toList();
     }
 
+    /** A lista da equipe, sem o WhatsApp dos outros (só o próprio e o de quem já aparece no "Precisa de ajuda?"). */
+    public List<UsuarioResponseDTO> listarTodos(Usuario quemVe) {
+        return usuarioRepository.findAll().stream()
+                .map(u -> UsuarioResponseDTO.from(u, (quemVe != null && u.getId().equals(quemVe.getId()))
+                        || Boolean.TRUE.equals(u.getWhatsappNaAjuda())))
+                .toList();
+    }
+
     @Transactional
     public UsuarioResponseDTO cadastrar(UsuarioCadastroDTO dados) {
         String email = Usuario.normalizarEmail(dados.email());
@@ -89,6 +97,10 @@ public class UsuarioService {
                 .build();
 
         return UsuarioResponseDTO.from(usuarioRepository.save(usuario));
+    }
+
+    public String renovarToken(Usuario usuario) {
+        return tokenService.gerarToken(buscar(usuario.getId()));
     }
 
     /** Domínio dos e-mails de mentira de quem foi cadastrado sem e-mail (".invalid" nunca existe de verdade). */
@@ -206,7 +218,46 @@ public class UsuarioService {
         usuario.getSetoresExtras().clear();
         usuario.getSetoresExtras().addAll(extras);
 
+        // null = a tela não mandou (versão antiga do app): não mexe no que já estava salvo.
+        if (dados.whatsapp() != null) usuario.setWhatsapp(normalizarWhatsapp(dados.whatsapp()));
+        if (dados.whatsappNaAjuda() != null) usuario.setWhatsappNaAjuda(dados.whatsappNaAjuda());
+
         return UsuarioResponseDTO.from(usuarioRepository.save(usuario));
+    }
+
+    /** Só dígitos, com o 55 do Brasil na frente; vazio = sem WhatsApp. */
+    static String normalizarWhatsapp(String w) {
+        String d = w == null ? "" : w.replaceAll("\\D", "");
+        if (d.isEmpty()) return null;
+        if (d.length() == 10 || d.length() == 11) d = "55" + d;
+        if (d.length() < 12 || d.length() > 13) {
+            throw new IllegalArgumentException("Esse WhatsApp não parece certo. Use DDD + número, ex.: (11) 91234-5678.");
+        }
+        return d;
+    }
+
+    /**
+     * Contatos do "Precisa de ajuda?" (tela de entrada, sem login): só quem é da coordenação, deixou o
+     * WhatsApp e marcou pra aparecer. "app" = Coordenação Geral (ajuda com o app); "setores" = coordenação
+     * de cada setor (inclui quem coordena pela flag de gestor de escalas como contato de todos).
+     */
+    public java.util.Map<String, Object> contatosDeAjuda() {
+        List<java.util.Map<String, Object>> app = new java.util.ArrayList<>();
+        java.util.Map<Setor, List<java.util.Map<String, Object>>> porSetor = new java.util.EnumMap<>(Setor.class);
+        for (Usuario u : usuarioRepository.findAll()) {
+            if (!Boolean.TRUE.equals(u.getWhatsappNaAjuda()) || u.getWhatsapp() == null) continue;
+            java.util.Map<String, Object> c = java.util.Map.of("nome", u.getNome(), "whatsapp", u.getWhatsapp());
+            if (u.temPoderesDeCoordenadorGeral()) app.add(c);
+            if (u.getRole() == Role.COORDENADOR && u.getSetor() != null) porSetor.computeIfAbsent(u.getSetor(), k -> new java.util.ArrayList<>()).add(c);
+            if (u.gereTodasAsEscalas() && !u.temPoderesDeCoordenadorGeral()) {
+                for (Setor s : Setor.values()) porSetor.computeIfAbsent(s, k -> new java.util.ArrayList<>()).add(c);
+            }
+        }
+        List<java.util.Map<String, Object>> setores = new java.util.ArrayList<>();
+        for (Setor s : Setor.values()) {
+            setores.add(java.util.Map.of("setor", s, "nomeSetor", nomeSetor(s), "contatos", porSetor.getOrDefault(s, List.of())));
+        }
+        return java.util.Map.of("app", app, "setores", setores);
     }
 
     /** Troca a foto de perfil de quem está logado. Aceita só JPEG, PNG ou WebP de verdade (confere os bytes). */
