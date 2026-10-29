@@ -675,7 +675,7 @@ public class EventoService {
         LocalDate hoje = calendarioService.hoje();
         YearMonth atual = YearMonth.from(hoje);
         int criados = gerarEscalasDoMes(atual);
-        // O mês seguinte entra no dia em que as candidaturas dele abrem (dia 11), ou antes, nos meses
+        // O mês seguinte entra no dia em que as candidaturas dele abrem (dia 15), ou antes, nos meses
         // da regra antiga. Novembro/2026 já existia.
         YearMonth proximo = atual.plusMonths(1);
         LocalDate abre = CicloEscala.abreCandidaturas(proximo);
@@ -702,7 +702,7 @@ public class EventoService {
     /**
      * A escala não pode começar "em montagem": na véspera do primeiro dia da escala do mês (e na
      * subida da aplicação, caso o servidor estivesse fora), publica de todo setor que a coordenação
-     * não publicou. A partir do dia 21 do mês anterior o front já avisa a coordenação.
+     * não publicou. Nos 2 últimos dias do mês anterior o front já avisa a coordenação.
      *
      * @return quantos setores foram publicados agora
      */
@@ -739,7 +739,7 @@ public class EventoService {
         }
     }
 
-    /** "Quero servir"/desistir: só entre o dia 11 e o dia 20 do mês anterior (a partir do dia 21, a coordenação monta). */
+    /** "Quero servir"/desistir: só do dia 15 do mês anterior até 3 dias antes do fim dele (os 2 últimos dias são da coordenação). */
     private void exigirCandidaturaAberta(LocalDate data) {
         exigirMesAberto(data);
         if (CicloEscala.candidaturaAberta(data, calendarioService.hoje())) return;

@@ -20,7 +20,7 @@ api:
 
 app:
   agendamentos: false
-  # "Hoje" dos testes = dia 15 do mês atual: as candidaturas do mês que vem (dia 11 a 20) estão abertas.
+  # "Hoje" dos testes = dia 15 do mês atual: as candidaturas do mês que vem (dia 15 até 3 dias antes do fim do mês) estão abertas.
   teste:
     hoje-dia: 15
   admin-emails: ""

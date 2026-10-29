@@ -29,14 +29,20 @@ class CicloEscalaTest {
     }
 
     @Test
-    void candidaturasDeDezembroAbremDia11EFecham21DeNovembro() {
+    void candidaturasAbremDia15EFicamOs2UltimosDiasPraCoordenacao() {
+        // Dezembro/2026: o mês anterior (novembro) tem 30 dias → candidaturas 15 a 28, coordenação 29 e 30.
         LocalDate missaDeDezembro = d(2026, 12, 6);
-        assertThat(CicloEscala.candidaturaAberta(missaDeDezembro, d(2026, 11, 10))).isFalse(); // ainda não abriu
-        assertThat(CicloEscala.candidaturaAberta(missaDeDezembro, d(2026, 11, 11))).isTrue();
-        assertThat(CicloEscala.candidaturaAberta(missaDeDezembro, d(2026, 11, 20))).isTrue();
-        assertThat(CicloEscala.candidaturaAberta(missaDeDezembro, d(2026, 11, 21))).isFalse(); // coordenação montando
-        assertThat(CicloEscala.abreCandidaturas(YearMonth.of(2026, 12))).isEqualTo(d(2026, 11, 11));
-        assertThat(CicloEscala.fechaCandidaturas(YearMonth.of(2026, 12))).isEqualTo(d(2026, 11, 21));
+        assertThat(CicloEscala.candidaturaAberta(missaDeDezembro, d(2026, 11, 14))).isFalse(); // ainda não abriu
+        assertThat(CicloEscala.candidaturaAberta(missaDeDezembro, d(2026, 11, 15))).isTrue();
+        assertThat(CicloEscala.candidaturaAberta(missaDeDezembro, d(2026, 11, 28))).isTrue();
+        assertThat(CicloEscala.candidaturaAberta(missaDeDezembro, d(2026, 11, 29))).isFalse(); // coordenação montando
+        assertThat(CicloEscala.abreCandidaturas(YearMonth.of(2026, 12))).isEqualTo(d(2026, 11, 15));
+        assertThat(CicloEscala.fechaCandidaturas(YearMonth.of(2026, 12))).isEqualTo(d(2026, 11, 29));
+        // Janeiro/2027: dezembro tem 31 dias → candidaturas 15 a 29, coordenação 30 e 31.
+        assertThat(CicloEscala.candidaturaAberta(d(2027, 1, 10), d(2026, 12, 29))).isTrue();
+        assertThat(CicloEscala.candidaturaAberta(d(2027, 1, 10), d(2026, 12, 30))).isFalse();
+        // Março/2027: fevereiro tem 28 dias → candidaturas 15 a 26, coordenação 27 e 28.
+        assertThat(CicloEscala.fechaCandidaturas(YearMonth.of(2027, 3))).isEqualTo(d(2027, 2, 27));
     }
 
     @Test

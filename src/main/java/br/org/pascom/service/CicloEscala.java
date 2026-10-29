@@ -15,8 +15,11 @@ import java.util.Set;
  *   <li><b>Mês da escala</b>: o mês do dia, exceto o sábado cujo domingo já é dia 1º, que entra na
  *       escala do mês seguinte junto com o domingo (ex.: sábado 31/10 + domingo 01/11 → novembro).
  *       A missa de sábado à tarde já é a do domingo, e a montagem do Holyrics é do fim de semana.</li>
- *   <li><b>Candidaturas</b> ("Quero servir") do mês M: abrem no dia 11 do mês anterior e fecham no
- *       dia 21 (do dia 21 em diante, só a coordenação, que tem até o fim do mês pra montar e publicar).
+ *   <li><b>Candidaturas</b> ("Quero servir") do mês M: abrem no dia 15 do mês anterior e vão até 3 dias
+ *       antes do fim dele; os <b>2 últimos dias do mês</b> são da coordenação, pra montar e publicar
+ *       (mês de 31 dias: candidaturas 15 a 29, coordenação 30 e 31; de 30 dias: 15 a 28, coordenação
+ *       29 e 30; fevereiro de 28: 15 a 26, coordenação 27 e 28). Pedido da coordenação em out/2026,
+ *       porque muita gente depende da escala de outras pastorais pra se organizar (antes era 11 a 20).
  *       Vale a partir de dezembro/2026; novembro/2026 ficou com a regra antiga (aberto até começar).</li>
  *   <li><b>Fechado</b>: quando a escala do mês começa, ela fecha pra equipe (sem candidatura, desistência
  *       nem sair sozinho). Outubro/2026, quando o sistema começou, nunca fecha.</li>
@@ -27,10 +30,11 @@ public final class CicloEscala {
 
     /** Primeiro mês em que o fechamento vale (o sistema começou no meio de outubro de 2026). */
     public static final YearMonth PRIMEIRO_MES_COM_FECHAMENTO = YearMonth.of(2026, 11);
-    /** Primeiro mês com a janela de candidaturas do dia 11 ao 21 do mês anterior. */
+    /** Primeiro mês com a janela de candidaturas (dia 15 até os 2 últimos dias do mês anterior). */
     public static final YearMonth PRIMEIRO_MES_COM_JANELA = YearMonth.of(2026, 12);
-    public static final int DIA_ABRE_CANDIDATURAS = 11;
-    public static final int DIA_FECHA_CANDIDATURAS = 21;
+    public static final int DIA_ABRE_CANDIDATURAS = 15;
+    /** Os últimos dias do mês anterior que ficam só pra coordenação montar e publicar. */
+    public static final int DIAS_DA_COORDENACAO = 2;
     /** Antes disso o sábado dividido ainda estava na escala do próprio mês (já publicada). */
     private static final LocalDate INICIO_REGRA_DO_SABADO = LocalDate.of(2026, 11, 1);
 
@@ -63,7 +67,8 @@ public final class CicloEscala {
 
     /** A partir desse dia não dá mais pra se candidatar (só a coordenação mexe). */
     public static LocalDate fechaCandidaturas(YearMonth m) {
-        return m.isBefore(PRIMEIRO_MES_COM_JANELA) ? inicio(m) : m.minusMonths(1).atDay(DIA_FECHA_CANDIDATURAS);
+        return m.isBefore(PRIMEIRO_MES_COM_JANELA) ? inicio(m)
+                : m.minusMonths(1).atEndOfMonth().minusDays(DIAS_DA_COORDENACAO - 1);
     }
 
     /** A escala do mês já começou: fechada pra equipe. */

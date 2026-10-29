@@ -620,7 +620,7 @@ class ApiIntegracaoTest {
 
     @Test
     void candidaturaForaDaJanelaEhRecusadaComADataQueAbre() throws Exception {
-        // "Hoje" dos testes é dia 15: o mês que vem está aberto, o seguinte só abre no dia 11 do mês que vem.
+        // "Hoje" dos testes é dia 15: o mês que vem está aberto, o seguinte só abre no dia 15 do mês que vem.
         Pessoa vol = cadastrarELogar("VOLUNTARIO", "REDES_SOCIAIS");
         LocalDate daqui2Meses = YearMonth.from(calendario.hoje()).plusMonths(2).atDay(1).with(TemporalAdjusters.nextOrSame(DayOfWeek.WEDNESDAY));
         Map<String, Object> slot = new LinkedHashMap<>();
@@ -634,12 +634,12 @@ class ApiIntegracaoTest {
         ev.put("slots", List.of(slot));
         JsonNode criado = corpo(enviar(post("/api/eventos"), geral, ev));
         assertThat(criado.path("candidaturaAberta").asBoolean()).isFalse();
-        assertThat(criado.path("candidaturasAbrem").asText()).endsWith("-11");
+        assertThat(criado.path("candidaturasAbrem").asText()).endsWith("-15");
 
         MvcResult r = enviar(post("/api/eventos/" + criado.path("id").asLong() + "/slots/" + criado.path("slots").get(0).path("id").asLong() + "/candidatura"),
                 vol.token, null);
         assertThat(r.getResponse().getStatus()).isEqualTo(400);
-        assertThat(corpo(r).path("erro").asText()).contains("abrem dia 11/");
+        assertThat(corpo(r).path("erro").asText()).contains("abrem dia 15/");
     }
 
     // ---------------------------------------------------------------- notificações no celular
