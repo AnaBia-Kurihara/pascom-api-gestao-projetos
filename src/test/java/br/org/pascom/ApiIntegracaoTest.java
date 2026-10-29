@@ -521,13 +521,42 @@ class ApiIntegracaoTest {
         // Coordenador de outro setor não mexe na equipe do Holyrics.
         assertThat(enviar(delete("/api/usuarios/" + juliana.id + "/setores/HOLYRICS"), coordJovens.token, null)
                 .getResponse().getStatus()).isEqualTo(400);
-        // Nem a coordenação do Holyrics tira o setor principal dela.
-        assertThat(enviar(delete("/api/usuarios/" + juliana.id + "/setores/DATASHOW"), coordHoly.token, null)
-                .getResponse().getStatus()).isEqualTo(400);
-        // A Coordenação Geral tira do Holyrics.
-        r = enviar(delete("/api/usuarios/" + juliana.id + "/setores/HOLYRICS"), geral, null);
+        // Datashow e Holyrics são "irmãos": a coordenação do Holyrics tira ela do Datashow (o setor principal),
+        // e o Holyrics vira o principal dela.
+        r = enviar(delete("/api/usuarios/" + juliana.id + "/setores/DATASHOW"), coordHoly.token, null);
         assertThat(r.getResponse().getStatus()).isEqualTo(200);
-        assertThat(corpo(r).path("setoresExtras").toString()).doesNotContain("HOLYRICS");
+        assertThat(corpo(r).path("setor").asText()).isEqualTo("HOLYRICS");
+        assertThat(corpo(r).path("setoresExtras").toString()).doesNotContain("HOLYRICS").doesNotContain("DATASHOW");
+        // Agora ela só está no Holyrics: tirar daria uma pessoa sem setor, então só a Geral (mudando o setor).
+        MvcResult unico = enviar(delete("/api/usuarios/" + juliana.id + "/setores/HOLYRICS"), geral, null);
+        assertThat(unico.getResponse().getStatus()).isEqualTo(400);
+        assertThat(corpo(unico).path("erro").asText()).contains("só faz parte de Holyrics");
+    }
+
+    @Test
+    void coordenacaoNaoTiraOutroCoordenadorDoSetorDele() throws Exception {
+        Pessoa coordDs = cadastrarELogar("COORDENADOR", "DATASHOW");
+        Pessoa outroCoord = cadastrarELogar("COORDENADOR", "DATASHOW");
+        assertThat(enviar(delete("/api/usuarios/" + outroCoord.id + "/setores/DATASHOW"), coordDs.token, null)
+                .getResponse().getStatus()).isEqualTo(400);
+    }
+
+    @Test
+    void coordenacaoAlteraDadosDoVoluntarioDaEquipe() throws Exception {
+        Pessoa coordDs = cadastrarELogar("COORDENADOR", "DATASHOW");
+        Pessoa coordJovens = cadastrarELogar("COORDENADOR", "JOVENS");
+        Pessoa daniel = cadastrarELogar("VOLUNTARIO", "DATASHOW");
+        MvcResult r = enviar(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch("/api/usuarios/" + daniel.id + "/dados-equipe"),
+                coordDs.token, Map.of("nome", "Daniel  Souza", "funcao", "Datashow das 8h", "disponibilidade", "Domingos"));
+        assertThat(r.getResponse().getStatus()).isEqualTo(200);
+        assertThat(corpo(r).path("nome").asText()).isEqualTo("Daniel Souza");
+        assertThat(corpo(r).path("funcao").asText()).isEqualTo("Datashow das 8h");
+        // Coordenação de outro setor (e voluntário) não alteram.
+        assertThat(enviar(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch("/api/usuarios/" + daniel.id + "/dados-equipe"),
+                coordJovens.token, Map.of("nome", "Outro")).getResponse().getStatus()).isEqualTo(400);
+        // Nem altera outro coordenador.
+        assertThat(enviar(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch("/api/usuarios/" + coordJovens.id + "/dados-equipe"),
+                coordDs.token, Map.of("nome", "Outro")).getResponse().getStatus()).isEqualTo(400);
     }
 
     @Test

@@ -24,6 +24,7 @@ import java.time.LocalDateTime;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -104,7 +105,9 @@ public class UsuarioService {
         if (!geral && solicitante.getRole() != Role.COORDENADOR) {
             throw new IllegalStateException("Só a coordenação pode cadastrar voluntários.");
         }
-        Setor setor = geral ? dados.setor() : solicitante.getSetor();
+        // A Geral escolhe; o coordenador cadastra no setor dele (ou no "irmão": Datashow ↔ Holyrics).
+        Setor setor = geral ? dados.setor()
+                : dados.setor() != null && geraEquipe(solicitante, dados.setor()) ? dados.setor() : solicitante.getSetor();
         if (setor == null) throw new IllegalArgumentException("Escolha o setor.");
         String nome = dados.nome() == null ? "" : dados.nome().trim().replaceAll("\\s+", " ");
         if (nome.isEmpty()) throw new IllegalArgumentException("Escreva o nome da pessoa.");
@@ -293,28 +296,77 @@ public class UsuarioService {
     @Transactional
     public UsuarioResponseDTO alterarSetorExtra(Long id, Setor setor, boolean incluir, Usuario solicitante) {
         if (setor == null) throw new IllegalArgumentException("Escolha o setor.");
-        boolean pode = solicitante.temPoderesDeCoordenadorGeral() || solicitante.gereTodasAsEscalas()
-                || (solicitante.getRole() == Role.COORDENADOR && solicitante.getSetor() == setor);
-        if (!pode) {
+        if (!geraEquipe(solicitante, setor)) {
             throw new IllegalStateException("Só a coordenação de " + nomeSetor(setor) + " pode mudar quem faz parte dessa equipe.");
         }
         Usuario usuario = buscar(id);
         if (usuario.getRole() == Role.COORDENADOR_GERAL) {
             throw new IllegalStateException("A Coordenação Geral já faz parte de todos os setores.");
         }
+        boolean mudou;
+        String extra = "";
         if (usuario.getSetor() == setor) {
             if (incluir) return UsuarioResponseDTO.from(usuario);
-            throw new IllegalStateException(nomeSetor(setor) + " é o setor principal de " + usuario.getNome()
-                    + ". Só a Coordenação Geral muda isso, em Gerenciar.");
+            // Tirar do setor principal: um dos outros setores dela vira o principal.
+            if (usuario.getRole() == Role.COORDENADOR) {
+                throw new IllegalStateException(usuario.getNome() + " é coordenador(a) de " + nomeSetor(setor)
+                        + ". Só a Coordenação Geral muda isso, em Gerenciar.");
+            }
+            Setor novo = usuario.getSetoresExtras().stream().sorted().findFirst().orElseThrow(() -> new IllegalStateException(
+                    usuario.getNome() + " só faz parte de " + nomeSetor(setor) + ". Pra tirar, a Coordenação Geral muda o setor "
+                            + "dela em Gerenciar (ou inclua antes em outro setor)."));
+            usuario.getSetoresExtras().remove(novo);
+            usuario.setSetor(novo);
+            mudou = true;
+            extra = " Seu setor agora é " + nomeSetor(novo) + ".";
+        } else {
+            mudou = incluir ? usuario.getSetoresExtras().add(setor) : usuario.getSetoresExtras().remove(setor);
         }
-        boolean mudou = incluir ? usuario.getSetoresExtras().add(setor) : usuario.getSetoresExtras().remove(setor);
         usuarioRepository.save(usuario);
         if (mudou && !usuario.getId().equals(solicitante.getId())) {
             avisoService.avisar(usuario, incluir
                     ? "🎉 " + solicitante.getNome() + " incluiu você na equipe de " + nomeSetor(setor) + ". Agora você vê as escalas desse setor e pode se candidatar."
-                    : solicitante.getNome() + " tirou você da equipe de " + nomeSetor(setor) + ".");
+                    : solicitante.getNome() + " tirou você da equipe de " + nomeSetor(setor) + "." + extra);
         }
         return UsuarioResponseDTO.from(usuario);
+    }
+
+    /** Datashow e Holyrics trabalham juntos: quem coordena um cuida da equipe dos dois. */
+    private static final java.util.Map<Setor, Set<Setor>> SETORES_IRMAOS = java.util.Map.of(
+            Setor.DATASHOW, Set.of(Setor.HOLYRICS), Setor.HOLYRICS, Set.of(Setor.DATASHOW));
+
+    /** Quem pode incluir, tirar e alterar pessoas na equipe do setor. */
+    static boolean geraEquipe(Usuario u, Setor setor) {
+        if (u == null || setor == null) return false;
+        if (u.temPoderesDeCoordenadorGeral() || u.gereTodasAsEscalas()) return true;
+        return u.getRole() == Role.COORDENADOR && u.getSetor() != null
+                && (u.getSetor() == setor || SETORES_IRMAOS.getOrDefault(u.getSetor(), Set.of()).contains(setor));
+    }
+
+    /**
+     * A coordenação corrige nome, função e disponibilidade de um voluntário da equipe dela (ex.: quem
+     * foi cadastrado pela coordenação). Coordenadores e a Geral só são alterados pela Coordenação Geral.
+     */
+    @Transactional
+    public UsuarioResponseDTO alterarDadosNaEquipe(Long id, String nome, String funcao, String disponibilidade, Usuario solicitante) {
+        Usuario usuario = buscar(id);
+        boolean geral = solicitante.temPoderesDeCoordenadorGeral();
+        Set<Setor> setoresDela = new java.util.HashSet<>(usuario.getSetoresExtras());
+        if (usuario.getSetor() != null) setoresDela.add(usuario.getSetor());
+        boolean pode = geral || (usuario.getRole() == Role.VOLUNTARIO && setoresDela.stream().anyMatch(s -> geraEquipe(solicitante, s)));
+        if (!pode) {
+            throw new IllegalStateException("Você só pode alterar os dados de voluntários da sua equipe.");
+        }
+        if (nome != null) {
+            String n = nome.trim().replaceAll("\\s+", " ");
+            if (n.isEmpty()) throw new IllegalArgumentException("O nome não pode ficar vazio.");
+            if (n.length() > 120) throw new IllegalArgumentException("Nome grande demais.");
+            usuario.setNome(n);
+        }
+        if (funcao != null) usuario.setFuncao(funcao.isBlank() ? null : funcao.trim().substring(0, Math.min(120, funcao.trim().length())));
+        if (disponibilidade != null) usuario.setDisponibilidade(disponibilidade.isBlank() ? null
+                : disponibilidade.trim().substring(0, Math.min(200, disponibilidade.trim().length())));
+        return UsuarioResponseDTO.from(usuarioRepository.save(usuario));
     }
 
     private static String nomeSetor(Setor s) {

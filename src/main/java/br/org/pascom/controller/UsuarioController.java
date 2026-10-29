@@ -111,6 +111,13 @@ public class UsuarioController {
         return ResponseEntity.status(org.springframework.http.HttpStatus.CREATED).body(usuarioService.cadastrarPelaCoordenacao(dados, solicitante));
     }
 
+    /** Coordenação corrige nome, função e disponibilidade de um voluntário da equipe. Corpo: {nome?, funcao?, disponibilidade?}. */
+    @PatchMapping("/{id}/dados-equipe")
+    public ResponseEntity<UsuarioResponseDTO> alterarDadosNaEquipe(@PathVariable Long id, @RequestBody java.util.Map<String, String> corpo,
+                                                                   @AuthenticationPrincipal Usuario solicitante) {
+        return ResponseEntity.ok(usuarioService.alterarDadosNaEquipe(id, corpo.get("nome"), corpo.get("funcao"), corpo.get("disponibilidade"), solicitante));
+    }
+
     /** Coordenação inclui (POST) ou tira (DELETE) a pessoa da equipe de um setor, como setor extra. */
     @PostMapping("/{id}/setores/{setor}")
     public ResponseEntity<UsuarioResponseDTO> incluirNoSetor(@PathVariable Long id, @PathVariable br.org.pascom.model.enums.Setor setor,

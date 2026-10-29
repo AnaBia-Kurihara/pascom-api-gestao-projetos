@@ -178,6 +178,7 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center;justify-conten
 .sug-item small{color:var(--ink3);font-size:12.5px}
 .sug-vazia{color:var(--ink3)}
 .cad-vol{display:flex;flex-direction:column;gap:10px;margin-top:8px}
+.mem-acoes{display:flex;flex-wrap:wrap;gap:4px 14px}
 .inc-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--line)}
 .inc-row:first-child{border-top:0}
 .ev-cheio{margin:0 16px 12px;padding:10px 12px;border-radius:10px;background:var(--tint);color:var(--ink2);font-size:14px}
@@ -2458,7 +2459,8 @@ function viewEquipeSetor(){
       (cs.length?'<ul>'+cs.map(c=>'<li>'+esc(c.title)+'</li>').join('')+'</ul>':(ehSetorDeConteudo()?'<p class="note">Sem cartões em andamento neste setor.</p>':''))+
       (isCoordenadorGeral()&&m.id!==state.me?'<button type="button" class="link-btn mem-link" data-action="gerenciarPessoa" data-id="'+m.id+'">Gerenciar (papel, setor, senha)</button>':'')+
       // Quem entrou neste setor como extra pode ser tirado pela coordenação do setor.
-      (podeMexerNaEquipe(s)&&m.setor!==s&&m.role!=='coordenador_geral'&&(m.extras||[]).indexOf(s)>-1?'<button type="button" class="link-btn mem-link" data-action="tirarDaEquipe" data-id="'+m.id+'">Tirar da equipe de '+esc(SETOR_NAME[s])+'</button>':'')+'</div></div>';
+      (podeMexerNaEquipe(s)&&m.id!==state.me&&m.role==='voluntario'?'<span class="mem-acoes"><button type="button" class="link-btn mem-link" data-action="editarNaEquipe" data-id="'+m.id+'">Alterar dados</button>'+
+        '<button type="button" class="link-btn mem-link" data-action="tirarDaEquipe" data-id="'+m.id+'">Tirar da equipe de '+esc(SETOR_NAME[s])+'</button></span>':'')+'</div></div>';
   };
   const aviso=eu&&!pertenceSetor(eu,s)
     ?'<div class="aviso-equipe"><span>Você ainda não faz parte da equipe de <b>'+esc(SETOR_NAME[s])+'</b>. Se você também serve aqui, adicione este setor no seu perfil.</span><button class="btn small primary" data-action="abrirPerfil">Ir pro meu perfil</button></div>'
@@ -2541,7 +2543,9 @@ async function incluirEEscalar(id,btn){
   }catch(err){ btn.disabled=false; btn.textContent='Incluir e escalar'; toast(err.message,'warn'); }
 }
 /** Coordenação do setor (ou Geral/gestor de escalas) inclui e tira pessoas da equipe como setor extra. */
-function podeMexerNaEquipe(s){ const m=me(); return !!m&&(isCoordenadorGeral()||gereEscalas()||(m.role==='coordenador'&&m.setor===s)); }
+// Datashow e Holyrics trabalham juntos: quem coordena um cuida da equipe dos dois (igual ao servidor).
+const SETORES_IRMAOS={datashow:['holyrics'],holyrics:['datashow']};
+function podeMexerNaEquipe(s){ const m=me(); return !!m&&(isCoordenadorGeral()||gereEscalas()||(m.role==='coordenador'&&(m.setor===s||(SETORES_IRMAOS[m.setor]||[]).indexOf(s)>-1))); }
 function incluirNaEquipeModal(filtro){
   const s=currentSetor, f=(filtro||'').trim().toLowerCase();
   const fora=MEMBERS.filter(m=>m.role!=='coordenador_geral'&&!pertenceSetor(m,s)&&(!f||m.nome.toLowerCase().indexOf(f)>-1))
@@ -2562,7 +2566,9 @@ function abrirIncluirNaEquipe(){
 }
 async function mudarEquipe(id,incluir,btn){
   const m=mem(id), s=currentSetor; if(!m) return;
-  if(!incluir&&!confirm('Tirar '+m.nome+' da equipe de '+SETOR_NAME[s]+'? As escalas em que a pessoa já está continuam como estão.')) return;
+  const outros=(m.extras||[]).filter(x=>x!==s);
+  const aviso=m.setor===s?(outros.length?' O setor principal dela passa a ser '+SETOR_NAME[outros.slice().sort()[0]]+'.':''):'';
+  if(!incluir&&!confirm('Tirar '+m.nome+' da equipe de '+SETOR_NAME[s]+'?'+aviso+' As escalas em que a pessoa já está continuam como estão.')) return;
   if(btn){ btn.disabled=true; btn.textContent=incluir?'Incluindo…':'Tirando…'; }
   try{
     const u=await api('/usuarios/'+id+'/setores/'+s.toUpperCase(),{method:incluir?'POST':'DELETE'});
@@ -2571,6 +2577,28 @@ async function mudarEquipe(id,incluir,btn){
     if(incluir&&btn){ const row=btn.closest('.inc-row'); if(row) row.remove(); } else closeModal();
     render(); toast(incluir?m.nome+' agora faz parte de '+SETOR_NAME[s]+'.':m.nome+' saiu da equipe de '+SETOR_NAME[s]+'.');
   }catch(e){ if(btn){ btn.disabled=false; btn.textContent=incluir?'Incluir':'Tirar'; } toast(e.message,'warn'); }
+}
+function abrirEditarNaEquipe(id){
+  const m=mem(id); if(!m) return;
+  const o=$('#overlay');
+  o.innerHTML='<div class="modal" role="dialog" aria-modal="true" aria-label="Alterar dados"><div class="m-head"><h3>Alterar dados de '+esc(m.nome.split(' ')[0])+'</h3><button class="x" data-action="close" aria-label="Fechar">×</button></div>'+
+    '<div class="m-body">'+
+      '<label class="fld"><span>Nome</span><input id="ed-nome" maxlength="120" value="'+esc(m.nome)+'"></label>'+
+      '<label class="fld"><span>Função</span><input id="ed-funcao" maxlength="120" value="'+esc(m.funcao||'')+'" placeholder="Ex.: Datashow da missa das 8h"></label>'+
+      '<label class="fld"><span>Disponibilidade</span><input id="ed-disp" maxlength="200" value="'+esc(m.disp==='Não informado'?'':m.disp)+'" placeholder="Ex.: Domingos de manhã"></label>'+
+      '<p class="note" style="margin:0">Pra mudar de setor, use "Incluir pessoa na equipe" e "Tirar da equipe".</p>'+
+    '</div>'+
+    '<div class="m-foot"><button class="btn" data-action="close">Cancelar</button><span class="sp"></span><button class="btn primary" data-action="salvarEditarNaEquipe" data-id="'+m.id+'">Salvar</button></div></div>';
+  o.hidden=false;
+}
+async function salvarEditarNaEquipe(id,btn){
+  const nome=$('#ed-nome').value.trim(); if(!nome){ toast('O nome não pode ficar vazio.','warn'); return; }
+  btn.disabled=true; btn.textContent='Salvando…';
+  try{
+    const u=await api('/usuarios/'+id+'/dados-equipe',{method:'PATCH',body:JSON.stringify({nome:nome,funcao:$('#ed-funcao').value,disponibilidade:$('#ed-disp').value})});
+    const i=MEMBERS.findIndex(x=>x.id===String(u.id)); if(i>-1) MEMBERS[i]=memberFromApi(u);
+    closeModal(); render(); toast('Dados de '+nome.split(' ')[0]+' atualizados.');
+  }catch(e){ btn.disabled=false; btn.textContent='Salvar'; toast(e.message,'warn'); }
 }
 function timePessoaHtml(m,s){
   const coordena=s&&m.role==='coordenador'&&m.setor===s;
@@ -3680,6 +3708,8 @@ document.addEventListener('click',e=>{
     case 'incluirEEscalar': incluirEEscalar(id,t); break;
     case 'confirmarIncluir': mudarEquipe(id,true,t); break;
     case 'tirarDaEquipe': mudarEquipe(id,false,null); break;
+    case 'editarNaEquipe': abrirEditarNaEquipe(id); break;
+    case 'salvarEditarNaEquipe': salvarEditarNaEquipe(id,t); break;
     case 'holySel': holy.missa=null; carregarHolyrics(t.dataset.sabado); break;
     case 'holyMissa': holy.missa=t.dataset.missa; render(); break;
     case 'copiarLit': copiarTexto(liturgiaCopias[t.dataset.k]||'','Copiado! É só colar no Holyrics.'); break;
