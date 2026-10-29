@@ -46,6 +46,8 @@ public class EmailService {
      * aviso no app. Sem domínio verificado em RESEND_FROM, o Resend só entrega pro dono da conta.
      */
     public boolean enviar(String destinatario, String assunto, String texto) {
+        // Quem foi cadastrado pela coordenação sem e-mail tem um endereço de mentira: não tenta mandar.
+        if (destinatario != null && destinatario.endsWith(UsuarioService.DOMINIO_SEM_EMAIL)) return false;
         if (destinatario != null && gmail.enviar(destinatario, assunto, texto)) return true;
         if (apiKey == null || apiKey.isBlank() || destinatario == null) return false;
         try {

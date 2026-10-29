@@ -104,6 +104,13 @@ public class UsuarioController {
     }
 
     /** Só Coordenação Geral: gera um link de nova senha pra mandar por fora (ex.: WhatsApp). */
+    /** Coordenação cadastra um voluntário que não conseguiu se cadastrar sozinho (e-mail opcional). */
+    @PostMapping("/pela-coordenacao")
+    public ResponseEntity<UsuarioResponseDTO> cadastrarPelaCoordenacao(@Valid @RequestBody br.org.pascom.dto.CadastroPelaCoordenacaoDTO dados,
+                                                                       @AuthenticationPrincipal Usuario solicitante) {
+        return ResponseEntity.status(org.springframework.http.HttpStatus.CREATED).body(usuarioService.cadastrarPelaCoordenacao(dados, solicitante));
+    }
+
     /** Coordenação inclui (POST) ou tira (DELETE) a pessoa da equipe de um setor, como setor extra. */
     @PostMapping("/{id}/setores/{setor}")
     public ResponseEntity<UsuarioResponseDTO> incluirNoSetor(@PathVariable Long id, @PathVariable br.org.pascom.model.enums.Setor setor,

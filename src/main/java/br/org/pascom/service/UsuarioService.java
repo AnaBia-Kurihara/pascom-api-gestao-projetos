@@ -90,6 +90,51 @@ public class UsuarioService {
         return UsuarioResponseDTO.from(usuarioRepository.save(usuario));
     }
 
+    /** Domínio dos e-mails de mentira de quem foi cadastrado sem e-mail (".invalid" nunca existe de verdade). */
+    public static final String DOMINIO_SEM_EMAIL = "@sem-email.pascom.invalid";
+
+    /**
+     * A coordenação cadastra um voluntário que não conseguiu se cadastrar sozinho, já no setor dela,
+     * pra poder escalar. Sem e-mail, a pessoa fica com um e-mail de mentira (nunca recebe nada e não
+     * entra no app); com e-mail, depois ela entra por "Entrar com Google" ou "Esqueci a senha".
+     */
+    @Transactional
+    public UsuarioResponseDTO cadastrarPelaCoordenacao(br.org.pascom.dto.CadastroPelaCoordenacaoDTO dados, Usuario solicitante) {
+        boolean geral = solicitante.temPoderesDeCoordenadorGeral() || solicitante.gereTodasAsEscalas();
+        if (!geral && solicitante.getRole() != Role.COORDENADOR) {
+            throw new IllegalStateException("Só a coordenação pode cadastrar voluntários.");
+        }
+        Setor setor = geral ? dados.setor() : solicitante.getSetor();
+        if (setor == null) throw new IllegalArgumentException("Escolha o setor.");
+        String nome = dados.nome() == null ? "" : dados.nome().trim().replaceAll("\\s+", " ");
+        if (nome.isEmpty()) throw new IllegalArgumentException("Escreva o nome da pessoa.");
+
+        String email;
+        if (dados.email() == null || dados.email().isBlank()) {
+            email = "sem-email-" + UUID.randomUUID().toString().substring(0, 12) + DOMINIO_SEM_EMAIL;
+        } else {
+            email = Usuario.normalizarEmail(dados.email());
+            if (!email.matches("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")) throw new IllegalArgumentException("Esse e-mail não parece certo.");
+            usuarioRepository.findByEmail(email).ifPresent(u -> {
+                throw new IllegalStateException(u.getNome() + " já tem cadastro com esse e-mail. Use \"Incluir pessoa na equipe\".");
+            });
+        }
+        Usuario.validarAniversario(dados.aniversarioDia(), dados.aniversarioMes());
+
+        Usuario usuario = Usuario.builder()
+                .nome(nome)
+                .email(email)
+                // Senha aleatória: ninguém sabe. Pra entrar, a pessoa usa o Google ou "Esqueci a senha".
+                .senha(passwordEncoder.encode(UUID.randomUUID() + "-" + UUID.randomUUID()))
+                .funcao(dados.funcao() == null || dados.funcao().isBlank() ? null : dados.funcao().trim())
+                .aniversarioDia(dados.aniversarioDia())
+                .aniversarioMes(dados.aniversarioMes())
+                .role(Role.VOLUNTARIO)
+                .setor(setor)
+                .build();
+        return UsuarioResponseDTO.from(usuarioRepository.save(usuario));
+    }
+
     /** Erros de senha por e-mail: depois de {@link #MAX_ERROS_SENHA} em 15 min, aquele e-mail espera 15 min. */
     private static final int MAX_ERROS_SENHA = 8;
     private static final java.time.Duration BLOQUEIO_SENHA = java.time.Duration.ofMinutes(15);

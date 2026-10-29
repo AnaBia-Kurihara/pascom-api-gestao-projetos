@@ -518,6 +518,53 @@ class ApiIntegracaoTest {
     }
 
     @Test
+    void coordenacaoCadastraQuemNaoConseguiuEJaEscala() throws Exception {
+        Pessoa coord = cadastrarELogar("COORDENADOR", "TRANSMISSOES_VIDEOS");
+        // O setor enviado é ignorado: o coordenador de setor sempre cadastra no dele.
+        MvcResult r = enviar(post("/api/usuarios/pela-coordenacao"), coord.token,
+                Map.of("nome", "  Dona   Maria  ", "setor", "JOVENS", "aniversarioDia", 3, "aniversarioMes", 4));
+        assertThat(r.getResponse().getStatus()).isEqualTo(201);
+        JsonNode maria = corpo(r);
+        assertThat(maria.path("nome").asText()).isEqualTo("Dona Maria");
+        assertThat(maria.path("setor").asText()).isEqualTo("TRANSMISSOES_VIDEOS");
+        assertThat(maria.path("role").asText()).isEqualTo("VOLUNTARIO");
+        assertThat(maria.path("email").asText()).endsWith(br.org.pascom.service.UsuarioService.DOMINIO_SEM_EMAIL);
+
+        JsonNode ev = criarEvento("Evento de teste do cadastro pela coordenação", "Câmera extra", "TRANSMISSOES_VIDEOS");
+        assertThat(enviar(post("/api/eventos/" + ev.path("id").asLong() + "/slots/" + ev.path("slots").get(0).path("id").asLong() + "/escalar"),
+                coord.token, Map.of("usuarioId", maria.path("id").asLong())).getResponse().getStatus()).isEqualTo(200);
+
+        // E-mail que já tem conta: avisa quem é, pra usar "Incluir pessoa na equipe".
+        Pessoa jaTem = cadastrarELogar("VOLUNTARIO", "DATASHOW");
+        MvcResult dup = enviar(post("/api/usuarios/pela-coordenacao"), coord.token, Map.of("nome", "Outra", "email", jaTem.email.toUpperCase()));
+        assertThat(dup.getResponse().getStatus()).isEqualTo(400);
+        assertThat(corpo(dup).path("erro").asText()).contains("Incluir pessoa na equipe");
+    }
+
+    @Test
+    void voluntarioNaoCadastraOutros() throws Exception {
+        Pessoa vol = cadastrarELogar("VOLUNTARIO", "DATASHOW");
+        assertThat(enviar(post("/api/usuarios/pela-coordenacao"), vol.token, Map.of("nome", "Alguém")).getResponse().getStatus()).isEqualTo(400);
+    }
+
+    @Test
+    void escalaPublicadaAvisaQuemFoiEscaladoComONomeDeQuemEscalou() throws Exception {
+        Pessoa coord = cadastrarELogar("COORDENADOR", "JOVENS");
+        Pessoa vol = cadastrarELogar("VOLUNTARIO", "JOVENS");
+        JsonNode ev = criarEvento("Evento de teste do aviso de escalação", "Apoio jovens", "JOVENS");
+        String mes = YearMonth.from(LocalDate.parse(ev.path("data").asText())).toString();
+        assertThat(mvc.perform(autenticado(post("/api/escalas/publicar").param("mes", mes).param("setor", "JOVENS"), coord.token))
+                .andReturn().getResponse().getStatus()).isEqualTo(200);
+        assertThat(enviar(post("/api/eventos/" + ev.path("id").asLong() + "/slots/" + ev.path("slots").get(0).path("id").asLong() + "/escalar"),
+                coord.token, Map.of("usuarioId", vol.id)).getResponse().getStatus()).isEqualTo(200);
+        boolean avisada = false;
+        for (JsonNode a : corpo(mvc.perform(autenticado(get("/api/avisos"), vol.token)).andReturn()).path("avisos")) {
+            if (a.path("texto").asText().contains("escalou você em Apoio jovens")) avisada = true;
+        }
+        assertThat(avisada).isTrue();
+    }
+
+    @Test
     void voluntarioNaoMudaAEquipeDeNinguem() throws Exception {
         Pessoa vol = cadastrarELogar("VOLUNTARIO", "DATASHOW");
         Pessoa outro = cadastrarELogar("VOLUNTARIO", "DATASHOW");

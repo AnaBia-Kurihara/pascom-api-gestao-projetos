@@ -360,7 +360,7 @@ public class EventoService {
                 : nome(solicitante) + " trocou " + anterior.getNome() + " por " + pessoa.getNome() + " em " + slot.getRotulo() + ", " + missa + ".");
         // Em montagem ninguém é avisado (é sigiloso); a pessoa fica sabendo quando a escala for publicada.
         if (funcaoPublicada(slot) && (anterior == null || !anterior.getId().equals(pessoa.getId()))) {
-            avisoService.avisar(pessoa, "Você foi escalado(a) em " + slot.getRotulo() + " na " + missa + ".");
+            avisoService.avisar(pessoa, "🙌 " + nome(solicitante) + " escalou você em " + slot.getRotulo() + " na " + missa + ".");
             if (anterior != null) {
                 avisoService.avisar(anterior, "A coordenação mudou a escala: você não está mais em " + slot.getRotulo()
                         + " na " + missa + ".");

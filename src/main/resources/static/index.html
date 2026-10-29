@@ -177,6 +177,7 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center;justify-conten
 .sug-item input{width:20px;height:20px;flex:0 0 auto}
 .sug-item small{color:var(--ink3);font-size:12.5px}
 .sug-vazia{color:var(--ink3)}
+.cad-vol{display:flex;flex-direction:column;gap:10px;margin-top:8px}
 .inc-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--line)}
 .inc-row:first-child{border-top:0}
 .ev-cheio{margin:0 16px 12px;padding:10px 12px;border-radius:10px;background:var(--tint);color:var(--ink2);font-size:14px}
@@ -1970,7 +1971,8 @@ function viewEscalas(){
             const ops=membrosDoSetor(s.setor).filter(m=>m.id!==s.who).sort((a,b)=>(candSet.indexOf(b.id)>-1)-(candSet.indexOf(a.id)>-1));
             const vezes=id=>{const n=vezesServidas(id);return n==null?'':' · serviu '+n+'×';};
             extra+='<div class="escalar-form"><select id="escalar-sel" aria-label="Quem vai servir">'+ops.map(m=>'<option value="'+m.id+'">'+(candSet.indexOf(m.id)>-1?'★ ':'')+esc(m.nome)+vezes(m.id)+'</option>').join('')+'</select>'+
-              '<button class="btn small primary" data-action="confirmarEscalar"'+ds+'>Escalar</button><button class="btn small" data-action="fecharEscalar">Cancelar</button></div>';
+              '<button class="btn small primary" data-action="confirmarEscalar"'+ds+'>Escalar</button><button class="btn small" data-action="fecharEscalar">Cancelar</button>'+
+              '<button type="button" class="link-btn" data-action="escalarOutraPessoa"'+ds+' data-setor="'+s.setor+'">Não está na lista? Incluir ou cadastrar</button></div>';
           }
         }else if(s.oculto){
           // Voluntário com a escala em montagem: não vê nomes, só se candidata.
@@ -2448,7 +2450,7 @@ function viewEquipeSetor(){
     const cs=state.cards.filter(c=>c.owner===m.id&&c.stage!=='publicado'&&c.setor===s);
     const r=rankNoSetor(m,s);
     return '<div class="mem">'+avatar(m.id,true)+'<div><h3>'+esc(m.nome)+(m.id===state.me?' <span class="pill">você</span>':'')+'</h3>'+
-      '<div class="fn">'+esc(m.funcao||'—')+'</div>'+
+      '<div class="fn">'+esc(m.funcao||'—')+(semEmail(m)?' <span class="pill" title="Cadastrado pela coordenação sem e-mail: não entra no app nem recebe lembretes por e-mail">sem e-mail</span>':'')+'</div>'+
       '<div class="note" style="margin-top:2px"><span class="pill'+(r<2?' warn':'')+'">'+esc(papelNoSetor(m,s))+'</span> Disponível: '+esc((m.disp||'').toLowerCase())+'</div>'+
       (cs.length?'<ul>'+cs.map(c=>'<li>'+esc(c.title)+'</li>').join('')+'</ul>':(ehSetorDeConteudo()?'<p class="note">Sem cartões em andamento neste setor.</p>':''))+
       (isCoordenadorGeral()&&m.id!==state.me?'<button type="button" class="link-btn mem-link" data-action="gerenciarPessoa" data-id="'+m.id+'">Gerenciar (papel, setor, senha)</button>':'')+
@@ -2458,12 +2460,82 @@ function viewEquipeSetor(){
   const aviso=eu&&!pertenceSetor(eu,s)
     ?'<div class="aviso-equipe"><span>Você ainda não faz parte da equipe de <b>'+esc(SETOR_NAME[s])+'</b>. Se você também serve aqui, adicione este setor no seu perfil.</span><button class="btn small primary" data-action="abrirPerfil">Ir pro meu perfil</button></div>'
     :'<p class="note" style="margin:0 0 16px">Aparece aqui quem se cadastrou neste setor ou adicionou ele no perfil, junto com a coordenação do setor e a Coordenação Geral. Também serve em outro setor? <button type="button" class="link-btn" data-action="abrirPerfil">Adicione no seu perfil</button>.</p>';
-  const incluir=podeMexerNaEquipe(s)?'<div class="filters" style="margin:0 0 16px"><button class="btn primary" data-action="incluirNaEquipe">+ Incluir pessoa na equipe de '+esc(SETOR_NAME[s])+'</button></div>':'';
+  const incluir=podeMexerNaEquipe(s)?'<div class="filters" style="margin:0 0 16px"><button class="btn primary" data-action="incluirNaEquipe">+ Incluir pessoa na equipe de '+esc(SETOR_NAME[s])+'</button>'+
+    '<button class="btn" data-action="cadastrarVoluntario">+ Cadastrar voluntário sem cadastro</button></div>':'';
   return aviso+incluir+
     '<h2 class="eq-h">Coordenação <small>'+coord.length+'</small></h2>'+
     (coord.length?'<div class="team">'+coord.map(card).join('')+'</div>':'<div class="empty">Ninguém na coordenação deste setor ainda.</div>')+
     '<h2 class="eq-h">Voluntários <small>'+vol.length+'</small></h2>'+
     (vol.length?'<div class="team">'+vol.map(card).join('')+'</div>':'<div class="empty">Nenhum voluntário em '+esc(SETOR_NAME[s])+' ainda.</div>');
+}
+// ---------------------------------------------------------------- coordenação cadastra/escala quem não conseguiu entrar
+const semEmail=m=>!!m&&/@sem-email\.pascom\.invalid$/.test(m.email||'');
+let escalarDireto=null; // {ev, slot, setor} quando o cadastro/inclusão veio do botão "Escalar"
+function cadastroVoluntarioHtml(setor){
+  const escolhe=isCoordenadorGeral()||gereEscalas();
+  return '<div class="cad-vol">'+
+    '<label class="fld"><span>Nome *</span><input id="cv-nome" maxlength="120" placeholder="Nome e sobrenome" autocomplete="off"></label>'+
+    '<label class="fld"><span>E-mail (opcional)</span><input id="cv-email" type="email" placeholder="Se tiver: depois ela entra no app e recebe os lembretes" autocomplete="off"></label>'+
+    (escolhe?'<label class="fld"><span>Setor</span><select id="cv-setor">'+SETORES.map(x=>'<option value="'+x.id+'"'+(x.id===setor?' selected':'')+'>'+esc(x.nome)+'</option>').join('')+'</select></label>'
+      :'<p class="note" style="margin:0">Entra na equipe de <b>'+esc(SETOR_NAME[setor])+'</b>.</p>')+
+    '<label class="fld"><span>Função (opcional)</span><input id="cv-funcao" maxlength="120" placeholder="Ex.: Datashow da missa das 8h"></label>'+
+    aniversarioCamposHtml('cv',null,null,false)+
+    '<p class="note" style="margin:0">Sem e-mail, a pessoa aparece na equipe e na escala, mas não entra no app. Com e-mail, ela entra depois por <b>Entrar com Google</b> (se for Gmail) ou <b>Esqueci a senha</b>.</p>'+
+  '</div>';
+}
+function abrirCadastrarVoluntario(){
+  escalarDireto=null;
+  const o=$('#overlay');
+  o.innerHTML='<div class="modal" role="dialog" aria-modal="true" aria-label="Cadastrar voluntário"><div class="m-head"><h3>Cadastrar voluntário</h3><button class="x" data-action="close" aria-label="Fechar">×</button></div>'+
+    '<div class="m-body"><p class="note" style="margin:0">Pra quem não conseguiu se cadastrar sozinho.</p>'+cadastroVoluntarioHtml(currentSetor)+'</div>'+
+    '<div class="m-foot"><button class="btn" data-action="close">Cancelar</button><span class="sp"></span><button class="btn primary" data-action="salvarVoluntario">Cadastrar</button></div></div>';
+  o.hidden=false; setTimeout(()=>$('#cv-nome').focus(),50);
+}
+/** Do "Escalar": quem tem cadastro mas não está no setor (incluir e escalar) ou quem não tem cadastro (cadastrar e escalar). */
+function abrirEscalarOutraPessoa(ev,slot,setor){
+  escalarDireto={ev:ev,slot:slot,setor:setor};
+  const lista=f=>{ f=(f||'').trim().toLowerCase();
+    if(f.length<2) return '<p class="note" style="margin:0">Digite pelo menos 2 letras do nome.</p>';
+    const fora=MEMBERS.filter(m=>m.role!=='coordenador_geral'&&!pertenceSetor(m,setor)&&(!f||m.nome.toLowerCase().indexOf(f)>-1)).sort((a,b)=>a.nome.localeCompare(b.nome)).slice(0,40);
+    return fora.length?fora.map(m=>'<div class="inc-row">'+avatar(m.id)+'<div style="flex:1;min-width:0"><b>'+esc(m.nome)+'</b><small class="rt-sub">'+esc(m.setor?SETOR_NAME[m.setor]:'')+'</small></div><button class="btn small primary" data-action="incluirEEscalar" data-id="'+m.id+'">Incluir e escalar</button></div>').join('')
+      :'<div class="empty">Ninguém com esse nome fora da equipe. Se a pessoa não tem cadastro, preencha abaixo.</div>'; };
+  const o=$('#overlay');
+  o.innerHTML='<div class="modal" role="dialog" aria-modal="true" aria-label="Escalar outra pessoa"><div class="m-head"><h3>Escalar em '+esc(SETOR_NAME[setor])+'</h3><button class="x" data-action="close" aria-label="Fechar">×</button></div>'+
+    '<div class="m-body">'+
+      '<div><b style="font-size:14px">Já tem cadastro no app</b><p class="note" style="margin:2px 0 8px">Entra na equipe de '+esc(SETOR_NAME[setor])+' e já fica nessa função.</p>'+
+      '<label class="fld"><span>Buscar pelo nome</span><input id="eo-busca" autocomplete="off" placeholder="Ex.: Juliana"></label><div id="eo-lista">'+lista('')+'</div></div>'+
+      '<div style="border-top:1px solid var(--line);padding-top:12px"><b style="font-size:14px">Não tem cadastro</b>'+cadastroVoluntarioHtml(setor)+'</div>'+
+    '</div>'+
+    '<div class="m-foot"><button class="btn" data-action="close">Cancelar</button><span class="sp"></span><button class="btn primary" data-action="salvarVoluntario">Cadastrar e escalar</button></div></div>';
+  o.hidden=false;
+  const b=$('#eo-busca'); b.addEventListener('input',()=>{ $('#eo-lista').innerHTML=lista(b.value); });
+}
+async function escalarDepois(usuarioId){
+  const e=escalarDireto; escalarDireto=null; if(!e) return;
+  escalarKey=null;
+  await acaoEscala(e.ev,e.slot+'/escalar','POST',{usuarioId:Number(usuarioId)},'Pessoa escalada.');
+}
+async function salvarVoluntario(btn){
+  const nome=$('#cv-nome').value.trim(); if(!nome){ toast('Escreva o nome da pessoa.','warn'); return; }
+  const an=lerAniversario('cv'); if(an.erro){ toast(an.erro,'warn'); return; }
+  const setor=$('#cv-setor')?$('#cv-setor').value:(escalarDireto?escalarDireto.setor:currentSetor);
+  const corpo={nome:nome,email:$('#cv-email').value.trim()||null,setor:setor.toUpperCase(),funcao:$('#cv-funcao').value.trim()||null,aniversarioDia:an.dia,aniversarioMes:an.mes};
+  const txt=btn.textContent; btn.disabled=true; btn.textContent='Salvando…';
+  try{
+    const u=await api('/usuarios/pela-coordenacao',{method:'POST',body:JSON.stringify(corpo)});
+    MEMBERS.push(memberFromApi(u)); partic.chave=null;
+    closeModal();
+    if(escalarDireto) await escalarDepois(u.id); else { render(); toast(nome+' cadastrado(a) em '+SETOR_NAME[setor]+'. Já dá pra escalar.'); }
+  }catch(e){ btn.disabled=false; btn.textContent=txt; toast(e.message,'warn'); }
+}
+async function incluirEEscalar(id,btn){
+  const e=escalarDireto; if(!e) return;
+  btn.disabled=true; btn.textContent='Escalando…';
+  try{
+    const u=await api('/usuarios/'+id+'/setores/'+e.setor.toUpperCase(),{method:'POST'});
+    const i=MEMBERS.findIndex(x=>x.id===String(u.id)); if(i>-1) MEMBERS[i]=memberFromApi(u);
+    partic.chave=null; closeModal(); await escalarDepois(id);
+  }catch(err){ btn.disabled=false; btn.textContent='Incluir e escalar'; toast(err.message,'warn'); }
 }
 /** Coordenação do setor (ou Geral/gestor de escalas) inclui e tira pessoas da equipe como setor extra. */
 function podeMexerNaEquipe(s){ const m=me(); return !!m&&(isCoordenadorGeral()||gereEscalas()||(m.role==='coordenador'&&m.setor===s)); }
@@ -3599,6 +3671,10 @@ document.addEventListener('click',e=>{
     case 'linkSenha': gerarLinkSenha(id); break;
     case 'gerenciarPessoa': gerenciarPessoa(id); break;
     case 'incluirNaEquipe': abrirIncluirNaEquipe(); break;
+    case 'cadastrarVoluntario': abrirCadastrarVoluntario(); break;
+    case 'escalarOutraPessoa': abrirEscalarOutraPessoa(t.dataset.ev,t.dataset.slot,t.dataset.setor); break;
+    case 'salvarVoluntario': salvarVoluntario(t); break;
+    case 'incluirEEscalar': incluirEEscalar(id,t); break;
     case 'confirmarIncluir': mudarEquipe(id,true,t); break;
     case 'tirarDaEquipe': mudarEquipe(id,false,null); break;
     case 'holySel': holy.missa=null; carregarHolyrics(t.dataset.sabado); break;
