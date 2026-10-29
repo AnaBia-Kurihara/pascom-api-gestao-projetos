@@ -63,6 +63,46 @@ public class EscalaController {
         return ResponseEntity.ok(eventoService.escalaCompleta(calendarioService.parseMes(mes), setor, solicitante));
     }
 
+    /**
+     * Escala de um período (?inicio=AAAA-MM-DD&fim=AAAA-MM-DD) com os setores escolhidos juntos
+     * (?setores=DATASHOW,HOLYRICS; vazio = todos). É o que a exportação em imagem/PDF usa.
+     */
+    @GetMapping("/periodo")
+    public ResponseEntity<EscalaCompletaDTO> periodo(@RequestParam LocalDate inicio, @RequestParam LocalDate fim,
+                                                     @RequestParam(required = false) String setores,
+                                                     @AuthenticationPrincipal Usuario solicitante) {
+        return ResponseEntity.ok(eventoService.escalaPeriodo(inicio, fim, setores(setores), solicitante));
+    }
+
+    @GetMapping(value = "/periodo/pdf", produces = MediaType.APPLICATION_PDF_VALUE)
+    public ResponseEntity<byte[]> periodoPdf(@RequestParam LocalDate inicio, @RequestParam LocalDate fim,
+                                             @RequestParam(required = false) String setores,
+                                             @AuthenticationPrincipal Usuario solicitante) {
+        List<Setor> escolhidos = setores(setores);
+        byte[] pdf = escalaPdfService.gerar(eventoService.escalaPeriodo(inicio, fim, escolhidos, solicitante));
+        String nome = "escala-" + (escolhidos.isEmpty() ? "completa" : escolhidos.stream()
+                .map(s -> s.name().toLowerCase(Locale.ROOT).replace('_', '-')).collect(java.util.stream.Collectors.joining("-")))
+                + "-" + inicio + "-a-" + fim + ".pdf";
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_PDF)
+                .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment().filename(nome).build().toString())
+                .body(pdf);
+    }
+
+    private static List<Setor> setores(String lista) {
+        if (lista == null || lista.isBlank()) return List.of();
+        List<Setor> r = new java.util.ArrayList<>();
+        for (String s : lista.split(",")) {
+            if (s.isBlank()) continue;
+            try {
+                r.add(Setor.valueOf(s.trim().toUpperCase(Locale.ROOT)));
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException("Setor desconhecido: " + s.trim());
+            }
+        }
+        return r;
+    }
+
     /** Coordenação publica a escala do setor no mês: a partir daí a equipe vê quem foi escalado. */
     @PostMapping("/publicar")
     public ResponseEntity<Void> publicar(@RequestParam String mes, @RequestParam Setor setor,

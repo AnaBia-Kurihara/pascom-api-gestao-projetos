@@ -12,11 +12,19 @@ import java.util.List;
  */
 public record EscalaCompletaDTO(
         String mes,
-        /** null = todos os setores juntos; preenchido = escala só desse setor (+ funções gerais). */
+        /** null = todos ou mais de um setor (ver setores); preenchido = escala só desse setor (+ funções gerais). */
         Setor setor,
+        /** Nome do(s) setor(es) escolhido(s): "Datashow", "Holyrics + Datashow"; null = todos. */
         String nomeSetor,
         List<LocalDate> domingos,
-        List<EventoEscala> eventos
+        List<EventoEscala> eventos,
+        /** Período da grade (a escala do mês, ou o que a pessoa escolheu ao exportar). */
+        LocalDate inicio,
+        LocalDate fim,
+        /** Setores escolhidos, juntos na mesma grade (vazio = todos). */
+        List<Setor> setores,
+        /** Pronto pro título: "NOVEMBRO/2026" ou "31/10 A 15/11/2026". */
+        String rotuloPeriodo
 ) {
     public record EventoEscala(
             Long id,

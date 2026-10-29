@@ -771,16 +771,30 @@ public class EventoService {
      * <setor>" do front), e eventos sem nenhuma dessas funções ficam de fora.
      */
     public EscalaCompletaDTO escalaCompleta(YearMonth mes, Setor setor, Usuario viewer) {
-        List<Evento> eventos = eventoRepository.findByDataBetweenAndExcluidoEmIsNullOrderByDataAscHorarioAsc(
-                CicloEscala.inicio(mes), CicloEscala.fim(mes));
+        return escalaPeriodo(CicloEscala.inicio(mes), CicloEscala.fim(mes), setor == null ? List.of() : List.of(setor), viewer);
+    }
+
+    /** Maior período que dá pra exportar de uma vez (a grade fica ilegível além disso). */
+    static final int MAX_DIAS_EXPORTACAO = 93;
+
+    /**
+     * Escala de um período qualquer (ex.: 01/11 a 15/11) com os setores escolhidos juntos numa grade
+     * só (ex.: Holyrics + Datashow), mais as funções gerais. Sem setores = todos (escala completa).
+     * Usada pela exportação em imagem/PDF; a do mês ({@link #escalaCompleta}) é um caso dela.
+     */
+    public EscalaCompletaDTO escalaPeriodo(LocalDate inicio, LocalDate fim, Collection<Setor> setores, Usuario viewer) {
+        if (inicio == null || fim == null) throw new IllegalArgumentException("Escolha a data de início e a data final.");
+        if (fim.isBefore(inicio)) throw new IllegalArgumentException("A data final não pode ser antes da data de início.");
+        if (java.time.temporal.ChronoUnit.DAYS.between(inicio, fim) >= MAX_DIAS_EXPORTACAO) {
+            throw new IllegalArgumentException("Escolha um período de até " + MAX_DIAS_EXPORTACAO + " dias (uns 3 meses).");
+        }
+        List<Evento> eventos = eventoRepository.findByDataBetweenAndExcluidoEmIsNullOrderByDataAscHorarioAsc(inicio, fim);
 
         Visao v = visao(viewer, eventos);
-        List<Setor> ordem = new ArrayList<>();
-        if (setor == null) {
-            ordem.addAll(List.of(Setor.values()));
-        } else {
-            ordem.add(setor);
-        }
+        boolean todos = setores == null || setores.isEmpty() || setores.containsAll(List.of(Setor.values()));
+        List<Setor> escolhidos = todos ? List.of(Setor.values())
+                : java.util.Arrays.stream(Setor.values()).filter(setores::contains).toList();
+        List<Setor> ordem = new ArrayList<>(escolhidos);
         // Funções gerais (sem setor) sempre por último.
         ordem.add(null);
 
@@ -789,8 +803,22 @@ public class EventoService {
                 .filter(e -> !e.setores().isEmpty())
                 .toList();
 
-        return new EscalaCompletaDTO(mes.toString(), setor, setor == null ? null : nomeSetor(setor),
-                calendarioService.domingosDoMes(mes), itens);
+        YearMonth mes = CicloEscala.mesDaEscala(inicio);
+        Setor unico = !todos && escolhidos.size() == 1 ? escolhidos.get(0) : null;
+        String nomes = todos ? null : escolhidos.stream().map(EventoService::nomeSetor).collect(Collectors.joining(" + "));
+        return new EscalaCompletaDTO(mes.toString(), unico, nomes, calendarioService.domingosDoMes(mes), itens,
+                inicio, fim, todos ? List.of() : escolhidos, rotuloPeriodo(inicio, fim));
+    }
+
+    /** "NOVEMBRO/2026" se o período é o mês da escala inteiro; senão "31/10 A 15/11/2026". */
+    static String rotuloPeriodo(LocalDate inicio, LocalDate fim) {
+        YearMonth m = CicloEscala.mesDaEscala(inicio);
+        if (inicio.equals(CicloEscala.inicio(m)) && fim.equals(CicloEscala.fim(m))) {
+            return nomeMesExtenso(m.atDay(1)).toUpperCase(java.util.Locale.forLanguageTag("pt-BR")) + "/" + m.getYear();
+        }
+        java.time.format.DateTimeFormatter dm = java.time.format.DateTimeFormatter.ofPattern("dd/MM");
+        java.time.format.DateTimeFormatter dma = java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy");
+        return (inicio.getYear() == fim.getYear() ? inicio.format(dm) : inicio.format(dma)) + " A " + fim.format(dma);
     }
 
     private EscalaCompletaDTO.EventoEscala toEventoEscala(Evento e, List<Setor> ordem, Visao v) {

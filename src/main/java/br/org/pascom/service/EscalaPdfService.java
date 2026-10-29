@@ -22,7 +22,6 @@ import java.awt.Color;
 import java.io.ByteArrayOutputStream;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.time.YearMonth;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.format.TextStyle;
@@ -92,25 +91,26 @@ public class EscalaPdfService {
             + "emocional e favorece mais atenção e concentração durante a missa.";
 
     public byte[] gerar(EscalaCompletaDTO escala) {
-        YearMonth mes = YearMonth.parse(escala.mes());
-        String nomeMes = mes.getMonth().getDisplayName(TextStyle.FULL, PT_BR).toUpperCase(PT_BR);
-        boolean doSetor = escala.setor() != null;
+        // Título e período já vêm prontos do EventoService.escalaPeriodo ("NOVEMBRO/2026" ou "31/10 A 15/11/2026";
+        // "Datashow" ou "Holyrics + Datashow"). Sem nomeSetor = todos os setores.
+        String periodo = escala.rotuloPeriodo();
+        boolean doSetor = escala.nomeSetor() != null;
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         Document doc = new Document(PageSize.A4.rotate(), 28, 28, 24, 24);
         try {
             PdfWriter writer = PdfWriter.getInstance(doc, out);
-            doc.addTitle((doSetor ? "Escala de " + escala.nomeSetor() : "Escala completa") + " - " + nomeMes + "/" + mes.getYear());
+            doc.addTitle((doSetor ? "Escala de " + escala.nomeSetor() : "Escala completa") + " - " + periodo);
             doc.open();
 
             doc.add(cabecalho(writer, doSetor ? "ESCALA · " + escala.nomeSetor().toUpperCase(PT_BR) : "PASCOM · ESCALA",
-                    nomeMes + "/" + mes.getYear(), doSetor));
+                    periodo, doSetor));
 
             List<EscalaCompletaDTO.EventoEscala> eventos = escala.eventos();
             if (eventos.isEmpty()) {
                 Paragraph vazio = new Paragraph(doSetor
-                        ? "Nenhuma escala de " + escala.nomeSetor() + " cadastrada para este mês ainda."
-                        : "Nenhuma escala cadastrada para este mês ainda.", LIVRE);
+                        ? "Nenhuma escala de " + escala.nomeSetor() + " cadastrada nesse período."
+                        : "Nenhuma escala cadastrada nesse período.", LIVRE);
                 vazio.setAlignment(Element.ALIGN_CENTER);
                 vazio.setSpacingBefore(30);
                 doc.add(vazio);
@@ -146,7 +146,7 @@ public class EscalaPdfService {
         p1.setAlignment(Element.ALIGN_CENTER);
         Paragraph p2 = new Paragraph(mes, TITULO_MES);
         p2.setAlignment(Element.ALIGN_CENTER);
-        Paragraph p3 = new Paragraph((doSetor ? "Funções do setor e funções gerais" : "Todos os setores da pastoral")
+        Paragraph p3 = new Paragraph((doSetor ? "Funções dos setores escolhidos e funções gerais" : "Todos os setores da pastoral")
                 + " · Atualizado em " + LocalDateTime.now(ZoneId.of(CalendarioService.FUSO)).format(ATUALIZADO), SUBTITULO);
         p3.setAlignment(Element.ALIGN_CENTER);
         p3.setSpacingAfter(8);

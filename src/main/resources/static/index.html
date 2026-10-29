@@ -165,6 +165,10 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center;justify-conten
 .part-num b{font-size:20px;display:block;line-height:1}
 .part-num small{font-size:12px;color:var(--ink3)}
 .part-row .bar{margin-top:8px;max-width:320px}
+.fld-par{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.ex-setores{display:flex;flex-wrap:wrap;gap:8px 16px}
+.ex-setores .chk{display:flex;align-items:center;gap:6px;font-size:15px}
+.ex-setores input{width:18px;height:18px}
 .pub-acts{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .sug-ev{border-top:1px solid var(--line);padding-top:10px}
 .sug-ev:first-child{border-top:0;padding-top:0}
@@ -1206,7 +1210,7 @@ function lembretePublicacaoHtml(){
   const prox=proximoMesISO();
   const pend=meus.filter(st=>state.events.some(e=>e.mesEscala===prox&&e.slots.some(s=>s.setor===st&&!s.publicada)));
   if(!pend.length) return '';
-  return '<div class="lembrete-pub"><div><b>Falta publicar a escala de '+esc(nomeMes(prox))+'</b><span>'+pend.map(st=>esc(SETOR_NAME[st])).join(', ')+'. As candidaturas já fecharam: é hora de montar. Se ninguém publicar, ela é publicada sozinha na véspera do início, do jeito que estiver.</span></div>'+
+  return '<div class="lembrete-pub"><div><b>Falta publicar a escala de '+esc(nomeMes(prox))+'</b><span>'+pend.map(st=>esc(SETOR_NAME[st])).join(', ')+'. É hora de revisar e publicar. Se ninguém publicar, ela é publicada sozinha na véspera do início, do jeito que estiver.</span></div>'+
     pend.map(st=>'<button class="btn small gold" data-action="irPublicar" data-setor="'+st+'">'+(pend.length>1?esc(SETOR_NAME[st]):'Revisar e publicar')+'</button>').join('')+'</div>';
 }
 function dbadgeHtml(iso){const d=parse(iso);return '<div class="dbadge"><b>'+d.getDate()+'</b><span>'+d.toLocaleDateString('pt-BR',{month:'short'}).replace('.','')+'</span></div>';}
@@ -1996,17 +2000,12 @@ function viewEscalas(){
 function pdfBarHtml(setor){
   const dl='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>';
   return '<div class="pdf-bar'+(setor?' pdf-bar-setor':'')+'">'+
-    (setor?'<span class="pdf-k">Escala do mês</span>':'')+
+    (setor?'<span class="pdf-k">Escala em imagem ou PDF</span>':'')+
     '<div class="mes-nav"><button class="btn small" data-action="escalaMes" data-delta="-1" aria-label="Mês anterior">‹</button>'+
     '<b>'+esc(nomeMes(escalaMes))+'</b>'+
     '<button class="btn small" data-action="escalaMes" data-delta="1" aria-label="Próximo mês">›</button></div>'+
     '<div class="pdf-acoes">'+
-      (setor
-        ?'<button class="btn primary" data-action="baixarEscalaImagem" data-setor="'+setor+'">'+dl+'Imagem de '+esc(SETOR_NAME[setor])+'</button>'+
-         '<button class="btn small" data-action="baixarEscalaPdf" data-setor="'+setor+'">PDF</button>'
-        :'<button class="btn" data-action="baixarEscalaImagem" data-setor="'+currentSetor+'">'+dl+'Só '+esc(SETOR_NAME[currentSetor])+'</button>'+
-         '<button class="btn primary" data-action="baixarEscalaImagem">'+dl+'Imagem completa</button>'+
-         '<button class="btn small" data-action="baixarEscalaPdf">PDF</button>')+
+      '<button class="btn primary" data-action="exportarEscala"'+(setor?' data-setor="'+setor+'"':'')+'>'+dl+'Exportar escala</button>'+
     '</div></div>';
 }
 function viewEscalaCompleta(){
@@ -2089,11 +2088,11 @@ function desenharEscalaImagem(d){
   // cabeçalho
   const [ano,mm]=d.mes.split('-');
   const mesNome=new Date(Number(ano),Number(mm)-1,1).toLocaleDateString('pt-BR',{month:'long'}).toUpperCase();
-  x.fillStyle=COR.prof; x.font='800 34px Figtree, Arial, sans-serif'; x.fillText(d.setor?'ESCALA · '+String(d.nomeSetor||'').toUpperCase():'PASCOM · ESCALA',largura/2,M+20);
-  x.fillStyle=COR.ouro; x.font='800 26px Figtree, Arial, sans-serif'; x.fillText(mesNome+'/'+ano,largura/2,M+56);
+  x.fillStyle=COR.prof; x.font='800 34px Figtree, Arial, sans-serif'; x.fillText(d.nomeSetor?'ESCALA · '+String(d.nomeSetor).toUpperCase():'PASCOM · ESCALA',largura/2,M+20);
+  x.fillStyle=COR.ouro; x.font='800 26px Figtree, Arial, sans-serif'; x.fillText(d.rotuloPeriodo||(mesNome+'/'+ano),largura/2,M+56);
   const agora=new Date();
   x.fillStyle=COR.suave; x.font='500 13px Figtree, Arial, sans-serif';
-  x.fillText((d.setor?'Funções do setor e funções gerais':'Todos os setores da pastoral')+' · Atualizado em '+agora.toLocaleDateString('pt-BR')+' às '+agora.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}),largura/2,M+82);
+  x.fillText((d.nomeSetor?'Funções dos setores escolhidos e funções gerais':'Todos os setores da pastoral')+' · Atualizado em '+agora.toLocaleDateString('pt-BR')+' às '+agora.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}),largura/2,M+82);
   const estrela=(cx,cy,r)=>{ x.strokeStyle=COR.ouro; x.lineWidth=1.6; x.beginPath(); x.arc(cx,cy,r,0,Math.PI*2); x.stroke();
     const k=r*2/40, pts=[[20,6],[23.4,16.6],[34,20],[23.4,23.4],[20,34],[16.6,23.4],[6,20],[16.6,16.6]]; x.fillStyle=COR.ouro; x.beginPath();
     pts.forEach((p,i)=>{ const px=cx-r+p[0]*k, py=cy-r+p[1]*k; i?x.lineTo(px,py):x.moveTo(px,py); }); x.closePath(); x.fill(); };
@@ -2146,37 +2145,69 @@ function desenharEscalaImagem(d){
   msgLinhas.forEach((l,i)=>x.fillText(l,largura/2,y+20+i*22));
   return cv;
 }
-async function baixarEscalaImagem(setor,btn){
-  const txt=btn?btn.innerHTML:'';
-  if(btn){ btn.disabled=true; btn.textContent='Gerando imagem…'; }
-  try{
-    try{ await document.fonts.ready; }catch(_){}
-    const d=await api('/escalas/completa?mes='+escalaMes+(setor?'&setor='+setor.toUpperCase():''));
-    const cv=desenharEscalaImagem(d);
-    const blob=await new Promise((ok,erro)=>cv.toBlob(b=>b?ok(b):erro(new Error('Não foi possível gerar a imagem.')),'image/jpeg',0.92));
-    const nome='escala-'+(setor?setor.toLowerCase().replace(/_/g,'-'):'completa')+'-'+escalaMes+'.jpg';
-    const f=new File([blob],nome,{type:'image/jpeg'});
-    const celular=matchMedia('(pointer:coarse)').matches;
-    if(celular&&navigator.canShare&&navigator.canShare({files:[f]})){
-      try{ await navigator.share({files:[f],title:'Escala '+nomeMes(escalaMes)}); }catch(e){ if(e&&e.name!=='AbortError') throw e; }
-    }else{
-      const url=URL.createObjectURL(blob), a=document.createElement('a'); a.href=url; a.download=nome;
-      document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),1000);
-    }
-  }catch(e){ toast(e.message,'warn'); }
-  finally{ if(btn){ btn.disabled=false; btn.innerHTML=txt; } }
+/** Período da escala de um mês (igual ao CicloEscala do servidor): o sábado antes de um domingo dia 1º
+    entra no mês seguinte, e o último sábado sai se o domingo seguinte já for dia 1º. */
+function periodoDoMes(mes){
+  const [a,m]=mes.split('-').map(Number), iso=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  const ini=new Date(a,m-1,1), fim=new Date(a,m,0);
+  if(ini.getDay()===0) ini.setDate(ini.getDate()-1);
+  if(fim.getDay()===6) fim.setDate(fim.getDate()-1);
+  return {inicio:iso(ini),fim:iso(fim)};
 }
-async function baixarEscalaPdf(setor){
+function consultaPeriodo(o){ return 'inicio='+o.inicio+'&fim='+o.fim+(o.setores.length?'&setores='+o.setores.map(s=>s.toUpperCase()).join(','):''); }
+// Datashow e Holyrics trabalham juntos: exportar de um já sugere os dois.
+const SETORES_JUNTOS={datashow:['holyrics','datashow'],holyrics:['holyrics','datashow']};
+function exportarEscalaModal(setor){
+  const p=periodoDoMes(escalaMes);
+  const marcados=setor?(SETORES_JUNTOS[setor]||[setor]):SETORES.map(x=>x.id);
+  return '<div class="modal" role="dialog" aria-modal="true" aria-label="Exportar escala"><div class="m-head"><h3>Exportar escala</h3><button class="x" data-action="close" aria-label="Fechar">×</button></div>'+
+    '<div class="m-body">'+
+      '<div class="fld-par"><label class="fld"><span>Data de início</span><input type="date" id="ex-inicio" value="'+p.inicio+'"></label>'+
+      '<label class="fld"><span>Data final</span><input type="date" id="ex-fim" value="'+p.fim+'"></label></div>'+
+      '<p class="note" style="margin:-4px 0 0">Já vem com a escala de '+esc(nomeMes(escalaMes))+'. Dá pra escolher até uns 3 meses.</p>'+
+      '<div><b style="font-size:14px">Setores na mesma escala</b><p class="note" style="margin:2px 0 8px">Os marcados saem juntos numa grade só, como na escala geral. As funções gerais entram sempre.</p>'+
+      '<div class="ex-setores">'+SETORES.map(x=>'<label class="chk"><input type="checkbox" data-ex-setor="'+x.id+'"'+(marcados.indexOf(x.id)>-1?' checked':'')+'> '+esc(x.nome)+'</label>').join('')+'</div></div>'+
+    '</div>'+
+    '<div class="m-foot"><button class="btn" data-action="exportarPdf">Gerar PDF</button><span class="sp"></span><button class="btn primary" data-action="exportarImagem">Gerar imagem (JPEG)</button></div></div>';
+}
+function abrirExportarEscala(setor){ const o=$('#overlay'); o.innerHTML=exportarEscalaModal(setor); o.hidden=false; }
+function opcoesExportar(){
+  const inicio=$('#ex-inicio').value, fim=$('#ex-fim').value;
+  const setores=[...document.querySelectorAll('#overlay [data-ex-setor]:checked')].map(x=>x.dataset.exSetor);
+  if(!inicio||!fim) throw new Error('Escolha a data de início e a data final.');
+  if(fim<inicio) throw new Error('A data final não pode ser antes da data de início.');
+  if(!setores.length) throw new Error('Marque pelo menos um setor.');
+  return {inicio:inicio,fim:fim,setores:setores.length===SETORES.length?[]:setores};
+}
+function nomeArquivoEscala(o,ext){ return 'escala-'+(o.setores.length?o.setores.join('-').replace(/_/g,'-'):'completa')+'-'+o.inicio+'-a-'+o.fim+'.'+ext; }
+async function exportarEscala(formato,btn){
+  let o; try{ o=opcoesExportar(); }catch(e){ toast(e.message,'warn'); return; }
+  const txt=btn.textContent; btn.disabled=true; btn.textContent=formato==='pdf'?'Gerando PDF…':'Gerando imagem…';
   try{
-    const headers={}; if(authToken) headers['Authorization']='Bearer '+authToken;
-    const res=await fetch(API_BASE+'/escalas/completa/pdf?mes='+escalaMes+(setor?'&setor='+setor.toUpperCase():''),{headers:headers});
-    if(!res.ok){ let msg='Não foi possível gerar o PDF.'; try{ const b=await res.json(); if(b&&b.erro) msg=b.erro; }catch(_){ } throw new Error(msg); }
-    const blob=await res.blob();
-    const url=URL.createObjectURL(blob);
-    const a=document.createElement('a'); a.href=url; a.download='escala-'+(setor?setor.replace(/_/g,'-'):'completa')+'-'+escalaMes+'.pdf';
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(()=>URL.revokeObjectURL(url),1000);
-  }catch(e){ toast(e.message,'warn'); }
+    if(formato==='pdf'){
+      const headers={}; if(authToken) headers['Authorization']='Bearer '+authToken;
+      const res=await fetch(API_BASE+'/escalas/periodo/pdf?'+consultaPeriodo(o),{headers:headers});
+      if(!res.ok){ let msg='Não foi possível gerar o PDF.'; try{ const b=await res.json(); if(b&&b.erro) msg=b.erro; }catch(_){ } throw new Error(msg); }
+      await entregarArquivo(await res.blob(),nomeArquivoEscala(o,'pdf'),'application/pdf');
+    }else{
+      try{ await document.fonts.ready; }catch(_){}
+      const d=await api('/escalas/periodo?'+consultaPeriodo(o));
+      const cv=desenharEscalaImagem(d);
+      const blob=await new Promise((ok,erro)=>cv.toBlob(b=>b?ok(b):erro(new Error('Não foi possível gerar a imagem.')),'image/jpeg',0.92));
+      await entregarArquivo(blob,nomeArquivoEscala(o,'jpg'),'image/jpeg');
+    }
+    closeModal();
+  }catch(e){ toast(e.message,'warn'); btn.disabled=false; btn.textContent=txt; }
+}
+/** No celular abre o compartilhar (WhatsApp); no computador baixa o arquivo. */
+async function entregarArquivo(blob,nome,tipo){
+  const f=new File([blob],nome,{type:tipo});
+  if(matchMedia('(pointer:coarse)').matches&&navigator.canShare&&navigator.canShare({files:[f]})){
+    try{ await navigator.share({files:[f],title:'Escala da Pascom'}); }catch(e){ if(e&&e.name!=='AbortError') throw e; }
+    return;
+  }
+  const url=URL.createObjectURL(blob), a=document.createElement('a'); a.href=url; a.download=nome;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
 let escalaFormSlots=[];
 function sincronizarSlotFormDoDOM(){
@@ -3557,8 +3588,9 @@ document.addEventListener('click',e=>{
     case 'particOrdem': partic.ordem=t.dataset.ordem; render(); break;
     case 'escalaFiltro': escalaFiltro=t.dataset.filtro; render(); break;
     case 'escalaMes': escalaMes=shiftMes(escalaMes,Number(t.dataset.delta)); render(); break;
-    case 'baixarEscalaPdf': baixarEscalaPdf(t.dataset.setor||null); break;
-    case 'baixarEscalaImagem': baixarEscalaImagem(t.dataset.setor||null,t); break;
+    case 'exportarEscala': abrirExportarEscala(t.dataset.setor||null); break;
+    case 'exportarImagem': exportarEscala('jpeg',t); break;
+    case 'exportarPdf': exportarEscala('pdf',t); break;
     case 'equipeAba': equipeAba=t.dataset.aba; render(); break;
     case 'timeFiltro': timeFiltro=t.dataset.filtro; render(); break;
     case 'verTime': view='equipe'; equipeAba='time'; render(); $('.main').scrollTop=0; break;

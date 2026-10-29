@@ -524,6 +524,51 @@ class ApiIntegracaoTest {
         assertThat(enviar(post("/api/usuarios/" + outro.id + "/setores/HOLYRICS"), vol.token, null).getResponse().getStatus()).isEqualTo(400);
     }
 
+    // ---------------------------------------------------------------- exportar: período e setores juntos
+
+    @Test
+    void exportarPeriodoComDatashowEHolyricsJuntos() throws Exception {
+        JsonNode ev = criarEventoComFuncoes("Evento de teste da exportação", "DATASHOW", "Datashow extra");
+        LocalDate dia = LocalDate.parse(ev.path("data").asText());
+        // função do Holyrics e de Redes sociais no mesmo evento
+        for (String[] f : new String[][]{{"Montagem extra", "HOLYRICS"}, {"Foto extra", "REDES_SOCIAIS"}}) {
+            assertThat(enviar(post("/api/eventos/" + ev.path("id").asLong() + "/slots"), geral, Map.of("rotulo", f[0], "setor", f[1]))
+                    .getResponse().getStatus()).isIn(200, 201);
+        }
+        MvcResult r = mvc.perform(autenticado(get("/api/escalas/periodo").param("inicio", dia.toString()).param("fim", dia.plusDays(3).toString())
+                .param("setores", "DATASHOW,HOLYRICS"), geral)).andReturn();
+        assertThat(r.getResponse().getStatus()).isEqualTo(200);
+        JsonNode d = corpo(r);
+        assertThat(d.path("nomeSetor").asText()).isEqualTo("Datashow + Holyrics");
+        assertThat(d.path("rotuloPeriodo").asText()).contains(" A ");
+        java.util.Set<String> setores = new java.util.HashSet<>();
+        for (JsonNode e : d.path("eventos")) for (JsonNode g : e.path("setores")) setores.add(g.path("setor").asText());
+        assertThat(setores).contains("DATASHOW", "HOLYRICS").doesNotContain("REDES_SOCIAIS");
+
+        MvcResult pdf = mvc.perform(autenticado(get("/api/escalas/periodo/pdf").param("inicio", dia.toString()).param("fim", dia.plusDays(3).toString())
+                .param("setores", "DATASHOW,HOLYRICS"), geral)).andReturn();
+        assertThat(pdf.getResponse().getStatus()).isEqualTo(200);
+        assertThat(new String(pdf.getResponse().getContentAsByteArray(), 0, 5)).isEqualTo("%PDF-");
+    }
+
+    @Test
+    void periodoDoMesInteiroViraONomeDoMesEPeriodoInvalidoEhRecusado() throws Exception {
+        YearMonth m = YearMonth.from(calendario.hoje()).plusMonths(1);
+        JsonNode d = corpo(mvc.perform(autenticado(get("/api/escalas/periodo")
+                .param("inicio", br.org.pascom.service.CicloEscala.inicio(m).toString())
+                .param("fim", br.org.pascom.service.CicloEscala.fim(m).toString()), geral)).andReturn());
+        assertThat(d.path("rotuloPeriodo").asText()).endsWith("/" + m.getYear()).doesNotContain(" A ");
+        assertThat(d.path("nomeSetor").isNull()).isTrue(); // todos os setores
+
+        LocalDate hoje = calendario.hoje();
+        assertThat(mvc.perform(autenticado(get("/api/escalas/periodo").param("inicio", hoje.toString()).param("fim", hoje.minusDays(1).toString()), geral))
+                .andReturn().getResponse().getStatus()).isEqualTo(400);
+        assertThat(mvc.perform(autenticado(get("/api/escalas/periodo").param("inicio", hoje.toString()).param("fim", hoje.plusDays(200).toString()), geral))
+                .andReturn().getResponse().getStatus()).isEqualTo(400);
+        assertThat(mvc.perform(autenticado(get("/api/escalas/periodo").param("inicio", hoje.toString()).param("fim", hoje.toString()).param("setores", "INVENTADO"), geral))
+                .andReturn().getResponse().getStatus()).isEqualTo(400);
+    }
+
     // ---------------------------------------------------------------- ciclo: janela de candidaturas
 
     @Test
