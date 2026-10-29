@@ -169,6 +169,12 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center;justify-conten
 .ex-setores{display:flex;flex-wrap:wrap;gap:8px 16px}
 .ex-setores .chk{display:flex;align-items:center;gap:6px;font-size:15px}
 .ex-setores input{width:18px;height:18px}
+.pub-datas{display:block;font-size:12.5px;color:var(--ink3);font-weight:500;margin-top:2px}
+.row-mais .rt{color:var(--brand);font-weight:600}
+.splash{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:var(--bg);color:var(--ink2);font-size:15px;z-index:60}
+.splash[hidden]{display:none}
+.splash svg{animation:gira 2.4s linear infinite}
+@keyframes gira{to{transform:rotate(360deg)}}
 .pub-acts{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .sug-ev{border-top:1px solid var(--line);padding-top:10px}
 .sug-ev:first-child{border-top:0;padding-top:0}
@@ -598,6 +604,8 @@ details.como p{max-width:72ch;line-height:1.55}
   /* Abas/filtros rolam de lado em vez de quebrar em várias linhas */
   .dash-tabs{overflow-x:auto;flex-wrap:nowrap;scrollbar-width:none;margin-left:-16px;margin-right:-16px;padding:0 16px 2px}
   .dash-tabs::-webkit-scrollbar{display:none}
+  /* Abas principais da Escala: quebram linha em vez de esconder "Participação" fora da tela. */
+  .dash-tabs.tabs-quebra{flex-wrap:wrap;overflow-x:visible;margin-left:0;margin-right:0;padding:0}
   .dash-tab{flex:none}
   .time-chips{margin-left:0;margin-right:0;padding:0}
 
@@ -633,6 +641,7 @@ details.como p{max-width:72ch;line-height:1.55}
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
+<div class="splash" id="splash" role="status"><svg width="56" height="56" viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="18.5" fill="none" stroke="#E2BA5C" stroke-width="1.5"/><path d="M20 6L23.4 16.6 34 20 23.4 23.4 20 34 16.6 23.4 6 20 16.6 16.6Z" fill="#E2BA5C"/></svg><span>Carregando a Pascom…</span></div>
 <div class="app" id="app" hidden>
   <div class="mbar" id="mbar"></div>
   <nav class="tabbar" id="tabbar" aria-label="Navegação principal no celular"></nav>
@@ -1205,6 +1214,24 @@ const doSetorAtual=s=>s.setor===currentSetor||s.setor===null;
 // Mês que já chegou: escala fechada pra equipe (só a coordenação mexe). Mesma regra do backend:
 // vale de novembro/2026 em diante (outubro, quando o sistema começou, fica aberto até o fim).
 const fmtDM=iso=>{const p=String(iso).split('-');return p[2]+'/'+p[1];};
+/** Último dia em que dá pra se candidatar (o servidor manda o dia em que fecha, que já não vale). */
+function ultimoDiaCand(e){ if(!e||!e.candFecham) return null; const d=parse(e.candFecham); d.setDate(d.getDate()-1); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+/** "Candidaturas até 29/11" / "Candidaturas a partir de 15/11" / "Candidaturas encerradas" (pra coordenação). */
+function datasDaJanela(e){
+  if(!e) return '';
+  const h=hojeISO(), ult=ultimoDiaCand(e);
+  if(e.candAbrem&&h<e.candAbrem) return 'Candidaturas de '+fmtDM(e.candAbrem)+' a '+fmtDM(ult);
+  if(e.candAberta) return 'Candidaturas até '+fmtDM(ult);
+  return 'Candidaturas encerradas: hora de montar e publicar';
+}
+/** Aviso pra equipe com as datas reais da escala do mês, em linguagem simples. */
+function janelaTexto(m,e){
+  const nome='<b>'+esc(nomeMes(m))+'</b>', h=hojeISO(), ult=e?ultimoDiaCand(e):null;
+  if(e&&e.candAbrem&&h<e.candAbrem) return 'A escala de '+nome+' abre pra candidatura dia <b>'+fmtDM(e.candAbrem)+'</b>.';
+  if(e&&e.candAberta) return 'A escala de '+nome+' está aberta: toque em <b>Quero servir</b> nas missas em que você pode, até <b>'+fmtDM(ult)+'</b>. A coordenação escolhe e publica a escala depois.';
+  return 'As candidaturas de '+nome+' já fecharam. A coordenação está escolhendo quem serve e logo publica a escala.';
+}
+
 function proximoMesISO(){const a=new Date();const d=new Date(a.getFullYear(),a.getMonth()+1,1);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');}
 /* Nos 2 últimos dias do mês (quando as candidaturas do mês que vem já fecharam), quem coordena vê o que falta
    publicar. Se ninguém publicar, o servidor publica sozinho na véspera do início (publicarMesQueChegou). */
@@ -1227,7 +1254,9 @@ function minhasEscalas(){
 function eventosComVagaNoSetor(){
   const h=hojeISO();
   const coord=coordenaEscala(currentSetor);
-  return state.events.filter(e=>e.date>=h&&(coord||e.candAberta)&&e.slots.some(s=>doSetorAtual(s)&&!s.who&&!s.oculto))
+  // Vaga pra quem pode agir: coordenação vê toda função sem ninguém; voluntário, as que dá pra se candidatar
+  // agora (em montagem não sabe quem já foi escolhido, então toda função do setor conta).
+  return state.events.filter(e=>e.date>=h&&(coord?e.slots.some(s=>doSetorAtual(s)&&!s.who):e.candAberta&&e.slots.some(s=>doSetorAtual(s)&&(s.oculto||!s.who))))
     .sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
 }
 /* Aniversários no Painel: mensagem pra todo mundo, pedido de data pra quem ainda não informou e,
@@ -1399,11 +1428,24 @@ function minhasEscalasPanelHtml(){
   '</div></section>';
 }
 function vagasPanelHtml(){
-  const evs=eventosComVagaNoSetor().slice(0,5);
-  return '<section class="panel"><h2>Vagas abertas em '+esc(SETOR_NAME[currentSetor])+'</h2><div class="rows">'+
-    (evs.length?evs.map(e=>{const n=e.slots.filter(s=>doSetorAtual(s)&&!s.who&&!s.oculto).length;
-      return '<button class="row" data-action="nav" data-view="escalas">'+dbadgeHtml(e.date)+'<div class="rt">'+esc(e.title)+'<small class="rt-sub">'+cap(parse(e.date).toLocaleDateString('pt-BR',{weekday:'long'}))+', '+e.time+'</small></div><span class="pill warn">'+n+(n>1?' vagas':' vaga')+'</span></button>';}).join('')
-      :'<div class="empty">Vagas ocupadas em '+esc(SETOR_NAME[currentSetor])+', tente servir outro dia.</div>')+
+  const todos=eventosComVagaNoSetor(), evs=todos.slice(0,5);
+  const coord=coordenaEscala(currentSetor);
+  // Em montagem (candidatura aberta) o voluntário não vê quem já foi escolhido: conta como "pode se candidatar".
+  const linha=e=>{
+    const sl=e.slots.filter(doSetorAtual), montagem=sl.some(s=>s.oculto);
+    const cand=sl.some(s=>s.euCand), n=sl.filter(s=>!s.who&&!s.oculto).length;
+    const pill=montagem?(cand?'<span class="pill ok">✓ Me candidatei</span>':'<span class="pill warn">Quero servir</span>')
+      :'<span class="pill warn">'+n+(n>1?' vagas':' vaga')+'</span>';
+    return '<button class="row" data-action="nav" data-view="escalas">'+dbadgeHtml(e.date)+'<div class="rt">'+esc(e.title)+'<small class="rt-sub">'+cap(parse(e.date).toLocaleDateString('pt-BR',{weekday:'long'}))+', '+e.time+'</small></div>'+pill+'</button>';
+  };
+  // Próxima abertura de candidaturas, pra quando ainda não tem nada aberto.
+  const futura=state.events.filter(e=>e.date>=hojeISO()&&e.candAbrem&&hojeISO()<e.candAbrem&&e.slots.some(doSetorAtual)).sort((a,b)=>a.candAbrem.localeCompare(b.candAbrem))[0];
+  const vazio=futura?'Nenhuma vaga aberta agora. As candidaturas de '+esc(nomeMes(futura.mesEscala))+' abrem dia '+fmtDM(futura.candAbrem)+'.'
+    :'Vagas ocupadas em '+esc(SETOR_NAME[currentSetor])+', tente servir outro dia.';
+  const algumaMontagem=!coord&&todos.some(e=>e.slots.some(s=>doSetorAtual(s)&&s.oculto));
+  return '<section class="panel"><h2>'+(algumaMontagem?'Abertas pra candidatura em ':'Vagas abertas em ')+esc(SETOR_NAME[currentSetor])+'</h2><div class="rows">'+
+    (evs.length?evs.map(linha).join('')+(todos.length>evs.length?'<button class="row row-mais" data-action="nav" data-view="escalas"><div class="rt">Ver todas ('+todos.length+')</div></button>':'')
+      :'<div class="empty">'+vazio+'</div>')+
   '</div></section>';
 }
 // Painel de Datashow e Transmissões: tudo gira em torno da escala.
@@ -1619,7 +1661,7 @@ function viewCalendario(){
     cells+='<div class="cell'+(s===TODAY?' today':'')+'" data-action="newOn" data-date="'+s+'"><div><span class="dn">'+d+'</span></div>'+ls.map(l=>'<div class="lit">'+esc(l)+'</div>').join('')+chips+es.map(e=>'<div class="evt">'+esc(e.title)+'</div>').join('')+'</div>';
     if(cs.length||es.length||ls.length){
       const wd=new Date(y,m,d).toLocaleDateString('pt-BR',{weekday:'short'}).replace('.','');
-      list+='<div class="lrow"><div class="ld"><b>'+d+'</b><span>'+wd+'</span></div><div class="lc">'+ls.map(l=>'<span class="lit">'+esc(l)+'</span>').join('')+cs.map(c=>'<button class="chip f-'+c.fmt+'" style="width:auto;max-width:100%" data-action="open" data-id="'+c.id+'">'+esc(c.title)+'</button>').join('')+es.map(e=>'<span class="evt">'+esc(e.title)+' às '+e.time+'</span>').join('')+'<button class="btn small" data-action="newOn" data-date="'+s+'">Planejar neste dia</button></div></div>';
+      list+='<div class="lrow"><div class="ld"><b>'+d+'</b><span>'+wd+'</span></div><div class="lc">'+ls.map(l=>'<span class="lit">'+esc(l)+'</span>').join('')+cs.map(c=>'<button class="chip f-'+c.fmt+'" style="width:auto;max-width:100%" data-action="open" data-id="'+c.id+'">'+esc(c.title)+'</button>').join('')+es.map(e=>'<span class="evt">'+esc(e.title)+(/^missa das /i.test(e.title)?'':' às '+e.time)+'</span>').join('')+'<button class="btn small" data-action="newOn" data-date="'+s+'">Planejar neste dia</button></div></div>';
     }
   }
   const tail=(7-(start+dim)%7)%7;
@@ -1800,9 +1842,9 @@ function addSlotFormHtml(eventoId){
   '</div>';
 }
 function escalaTabsHtml(){
-  return '<div class="dash-tabs">'+
+  return '<div class="dash-tabs tabs-quebra">'+
     '<button type="button" class="dash-tab'+(escalaAba==='setor'?' active':'')+'" data-action="escalaAba" data-aba="setor">Escala de '+esc(SETOR_NAME[currentSetor])+'</button>'+
-    '<button type="button" class="dash-tab'+(escalaAba==='completa'?' active':'')+'" data-action="escalaAba" data-aba="completa">Escala completa</button>'+
+    '<button type="button" class="dash-tab'+(escalaAba==='completa'?' active':'')+'" data-action="escalaAba" data-aba="completa">Todos os setores</button>'+
     (coordenaEscala(currentSetor)?'<button type="button" class="dash-tab'+(escalaAba==='participacao'?' active':'')+'" data-action="escalaAba" data-aba="participacao">Participação</button>':'')+
   '</div>';
 }
@@ -1926,11 +1968,12 @@ function viewEscalas(){
   const mesesKeys=Object.keys(meses).sort();
   const statusMeses=!mesesKeys.length?'':podeEditarSetor
     ?'<div class="pub-bar">'+mesesKeys.map(m=>{const fech=!!fechadoMes[m];
-        return '<div class="pub-row"><span><b>'+esc(nomeMes(m))+'</b> <span class="pill '+(fech?'':meses[m]?'ok':'warn')+'">'+(fech?'Fechada':meses[m]?'Publicada':'Em montagem')+'</span></span>'+
+        return '<div class="pub-row"><span><b>'+esc(nomeMes(m))+'</b> <span class="pill '+(fech?'':meses[m]?'ok':'warn')+'">'+(fech?'Fechada':meses[m]?'Publicada':'Em montagem')+'</span>'+
+          (!fech&&!meses[m]?'<small class="pub-datas">'+esc(datasDaJanela(janela[m]))+'</small>':'')+'</span>'+
         '<span class="pub-acts"><button class="btn small" data-action="sugerirEscala" data-mes="'+m+'" data-publicada="'+(meses[m]?1:0)+'">Sugerir escala</button>'+
         (fech?'<span class="note" style="margin:0">Só a coordenação mexe</span>':meses[m]?'<button class="btn small" data-action="despublicarMes" data-mes="'+m+'">Voltar pra montagem</button>':'<button class="btn small primary" data-action="publicarMes" data-mes="'+m+'">Publicar escala</button>')+'</span></div>';}).join('')+
-      '<p class="note" style="margin:6px 0 0">Candidaturas de cada mês: do dia 15 até 3 dias antes do fim do mês anterior (ex.: 15 a 29 num mês de 31 dias). Os 2 últimos dias do mês são da coordenação, pra montar e publicar (em montagem, só a coordenação vê os nomes). Se ninguém publicar, a escala sai sozinha na véspera do início, e quando ela começa, fecha. O sábado antes de um domingo dia 1º entra na escala do mês do domingo.</p></div>'
-    :(mesesKeys.some(m=>!meses[m])?'<div class="aviso-montagem">A escala de <b>'+mesesKeys.filter(m=>!meses[m]).map(nomeMes).join(' e ')+'</b> está em montagem. As candidaturas vão do dia 15 até 3 dias antes do fim do mês anterior: toque em <b>Quero servir</b> nas funções em que você pode, e a coordenação escolhe e publica.</div>':'');
+      '</div>'
+    :mesesKeys.filter(m=>!meses[m]).map(m=>'<div class="aviso-montagem">'+janelaTexto(m,janela[m])+'</div>').join('');
   const acoes=(podeEditarSetor?lembretePublicacaoHtml():'')+naoFaz+chips+coord+statusMeses+como;
   const rodape=(podeEditarSetor?historicoHtml():'')+pdfBarHtml(currentSetor);
   const vazio=escalaFiltro==='minhas'?'Você ainda não está em nenhuma escala de '+esc(SETOR_NAME[currentSetor])+'.':escalaFiltro==='vagas'?'Vagas ocupadas, tente servir outro dia. Se alguém sair da escala, a vaga volta a aparecer aqui.':'Nenhuma escala aberta pra '+esc(SETOR_NAME[currentSetor])+' por enquanto.';
@@ -1942,7 +1985,7 @@ function viewEscalas(){
     const joined=e.slots.some(s=>s.who===state.me);
     const cheio=slots.length&&!montagem&&!open&&!joined&&!podeEditarSetor&&!slots.some(s=>s.euCand);
     const pillEv=!slots.length?'':montagem?'<span class="pill">Em montagem</span>':'<span class="pill '+(open?'warn':'ok')+'">'+(open?open+(open>1?' vagas':' vaga'):'Completa')+'</span>';
-    return '<article class="ev'+(e.big?' big':'')+'"><div class="ev-h"><div class="dbadge"><b>'+d.getDate()+'</b><span>'+d.toLocaleDateString('pt-BR',{month:'short'}).replace('.','')+'</span></div><div style="flex:1;min-width:120px"><h3>'+esc(e.title)+'</h3><small>'+cap(d.toLocaleDateString('pt-BR',{weekday:'long'}))+', '+e.time+' no '+esc(e.place)+'</small></div><div class="ev-h-actions">'+pillEv+
+    return '<article class="ev'+(e.big?' big':'')+'"><div class="ev-h"><div class="dbadge"><b>'+d.getDate()+'</b><span>'+d.toLocaleDateString('pt-BR',{month:'short'}).replace('.','')+'</span></div><div style="flex:1;min-width:120px"><h3>'+esc(e.title)+'</h3><small>'+cap(d.toLocaleDateString('pt-BR',{weekday:'long'}))+', '+e.time+(e.place?' · '+esc(e.place):'')+'</small></div><div class="ev-h-actions">'+pillEv+
       (gereEscalas()?'<button class="btn small danger" data-action="excluirEvento" data-id="'+e.id+'" title="Excluir escala">Excluir</button>':'')+'</div></div>'+
       (cheio?'<div class="ev-cheio">Vagas ocupadas, tente servir outro dia.</div>':'')+
       (slots.length?slots.map(s=>{
@@ -2776,9 +2819,8 @@ async function removerFoto(){
 
 /* ---------- Materiais ---------- */
 function viewMateriais(){
-  const tiles=[['Identidade visual','Logo, paleta de cores e fontes do santuário.'],['Templates','Modelos prontos de Canva e CapCut.'],['Músicas livres de direitos','Trilhas liberadas para uso nos vídeos.'],['Autorizações de imagem','Termos assinados, com atenção a menores.'],['Diretrizes pastorais','Tom de voz, linguagem e temas sensíveis.'],['Brutos e arquivos finais','Pastas por mês, com nome padronizado.']];
-  return '<div class="mats">'+tiles.map(t=>'<button class="mat" data-action="pasta"><h4>'+t[0]+'</h4><p>'+t[1]+'</p></button>').join('')+'</div>'+
-    '<div class="two">'+
+  // Os cartões das pastas do Drive saíram (não abriam nada); voltam quando a Pascom tiver os links.
+  return '<div class="two">'+
       Object.keys(TEMPLATES).map(k=>'<div class="tpl"><h4 style="font-size:17px">'+TEMPLATES[k].titulo+'</h4><pre>'+esc(TEMPLATES[k].texto)+'</pre><button class="btn small" data-action="copy" data-key="'+k+'">Copiar modelo</button></div>').join('')+
       '<div class="tpl"><h4 style="font-size:17px">Checklist antes de agendar</h4><ol class="checklist">'+CHECKS.map(k=>'<li><b>'+k.label+'.</b> '+(k.hint?esc(k.hint):'')+'</li>').join('')+'</ol></div>'+
     '</div><p class="note">Padrão de nome de arquivo sugerido: <b>'+TODAY+'_reels_terco-5min_v2</b> (data, formato, tema e versão).</p>';
@@ -3200,14 +3242,16 @@ function renderSide(){
 /* Produção, Dashboard e Ideias só existem pra Redes sociais e Jovens (quem produz conteúdo);
    Datashow e Transmissões trabalham pela escala. O Guia é só de Transmissões. */
 const SETORES_CONTEUDO=['redes_sociais','jovens'];
-const VIEWS_POR_SETOR={quadro:SETORES_CONTEUDO,dashboard:SETORES_CONTEUDO,ideias:SETORES_CONTEUDO,guia:['transmissoes_videos'],montagem:['holyrics']};
+// Calendário editorial e Materiais são das Redes sociais/Jovens (quem produz conteúdo): nos setores de
+// escala (Datashow, Transmissões, Holyrics) só confundiam ("Planejar neste dia", Reels, Carrossel).
+const VIEWS_POR_SETOR={quadro:SETORES_CONTEUDO,dashboard:SETORES_CONTEUDO,ideias:SETORES_CONTEUDO,calendario:SETORES_CONTEUDO,materiais:SETORES_CONTEUDO,guia:['transmissoes_videos'],montagem:['holyrics']};
 const ehSetorDeConteudo=()=>SETORES_CONTEUDO.indexOf(currentSetor)>-1;
 const viewDisponivel=k=>!!VIEWS[k]&&!VIEWS[k].hidden&&(!VIEWS_POR_SETOR[k]||VIEWS_POR_SETOR[k].indexOf(currentSetor)>-1);
 // Abas principais da barra de baixo no celular (o resto fica em "Mais").
 function abasPrincipais(){
   if(currentSetor==='transmissoes_videos') return ['painel','escalas','guia','equipe'];
   if(currentSetor==='holyrics') return ['painel','escalas','montagem','equipe'];
-  if(currentSetor==='datashow') return ['painel','escalas','calendario','equipe'];
+  if(currentSetor==='datashow') return ['painel','escalas','equipe'];
   return ['painel','quadro','escalas','equipe'];
 }
 const SETOR_SCOPED_VIEWS=['painel','quadro','calendario','ideias','lixeira'];
@@ -3428,6 +3472,7 @@ function renderMobileBars(){
   '<button type="button" data-action="toggleMobileNav"'+(noMais||mobileNavOpen?' aria-current="page"':'')+'><svg viewBox="0 0 24 24" aria-hidden="true">'+ICONS.more+'</svg><span>Mais</span></button>';
 }
 function render(){
+  const sp=document.getElementById('splash'); if(sp) sp.hidden=true;
   if(!authToken||authMode==='redefinir'){
     $('#app').hidden=true;
     renderAuth();
@@ -3796,7 +3841,6 @@ document.addEventListener('click',e=>{
       if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(txt).then(()=>toast('Modelo copiado.')).catch(()=>toast('Não foi possível copiar aqui. Selecione o texto manualmente.','warn'));}
       else toast('Não foi possível copiar aqui. Selecione o texto manualmente.','warn');
       break;}
-    case 'pasta': toast('Na versão real, esta pasta abriria o Google Drive da Pascom.'); break;
     case 'doLogin': doLogin(); break;
     case 'doCadastro': doCadastro(); break;
     case 'doEsqueciSenha': doEsqueciSenha(); break;
