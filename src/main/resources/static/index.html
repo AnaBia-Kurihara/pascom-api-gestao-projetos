@@ -185,6 +185,14 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center;justify-conten
 .sug-vazia{color:var(--ink3)}
 .cad-vol{display:flex;flex-direction:column;gap:10px;margin-top:8px}
 .mem[hidden]{display:none}
+.tela-push .m-body{text-align:center;align-items:center;padding:30px 22px 22px}
+.tela-push h3{font-family:var(--serif);font-weight:400;font-size:24px;margin:0}
+.tela-push p,.tela-push li{color:var(--ink2);font-size:15.5px;line-height:1.5;margin:0}
+.tela-push .passos,.tela-push .tela-push-lista{text-align:left;max-width:380px;margin:0}
+.tela-push-lista{list-style:none;padding:0;display:flex;flex-direction:column;gap:6px}
+.tela-push .btn.primary{min-width:220px;padding:14px 22px;font-size:16px}
+.tela-push-depois{font-size:13px;color:var(--ink3)}
+.pill.sem-notif{background:transparent}
 .tour .m-body{text-align:center;align-items:center;padding-top:26px}
 .tour h3{font-family:var(--serif);font-weight:400;font-size:22px;margin:0}
 .tour p{color:var(--ink2);font-size:15.5px;line-height:1.5;margin:0;max-width:420px}
@@ -870,7 +878,7 @@ function memberFromApi(u){
     email:u.email, poderesGeral:!!u.poderesCoordenadorGeral, gestorEscalas:!!u.gestorEscalas,
     anivDia:u.aniversarioDia||null, anivMes:u.aniversarioMes||null,
     extras:(u.setoresExtras||[]).map(x=>SETOR_FROM_API[x]).filter(Boolean),
-    foto:u.fotoVersao||null, whatsapp:u.whatsapp||null, whatsappNaAjuda:!!u.whatsappNaAjuda
+    foto:u.fotoVersao||null, whatsapp:u.whatsapp||null, whatsappNaAjuda:!!u.whatsappNaAjuda, notif:u.notificacoes==null?null:!!u.notificacoes
   };
 }
 function checksFromApi(checklist){
@@ -983,9 +991,8 @@ async function carregarTudo(meId){
   let salvo=null; try{ salvo=localStorage.getItem(SETOR_KEY); }catch(e){}
   currentSetor=SETOR_NAME[salvo]?salvo:((m&&m.setor)?m.setor:'redes_sociais');
   carregarAvisos();
-  setTimeout(()=>atualizarPush(true),0);
   setTimeout(renovarLoginSeVelho,0);
-  setTimeout(mostrarTourSePrimeiraVez,700);
+  setTimeout(async()=>{ await atualizarPush(true); if(!mostrarTourSePrimeiraVez()) mostrarTelaPush(); },700);
 }
 const SETOR_KEY='pascom-fatima-setor';
 function lembrarSetor(){ try{ localStorage.setItem(SETOR_KEY,currentSetor); }catch(e){} }
@@ -2541,7 +2548,8 @@ function viewEquipeSetor(){
     const cs=state.cards.filter(c=>c.owner===m.id&&c.stage!=='publicado'&&c.setor===s);
     const r=rankNoSetor(m,s);
     return '<div class="mem" data-nome="'+esc((m.nome+' '+(m.funcao||'')).toLowerCase())+'">'+avatar(m.id,true)+'<div><h3>'+esc(m.nome)+(m.id===state.me?' <span class="pill">você</span>':'')+'</h3>'+
-      '<div class="fn">'+esc(m.funcao||'')+(semEmail(m)?' <span class="pill" title="Cadastrado pela coordenação sem e-mail: não entra no app nem recebe lembretes por e-mail">sem e-mail</span>':'')+'</div>'+
+      '<div class="fn">'+esc(m.funcao||'')+(semEmail(m)?' <span class="pill" title="Cadastrado pela coordenação sem e-mail: não entra no app nem recebe lembretes por e-mail">sem e-mail</span>':'')+
+      (m.notif===false&&!semEmail(m)?' <span class="pill sem-notif" title="Ainda não ativou as notificações no celular: os lembretes chegam só por e-mail">🔕 sem notificação</span>':'')+'</div>'+
       '<div class="note" style="margin-top:2px"><span class="pill'+(r<2?' warn':'')+'">'+esc(papelNoSetor(m,s))+'</span>'+(m.disp&&m.disp!=='Não informado'?' Disponível: '+esc(m.disp.toLowerCase()):'')+'</div>'+
       (cs.length?'<ul>'+cs.map(c=>'<li>'+esc(c.title)+'</li>').join('')+'</ul>':(ehSetorDeConteudo()?'<p class="note">Sem cartões em andamento neste setor.</p>':''))+
       (isCoordenadorGeral()&&m.id!==state.me?'<button type="button" class="link-btn mem-link" data-action="gerenciarPessoa" data-id="'+m.id+'">Gerenciar (papel, setor, senha)</button>':'')+
@@ -2555,7 +2563,10 @@ function viewEquipeSetor(){
   const incluir=podeMexerNaEquipe(s)?'<div class="filters" style="margin:0 0 16px"><button class="btn primary" data-action="incluirNaEquipe">+ Incluir pessoa na equipe de '+esc(SETOR_NAME[s])+'</button>'+
     '<button class="btn" data-action="cadastrarVoluntario">+ Cadastrar voluntário sem cadastro</button></div>':'';
   const busca=lista.length>8?'<input id="eq-busca" class="time-busca eq-busca" type="search" placeholder="Buscar pelo nome" aria-label="Buscar na equipe" autocomplete="off">':'';
-  return aviso+incluir+busca+
+  const semNotif=lista.filter(m=>m.notif===false&&!semEmail(m));
+  const notifAviso=semNotif.length?'<div class="aviso-equipe"><span>🔕 <b>'+semNotif.length+(semNotif.length>1?' pessoas':' pessoa')+'</b> da equipe ainda não '+(semNotif.length>1?'ativaram':'ativou')+' as notificações no celular: os lembretes chegam só por e-mail. Toda vez que abrirem o app, ele pede pra ativar.</span>'+
+    '<button class="btn small" data-action="copiarSemNotif">Copiar os nomes</button></div>':'';
+  return aviso+notifAviso+incluir+busca+
     '<h2 class="eq-h">Coordenação <small>'+coord.length+'</small></h2>'+
     (coord.length?'<div class="team">'+coord.map(card).join('')+'</div>':'<div class="empty">Ninguém na coordenação deste setor ainda.</div>')+
     '<h2 class="eq-h">Voluntários <small>'+vol.length+'</small></h2>'+
@@ -3446,6 +3457,56 @@ function pushPainelHtml(){
     '<div class="pb-acts">'+(ios?'<button class="btn small primary" data-action="comoInstalar">Como instalar</button>':'<button class="btn small primary" data-action="ativarPush">Ativar</button>')+
     '<button class="btn small" data-action="fecharBannerPush">Agora não</button></div></section>';
 }
+// ---------------------------------------------------------------- tela "ative as notificações" ao entrar
+// O celular não deixa nenhum app ativar sozinho: só a pessoa, tocando em "Permitir". Então, enquanto
+// não ativar, toda vez que abrir o app aparece essa tela primeiro (no celular). "Agora não" adia até o
+// dia seguinte. iPhone sem o app instalado vê o passo a passo de instalar; quem bloqueou, como liberar.
+const PUSH_TELA_KEY='pascom-push-tela-adiada';
+const ehCelular=()=>{ try{ return ehIOS()||matchMedia('(pointer: coarse)').matches; }catch(e){ return false; } };
+const hojeIso=()=>{ const d=new Date(); return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate(); };
+function mostrarTelaPush(){
+  if(!state.me||!ehCelular()||['desligado','ios-instalar','negado'].indexOf(pushEstado)<0) return;
+  try{ if(localStorage.getItem(PUSH_TELA_KEY)===hojeIso()) return; }catch(e){}
+  if(!$('#overlay').hidden) return;
+  desenharTelaPush();
+}
+function desenharTelaPush(){
+  const ios=ehIOS();
+  let titulo, corpo, acao;
+  if(pushEstado==='ios-instalar'){
+    titulo='Instale o app pra receber os avisos';
+    corpo='<p>No iPhone, os avisos da escala só chegam com a Pascom <b>instalada na Tela de Início</b>. Leva 30 segundos:</p><ol class="passos">'+
+      '<li>Abra este site no <b>Safari</b>.</li><li>Toque em <b>Compartilhar</b> (o quadrado com a setinha pra cima).</li>'+
+      '<li>Toque em <b>Adicionar à Tela de Início</b> e depois em <b>Adicionar</b>.</li><li>Abra a Pascom pelo ícone novo e entre na sua conta (é só uma vez).</li></ol>'+
+      '<p class="note" style="margin:0">Lá dentro, esta tela aparece de novo com o botão pra ativar.</p>';
+    acao='<button class="btn primary" data-action="pushTelaAdiar">Entendi</button>';
+  }else if(pushEstado==='negado'){
+    titulo='As notificações estão bloqueadas';
+    corpo='<p>Este celular está bloqueando os avisos da Pascom. Pra liberar:</p><ol class="passos">'+(ios
+      ?'<li>Abra os <b>Ajustes</b> do iPhone.</li><li>Toque em <b>Notificações</b> e procure <b>Pascom</b>.</li><li>Ligue <b>Permitir Notificações</b>.</li><li>Volte pro app.</li>'
+      :'<li>Segure o dedo no ícone da Pascom (ou, no Chrome, toque no ícone ao lado do endereço).</li><li>Toque em <b>Informações do app</b> (ou <b>Configurações do site</b>).</li><li>Toque em <b>Notificações</b> → <b>Permitir</b>.</li><li>Volte pro app.</li>')+'</ol>';
+    acao='<button class="btn primary" data-action="pushTelaConferir">Já liberei</button>';
+  }else{
+    titulo='Ative as notificações';
+    corpo='<p>É por aqui que a Pascom avisa você:</p><ul class="tela-push-lista"><li>📅 quando a escala sair e você for escalado(a)</li>'+
+      '<li>⏰ 2 dias antes de você servir</li><li>🙋 quando as candidaturas estiverem fechando</li></ul>'+
+      '<p class="note" style="margin:0">Toque em <b>Ativar agora</b> e depois em <b>Permitir</b>.</p>';
+    acao='<button class="btn primary tela-push-btn" data-action="pushTelaAtivar">🔔 Ativar agora</button>';
+  }
+  $('#overlay').innerHTML='<div class="modal tela-push" role="dialog" aria-modal="true" aria-label="'+esc(titulo)+'"><div class="m-body">'+
+    '<div class="tour-ic">🔔</div><h3>'+esc(titulo)+'</h3>'+corpo+acao+
+    '<button type="button" class="link-btn tela-push-depois" data-action="pushTelaAdiar">Agora não</button></div></div>';
+  $('#overlay').hidden=false;
+}
+async function pushTelaAtivar(){
+  await ativarPush();
+  if(pushEstado==='ligado') closeModal(); else if(!$('#overlay').hidden) desenharTelaPush();
+}
+async function pushTelaConferir(){
+  await atualizarPush(true);
+  if(pushEstado==='negado'){ toast('Ainda está bloqueado. Confira o passo a passo.','warn'); return; }
+  if(pushEstado==='desligado') desenharTelaPush(); else closeModal();
+}
 // ---------------------------------------------------------------- e-mails do sistema pelo Gmail da Pascom (Coordenação Geral)
 let gmailInfo=null, gmailCarregando=false;
 async function carregarGmail(){
@@ -3535,10 +3596,10 @@ const TOUR=[
   {ic:'📲',t:'Instale o app e ative as notificações',p:'Assim os lembretes chegam no celular, até 2 dias antes de você servir. Você também pode fazer isso depois em <b>Meu perfil</b>.',acoes:true}
 ];
 function mostrarTourSePrimeiraVez(){
-  if(!state.me||document.getElementById('splash')&&!document.getElementById('splash').hidden) return;
-  try{ if(localStorage.getItem(TOUR_KEY(state.me))) return; }catch(e){ return; }
-  if(!$('#overlay').hidden) return; // não atrapalha outra janela aberta
-  tourPasso=0; desenharTour();
+  if(!state.me||document.getElementById('splash')&&!document.getElementById('splash').hidden) return false;
+  try{ if(localStorage.getItem(TOUR_KEY(state.me))) return false; }catch(e){ return false; }
+  if(!$('#overlay').hidden) return false; // não atrapalha outra janela aberta
+  tourPasso=0; desenharTour(); return true;
 }
 function desenharTour(){
   const s=TOUR[tourPasso], ult=tourPasso===TOUR.length-1;
@@ -3564,6 +3625,10 @@ async function abrirAvisos(){
         const clicavel=pid&&mem(pid)&&podeGerarPostAniversario();
         // "linkSenha:<id>": alguém esqueceu a senha e o e-mail não chegou; a Coordenação Geral gera o link.
         const sid=a.acao&&a.acao.indexOf('linkSenha:')===0?a.acao.split(':')[1]:null;
+        // "candidatura:<mês>:<36h|12h>:<setor>": lembrete de que as candidaturas estão fechando; abre a escala do setor.
+        const cset=a.acao&&a.acao.indexOf('candidatura:')===0?a.acao.split(':')[3]:null;
+        if(cset&&SETOR_NAME[cset])
+          return '<button type="button" class="aviso-item aviso-acao'+(a.lido?'':' novo')+'" data-action="avisoCandidatura" data-setor="'+esc(cset)+'"><p>'+esc(a.texto)+'</p><small>'+esc(quandoFoi(a.criadoEm))+' · <b>Ver a escala</b></small></button>';
         if(sid&&mem(sid)&&isCoordenadorGeral())
           return '<button type="button" class="aviso-item aviso-acao'+(a.lido?'':' novo')+'" data-action="linkSenha" data-id="'+esc(sid)+'"><p>'+esc(a.texto)+'</p><small>'+esc(quandoFoi(a.criadoEm))+' · <b>Gerar link de nova senha</b></small></button>';
         return clicavel
@@ -3847,6 +3912,11 @@ document.addEventListener('click',e=>{
     case 'ajudaSetores': abrirAjuda('setor'); break;
     case 'ajudaSetor': abrirAjuda('setor',t.dataset.setor); break;
     case 'ativarPush': ativarPush(); break;
+    case 'pushTelaAtivar': pushTelaAtivar(); break;
+    case 'copiarSemNotif': { const ns=membrosDoSetor(currentSetor).filter(m=>m.notif===false&&!semEmail(m)).map(m=>'• '+m.nome);
+      copiarTexto('🔔 Pessoal, falta ativar as notificações do app da Pascom! Abra o app e toque em "Ativar agora" (no iPhone, instale antes na Tela de Início pelo Safari):\n'+ns.join('\n')); break; }
+    case 'pushTelaConferir': pushTelaConferir(); break;
+    case 'pushTelaAdiar': try{ localStorage.setItem(PUSH_TELA_KEY,hojeIso()); }catch(e){} closeModal(); break;
     case 'conectarGmail': conectarGmail(); break;
     case 'testeGmail': testeGmail(); break;
     case 'desconectarGmail': desconectarGmail(); break;
@@ -3910,6 +3980,7 @@ document.addEventListener('click',e=>{
     case 'pedirAniversarios': pedirAniversarios(); break;
     case 'salvarPapel': salvarPapel(id); break;
     case 'abrirAvisos': abrirAvisos(); break;
+    case 'avisoCandidatura': closeModal(); currentSetor=t.dataset.setor; lembrarSetor(); escalaAba='setor'; escalaFiltro='todas'; view='escalas'; mobileNavOpen=false; render(); $('.main').scrollTop=0; break;
     case 'toggleHistorico': toggleHistorico(); break;
     case 'copiarLinkSenha': {
       const ta=$('#link-senha-msg'); if(!ta) break;

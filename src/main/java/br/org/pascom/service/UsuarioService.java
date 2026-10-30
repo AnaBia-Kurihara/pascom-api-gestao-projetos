@@ -39,12 +39,15 @@ public class UsuarioService {
     private final FotoUsuarioRepository fotoUsuarioRepository;
 
     private final AvisoService avisoService;
+    private final br.org.pascom.repository.InscricaoPushRepository inscricaoPushRepository;
 
     public UsuarioService(UsuarioRepository usuarioRepository, PasswordEncoder passwordEncoder,
                            AuthenticationManager authenticationManager, TokenService tokenService,
                            EmailService emailService, GoogleTokenService googleTokenService,
-                           FotoUsuarioRepository fotoUsuarioRepository, AvisoService avisoService) {
+                           FotoUsuarioRepository fotoUsuarioRepository, AvisoService avisoService,
+                          br.org.pascom.repository.InscricaoPushRepository inscricaoPushRepository) {
         this.avisoService = avisoService;
+        this.inscricaoPushRepository = inscricaoPushRepository;
         this.usuarioRepository = usuarioRepository;
         this.passwordEncoder = passwordEncoder;
         this.authenticationManager = authenticationManager;
@@ -58,11 +61,19 @@ public class UsuarioService {
         return usuarioRepository.findAll().stream().map(UsuarioResponseDTO::from).toList();
     }
 
-    /** A lista da equipe, sem o WhatsApp dos outros (só o próprio e o de quem já aparece no "Precisa de ajuda?"). */
+    /**
+     * A lista da equipe, sem o WhatsApp dos outros (só o próprio e o de quem já aparece no "Precisa de ajuda?").
+     * Pra coordenação, diz também quem já ativou as notificações no celular (pra cobrar quem falta).
+     */
     public List<UsuarioResponseDTO> listarTodos(Usuario quemVe) {
+        boolean coordenacao = quemVe != null && (quemVe.isCoordenacao() || quemVe.gereTodasAsEscalas()
+                || quemVe.temPoderesDeCoordenadorGeral());
+        java.util.Set<Long> comNotificacao = coordenacao
+                ? new java.util.HashSet<>(inscricaoPushRepository.usuariosComNotificacao()) : java.util.Set.of();
         return usuarioRepository.findAll().stream()
                 .map(u -> UsuarioResponseDTO.from(u, (quemVe != null && u.getId().equals(quemVe.getId()))
-                        || Boolean.TRUE.equals(u.getWhatsappNaAjuda())))
+                        || Boolean.TRUE.equals(u.getWhatsappNaAjuda()),
+                        coordenacao ? comNotificacao.contains(u.getId()) : null))
                 .toList();
     }
 

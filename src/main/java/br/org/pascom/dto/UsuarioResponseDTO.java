@@ -32,14 +32,16 @@ public record UsuarioResponseDTO(
         Integer aniversarioMes,
         /** WhatsApp (coordenação) e se aparece no botão de ajuda. */
         String whatsapp,
-        boolean whatsappNaAjuda
+        boolean whatsappNaAjuda,
+        /** Tem aparelho com notificação ativada; só vai pra coordenação (null pros outros). */
+        Boolean notificacoes
 ) {
     public static UsuarioResponseDTO from(Usuario u) {
-        return from(u, true);
+        return from(u, true, null);
     }
 
     /** mostrarWhatsapp = false esconde o número (lista da equipe vista por outra pessoa). */
-    public static UsuarioResponseDTO from(Usuario u, boolean mostrarWhatsapp) {
+    public static UsuarioResponseDTO from(Usuario u, boolean mostrarWhatsapp, Boolean notificacoes) {
         return new UsuarioResponseDTO(
                 u.getId(), u.getNome(), u.getEmail(), u.getRole(), u.getSetor(),
                 u.getFuncao(), u.getDisponibilidade(), u.getAvatarHue(),
@@ -51,7 +53,8 @@ public record UsuarioResponseDTO(
                 u.getAniversarioDia(),
                 u.getAniversarioMes(),
                 mostrarWhatsapp ? u.getWhatsapp() : null,
-                Boolean.TRUE.equals(u.getWhatsappNaAjuda())
+                Boolean.TRUE.equals(u.getWhatsappNaAjuda()),
+                notificacoes
         );
     }
 

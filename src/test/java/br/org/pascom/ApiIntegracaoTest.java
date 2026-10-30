@@ -16,6 +16,7 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.time.ZoneId;
 import java.time.temporal.TemporalAdjusters;
@@ -53,6 +54,7 @@ class ApiIntegracaoTest {
     @Autowired private br.org.pascom.repository.EventoRepository eventoRepository;
     @Autowired private br.org.pascom.repository.UsuarioRepository usuarioRepository;
     @Autowired private br.org.pascom.service.CalendarioService calendario;
+    @Autowired private br.org.pascom.service.LembreteCandidaturaService lembreteCandidatura;
 
     /** Só pode existir um Coordenador Geral no sistema: é criado uma vez e usado em todos os testes. */
     private String geral;
@@ -805,6 +807,55 @@ class ApiIntegracaoTest {
         String novo = corpo(enviar(post("/api/usuarios/renovar-token"), p.token, null)).path("token").asText();
         assertThat(novo).isNotBlank();
         assertThat(enviar(get("/api/eventos"), novo, null).getResponse().getStatus()).isEqualTo(200);
+    }
+
+    // ---------------------------------------------------------------- lembrete de candidatura (36h e 12h antes de fechar)
+
+    private List<String> avisosDeCandidatura(Pessoa p) throws Exception {
+        List<String> r = new java.util.ArrayList<>();
+        for (JsonNode a : corpo(mvc.perform(autenticado(get("/api/avisos"), p.token)).andReturn()).path("avisos")) {
+            if (a.path("acao").asText("").startsWith("candidatura:")) r.add(a.path("acao").asText());
+        }
+        return r;
+    }
+
+    @Test
+    void lembraQuemNaoSeCandidatou36hE12hAntesDeFechar() throws Exception {
+        JsonNode ev = criarEvento("Vigília", "Câmera extra", "TRANSMISSOES_VIDEOS");
+        Pessoa semNada = cadastrarELogar("VOLUNTARIO", "TRANSMISSOES_VIDEOS");
+        Pessoa jaCandidatou = cadastrarELogar("VOLUNTARIO", "TRANSMISSOES_VIDEOS");
+        Pessoa coord = cadastrarELogar("COORDENADOR", "TRANSMISSOES_VIDEOS");
+        candidatar(jaCandidatou, ev, slot(ev, "Câmera extra"));
+
+        YearMonth mes = YearMonth.from(LocalDate.parse(ev.path("data").asText()));
+        LocalDateTime fecha = br.org.pascom.service.CicloEscala.fechaCandidaturas(mes).atStartOfDay();
+
+        lembreteCandidatura.enviar(fecha.minusHours(40)); // ainda cedo: nada
+        assertThat(avisosDeCandidatura(semNada)).isEmpty();
+
+        lembreteCandidatura.enviar(fecha.minusHours(30)); // janela das 36h
+        lembreteCandidatura.enviar(fecha.minusHours(29)); // de novo: não repete
+        assertThat(avisosDeCandidatura(semNada)).containsExactly("candidatura:" + mes + ":36h:transmissoes_videos");
+
+        lembreteCandidatura.enviar(fecha.minusHours(5)); // janela das 12h
+        assertThat(avisosDeCandidatura(semNada)).hasSize(2).contains("candidatura:" + mes + ":12h:transmissoes_videos");
+
+        lembreteCandidatura.enviar(fecha.plusHours(1)); // já fechou: nada
+        assertThat(avisosDeCandidatura(semNada)).hasSize(2);
+        assertThat(avisosDeCandidatura(jaCandidatou)).isEmpty();
+        assertThat(avisosDeCandidatura(coord)).isEmpty();
+    }
+
+    @Test
+    void soCoordenacaoVeQuemAtivouAsNotificacoes() throws Exception {
+        Pessoa coord = cadastrarELogar("COORDENADOR", "JOVENS");
+        Pessoa vol = cadastrarELogar("VOLUNTARIO", "JOVENS");
+        for (JsonNode u : corpo(enviar(get("/api/usuarios"), coord.token, null))) {
+            if (u.path("id").asLong() == vol.id) assertThat(u.path("notificacoes").asBoolean(true)).isFalse();
+        }
+        for (JsonNode u : corpo(enviar(get("/api/usuarios"), vol.token, null))) {
+            assertThat(u.path("notificacoes").isNull()).as("voluntário não vê isso").isTrue();
+        }
     }
 
     // ---------------------------------------------------------------- apoio
