@@ -29,28 +29,29 @@ class CicloEscalaTest {
     }
 
     @Test
-    void candidaturasAbremDia15EFicamOs2UltimosDiasPraCoordenacao() {
-        // Dezembro/2026: o mês anterior (novembro) tem 30 dias → candidaturas 15 a 28, coordenação 29 e 30.
+    void candidaturasAbremDia15EVaoAteODiaDaMissa() {
+        // Dezembro/2026: abre 15/11; o prazo da montagem vai até 28/11 (29 e 30 são da coordenação).
         LocalDate missaDeDezembro = d(2026, 12, 6);
         assertThat(CicloEscala.candidaturaAberta(missaDeDezembro, d(2026, 11, 14))).isFalse(); // ainda não abriu
         assertThat(CicloEscala.candidaturaAberta(missaDeDezembro, d(2026, 11, 15))).isTrue();
-        assertThat(CicloEscala.candidaturaAberta(missaDeDezembro, d(2026, 11, 28))).isTrue();
-        assertThat(CicloEscala.candidaturaAberta(missaDeDezembro, d(2026, 11, 29))).isFalse(); // coordenação montando
+        assertThat(CicloEscala.candidaturaAberta(missaDeDezembro, d(2026, 11, 29))).isTrue();  // depois do prazo: vagas que sobrarem
+        assertThat(CicloEscala.candidaturaAberta(missaDeDezembro, d(2026, 12, 3))).isTrue();   // mês já começado
+        assertThat(CicloEscala.candidaturaAberta(missaDeDezembro, d(2026, 12, 6))).isTrue();   // no próprio dia
+        assertThat(CicloEscala.candidaturaAberta(missaDeDezembro, d(2026, 12, 7))).isFalse();  // já passou
         assertThat(CicloEscala.abreCandidaturas(YearMonth.of(2026, 12))).isEqualTo(d(2026, 11, 15));
-        assertThat(CicloEscala.fechaCandidaturas(YearMonth.of(2026, 12))).isEqualTo(d(2026, 11, 29));
-        // Janeiro/2027: dezembro tem 31 dias → candidaturas 15 a 29, coordenação 30 e 31.
-        assertThat(CicloEscala.candidaturaAberta(d(2027, 1, 10), d(2026, 12, 29))).isTrue();
-        assertThat(CicloEscala.candidaturaAberta(d(2027, 1, 10), d(2026, 12, 30))).isFalse();
-        // Março/2027: fevereiro tem 28 dias → candidaturas 15 a 26, coordenação 27 e 28.
-        assertThat(CicloEscala.fechaCandidaturas(YearMonth.of(2027, 3))).isEqualTo(d(2027, 2, 27));
+        assertThat(CicloEscala.prazoCandidaturas(YearMonth.of(2026, 12))).isEqualTo(d(2026, 11, 29));
+        // Janeiro/2027: dezembro tem 31 dias → prazo até 29/12 (30 e 31 da coordenação).
+        assertThat(CicloEscala.prazoCandidaturas(YearMonth.of(2027, 1))).isEqualTo(d(2026, 12, 30));
+        // Março/2027: fevereiro tem 28 dias → prazo até 26/02.
+        assertThat(CicloEscala.prazoCandidaturas(YearMonth.of(2027, 3))).isEqualTo(d(2027, 2, 27));
     }
 
     @Test
-    void novembroDe2026FicaComARegraAntiga() {
-        // Já estava aberto pra candidatura quando a regra nova chegou: vai até a escala começar.
+    void novembroDe2026JaNasceuAbertoEVaiAteAMissa() {
         assertThat(CicloEscala.abreCandidaturas(YearMonth.of(2026, 11))).isNull();
         assertThat(CicloEscala.candidaturaAberta(d(2026, 11, 8), d(2026, 10, 27))).isTrue();
-        assertThat(CicloEscala.candidaturaAberta(d(2026, 11, 8), d(2026, 10, 31))).isFalse();
+        assertThat(CicloEscala.candidaturaAberta(d(2026, 11, 8), d(2026, 10, 31))).isTrue(); // vaga que sobrou
+        assertThat(CicloEscala.candidaturaAberta(d(2026, 11, 1), d(2026, 11, 2))).isFalse();
     }
 
     @Test

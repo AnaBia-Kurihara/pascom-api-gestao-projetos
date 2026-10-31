@@ -937,7 +937,8 @@ function eventoFromApi(e){
       candidatos:s.candidatos?s.candidatos.map(c=>String(c.id)):null})),
     excluidoEm:e.excluidoEm||null, motivoExclusao:e.motivoExclusao||null, detalheExclusao:e.detalheExclusao||null,
     // Ciclo da escala, calculado no servidor (CicloEscala): mês da escala (o sábado antes de um domingo
-    // dia 1º é do mês seguinte), candidatura aberta (do dia 15 até 3 dias antes do fim do mês anterior) e mês já fechado.
+    // dia 1º é do mês seguinte), candidatura aberta (do dia 15 do mês anterior até o dia da missa), prazo da
+    // montagem (candFecham: 3 dias antes do fim do mês anterior) e mês já começado (fechado).
     mesEscala:e.mesEscala||(e.data||'').slice(0,7), candAberta:e.candidaturaAberta!==false, fechado:!!e.fechado,
     candAbrem:e.candidaturasAbrem||null, candFecham:e.candidaturasFecham||null
   };
@@ -1249,22 +1250,22 @@ const doSetorAtual=s=>s.setor===currentSetor||s.setor===null;
 // Mês que já chegou: escala fechada pra equipe (só a coordenação mexe). Mesma regra do backend:
 // vale de novembro/2026 em diante (outubro, quando o sistema começou, fica aberto até o fim).
 const fmtDM=iso=>{const p=String(iso).split('-');return p[2]+'/'+p[1];};
-/** Último dia em que dá pra se candidatar (o servidor manda o dia em que fecha, que já não vale). */
+/** Último dia do prazo pra entrar na montagem (o servidor manda o dia seguinte, quando começa a vez da coordenação). */
 function ultimoDiaCand(e){ if(!e||!e.candFecham) return null; const d=parse(e.candFecham); d.setDate(d.getDate()-1); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
-/** "Candidaturas até 29/11" / "Candidaturas a partir de 15/11" / "Candidaturas encerradas" (pra coordenação). */
+/** "Prazo das candidaturas: 15/11 a 28/11" / "até 28/11" / "acabou" (pra coordenação, na barra de publicação). */
 function datasDaJanela(e){
   if(!e) return '';
   const h=hojeISO(), ult=ultimoDiaCand(e);
   if(e.candAbrem&&h<e.candAbrem) return 'Candidaturas de '+fmtDM(e.candAbrem)+' a '+fmtDM(ult);
-  if(e.candAberta) return 'Candidaturas até '+fmtDM(ult);
-  return 'Candidaturas encerradas: hora de montar e publicar';
+  if(ult&&h<=ult) return 'Prazo das candidaturas até '+fmtDM(ult);
+  return 'Prazo das candidaturas acabou: hora de montar e publicar';
 }
 /** Aviso pra equipe com as datas reais da escala do mês, em linguagem simples. */
 function janelaTexto(m,e){
   const nome='<b>'+esc(nomeMes(m))+'</b>', h=hojeISO(), ult=e?ultimoDiaCand(e):null;
   if(e&&e.candAbrem&&h<e.candAbrem) return 'A escala de '+nome+' abre pra candidatura dia <b>'+fmtDM(e.candAbrem)+'</b>.';
-  if(e&&e.candAberta) return 'A escala de '+nome+' está aberta: toque em <b>Quero servir</b> nas missas em que você pode, até <b>'+fmtDM(ult)+'</b>. A coordenação escolhe e publica a escala depois.';
-  return 'As candidaturas de '+nome+' já fecharam. A coordenação está escolhendo quem serve e logo publica a escala.';
+  if(ult&&h<=ult) return 'A escala de '+nome+' está aberta: toque em <b>Quero servir</b> nas missas em que você pode, até <b>'+fmtDM(ult)+'</b>. A coordenação escolhe e publica a escala depois.';
+  return 'O prazo da escala de '+nome+' acabou e a coordenação está escolhendo quem serve. Ainda dá pra tocar em <b>Quero servir</b>: sua candidatura vai junto e vale pras vagas que sobrarem.';
 }
 
 function proximoMesISO(){const a=new Date();const d=new Date(a.getFullYear(),a.getMonth()+1,1);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');}
@@ -2006,10 +2007,10 @@ function viewEscalas(){
   const coord=(podeCriar||gereEscalas())?'<div class="filters" style="margin-bottom:12px">'+
     (podeCriar?'<button class="btn primary" data-action="novaEscala">+ Evento extra com escala</button>':'')+
     (gereEscalas()?'<button class="btn" data-action="gerarEscalasMes">Gerar missas do mês</button>':'')+'</div>':'';
-  const como='<details class="como"><summary>Como funciona a escala</summary><p>Todo mês a escala começa nova: as missas de domingo (e, pro Datashow, as das 8h, 18h30 e a de sábado às 16h30; pro Holyrics, a montagem de cada fim de semana) entram sozinhas, já com as funções de cada setor, no dia 15 do mês anterior. Do <b>dia 15 até 3 dias antes do fim do mês</b> a equipe se candidata (ex.: 15 a 29 em outubro); nos <b>2 últimos dias</b> a coordenação monta e publica. O sábado antes de um domingo dia 1º entra na escala do mês do domingo. '+
+  const como='<details class="como"><summary>Como funciona a escala</summary><p>Todo mês a escala começa nova: as missas de domingo (e, pro Datashow, as das 8h, 18h30 e a de sábado às 16h30; pro Holyrics, a montagem de cada fim de semana) entram sozinhas, já com as funções de cada setor, no dia 15 do mês anterior. As candidaturas abrem no <b>dia 15</b> e o prazo pra entrar na montagem vai até <b>3 dias antes do fim do mês</b> (ex.: 15 a 29 em outubro); nos <b>2 últimos dias</b> a coordenação monta e publica. Depois do prazo, e até mesmo com o mês já começado, ainda dá pra se candidatar às vagas que sobrarem: a coordenação é avisada. O sábado antes de um domingo dia 1º entra na escala do mês do domingo. '+
     (podeEditarSetor
-      ?'Enquanto a escala do mês está <b>em montagem</b>, só a coordenação vê quem foi escalado: veja os candidatos de cada função, toque em <b>Escalar</b> ou <b>Trocar</b> e, quando estiver pronta, <b>publique</b>. Se ninguém publicar, ela é publicada sozinha na véspera do primeiro dia; quando a escala começa, ela fecha pra equipe (você continua podendo trocar e tirar pessoas). <b>Sugerir escala</b> monta uma proposta em rodízio com quem se candidatou. Você também pode renomear, remover ou adicionar funções de '+esc(SETOR_NAME[currentSetor])+'.'
-      :'Toque em <b>Quero servir</b> nas funções em que você pode servir. A coordenação escolhe quem fica em cada uma e, quando a escala for <b>publicada</b>, ela aparece aqui pra todo mundo. Quando a escala do mês começa, ela <b>fecha</b>: se precisar sair, fale com a coordenação do seu setor.')+
+      ?'Enquanto a escala do mês está <b>em montagem</b>, só a coordenação vê quem foi escalado: veja os candidatos de cada função, toque em <b>Escalar</b> ou <b>Trocar</b> e, quando estiver pronta, <b>publique</b>. Se ninguém publicar, ela é publicada sozinha na véspera do primeiro dia; quando a escala começa, ninguém sai sozinho (você continua podendo trocar e tirar pessoas); se alguém se candidatar a uma vaga que sobrou, você recebe um aviso. <b>Sugerir escala</b> monta uma proposta em rodízio com quem se candidatou. Você também pode renomear, remover ou adicionar funções de '+esc(SETOR_NAME[currentSetor])+'.'
+      :'Toque em <b>Quero servir</b> nas funções em que você pode servir. A coordenação escolhe quem fica em cada uma e, quando a escala for <b>publicada</b>, ela aparece aqui pra todo mundo. Sobrou vaga depois de publicada? Ainda dá pra tocar em <b>Quero servir</b> nela, até o dia da missa: a coordenação é avisada. Quando a escala do mês começa, se precisar sair, fale com a coordenação do seu setor.')+
     (podeCriar?' Se tiver outro evento que precise de gente, marque como evento extra.':'')+'</p></details>';
   const naoFaz=me()&&!pertenceSetor(me(),currentSetor)&&!gereEscalas()?'<div class="aviso-equipe"><span>Você ainda não faz parte de <b>'+esc(SETOR_NAME[currentSetor])+'</b>, então não pode se inscrever nas vagas daqui. Se você também serve neste setor, adicione ele no seu perfil.</span><button class="btn small primary" data-action="abrirPerfil">Ir pro meu perfil</button></div>':'';
   // Status de cada mês da lista (em montagem / publicada) pro setor atual.
@@ -2025,7 +2026,13 @@ function viewEscalas(){
         (fech?'<span class="note" style="margin:0">Só a coordenação mexe</span>':meses[m]?'<button class="btn small" data-action="despublicarMes" data-mes="'+m+'">Voltar pra montagem</button>':'<button class="btn small primary" data-action="publicarMes" data-mes="'+m+'">Publicar escala</button>')+'</span></div>';}).join('')+
       '</div>'
     :mesesKeys.filter(m=>!meses[m]).map(m=>'<div class="aviso-montagem">'+janelaTexto(m,janela[m])+'</div>').join('');
-  const acoes=(podeEditarSetor?lembretePublicacaoHtml():'')+naoFaz+chips+coord+statusMeses+como;
+  // Voluntário vendo um mês que já começou com vaga sobrando: explica por que não tem "Quero servir".
+  const fechadoComVaga=!podeEditarSetor&&evs.find(e=>e.fechado&&e.slots.some(s=>s.setor===currentSetor&&!s.who&&!s.oculto));
+  const proxJanela=state.events.find(e=>!e.fechado&&e.candAbrem&&e.slots.some(s=>s.setor===currentSetor));
+  const avisoFechado=fechadoComVaga?'<div class="aviso-montagem">A escala de <b>'+esc(nomeMes(fechadoComVaga.mesEscala).split(' de ')[0].toLowerCase())+'</b> já começou, mas as vagas que sobraram ainda aceitam candidatura: '+
+    'toque em <b>Quero servir</b> e a coordenação de '+esc(SETOR_NAME[currentSetor])+' é avisada.'+
+    (proxJanela&&proxJanela.candAbrem?(hojeISO()<proxJanela.candAbrem?' As candidaturas de '+esc(nomeMes(proxJanela.mesEscala).split(' de ')[0].toLowerCase())+' abrem dia <b>'+fmtDM(proxJanela.candAbrem)+'</b>.':''):'')+'</div>':'';
+  const acoes=(podeEditarSetor?lembretePublicacaoHtml():'')+avisoFechado+naoFaz+chips+coord+statusMeses+como;
   const rodape=(podeEditarSetor?historicoHtml():'')+pdfBarHtml(currentSetor);
   const vazio=escalaFiltro==='minhas'?'Você ainda não está em nenhuma escala de '+esc(SETOR_NAME[currentSetor])+'.':escalaFiltro==='vagas'?'Vagas ocupadas, tente servir outro dia. Se alguém sair da escala, a vaga volta a aparecer aqui.':'Nenhuma escala aberta pra '+esc(SETOR_NAME[currentSetor])+' por enquanto.';
   if(!filtrados.length) return escalaTabsHtml()+acoes+'<div class="empty">'+vazio+'</div>'+rodape;
@@ -2046,14 +2053,15 @@ function viewEscalas(){
         const ds=' data-ev="'+e.id+'" data-slot="'+s.id+'"';
         const fechado=e.fechado;
         // Fora da janela de candidaturas: mostra quando abre, ou que a coordenação está montando.
-        const foraDaJanela=()=>e.candAbrem&&hojeISO()<e.candAbrem?'Candidaturas a partir de '+fmtDM(e.candAbrem):'Coordenação montando';
+        const foraDaJanela=()=>e.candAbrem&&hojeISO()<e.candAbrem?'Candidaturas a partir de '+fmtDM(e.candAbrem):'';
         const candBtn=()=>!podeEntrar?'<span class="so-setor">Só pra '+esc(SETOR_NAME[s.setor])+'</span>'
           :!e.candAberta?'<span class="so-setor">'+(s.euCand?'✓ Você se candidatou · ':'')+foraDaJanela()+'</span>'
           :s.euCand?'<button class="btn small cand-ok" data-action="desistir"'+ds+' title="Toque pra desistir">✓ Me candidatei</button>'
           :'<button class="btn small primary" data-action="candidatar"'+ds+'>Quero servir</button>';
         if(fechado&&!editavel){
           // Mês que já chegou: escala fechada pra equipe (mudanças só pela coordenação).
-          act=s.who===state.me?'<span class="so-setor">Escala fechada</span>':'';
+          // Vaga que sobrou: ainda aceita candidatura (a coordenação é avisada).
+          act=s.who===state.me?'<span class="so-setor">Escala fechada</span>':!s.who&&s.setor?candBtn():'';
         }else if(!s.setor){
           // Função geral: continua com "Eu vou" direto.
           if(!s.who) act=joined?'':'<button class="btn small primary" data-action="join"'+ds+'>Eu vou</button>';
@@ -3489,7 +3497,7 @@ function desenharTelaPush(){
   }else{
     titulo='Ative as notificações';
     corpo='<p>É por aqui que a Pascom avisa você:</p><ul class="tela-push-lista"><li>📅 quando a escala sair e você for escalado(a)</li>'+
-      '<li>⏰ 2 dias antes de você servir</li><li>🙋 quando as candidaturas estiverem fechando</li></ul>'+
+      '<li>⏰ 2 dias antes de você servir</li><li>🙋 quando o prazo da escala estiver acabando</li></ul>'+
       '<p class="note" style="margin:0">Toque em <b>Ativar agora</b> e depois em <b>Permitir</b>.</p>';
     acao='<button class="btn primary tela-push-btn" data-action="pushTelaAtivar">🔔 Ativar agora</button>';
   }
@@ -3591,7 +3599,7 @@ async function renovarLoginSeVelho(){
 const TOUR_KEY=id=>'pascom-tour-visto-'+id;
 let tourPasso=0;
 const TOUR=[
-  {ic:'🙋',t:'Como me candidato',p:'Na aba <b>Escalas</b>, toque em <b>Quero servir</b> nas missas em que você pode. As candidaturas do mês que vem abrem no <b>dia 15</b>. Depois a coordenação escolhe quem serve e publica a escala.'},
+  {ic:'🙋',t:'Como me candidato',p:'Na aba <b>Escalas</b>, toque em <b>Quero servir</b> nas missas em que você pode. As candidaturas do mês que vem abrem no <b>dia 15</b>, e o prazo vai até 3 dias antes do fim do mês. Depois a coordenação escolhe quem serve e publica a escala; vaga que sobrar continua aceitando candidatura.'},
   {ic:'📅',t:'Onde vejo minhas escalas',p:'No <b>Painel</b>, em <b>Suas próximas escalas</b>, e na aba <b>Escalas</b>, no filtro <b>Minhas</b>. Quando a escala for publicada, chega um aviso no sininho 🔔.'},
   {ic:'📲',t:'Instale o app e ative as notificações',p:'Assim os lembretes chegam no celular, até 2 dias antes de você servir. Você também pode fazer isso depois em <b>Meu perfil</b>.',acoes:true}
 ];
@@ -3626,7 +3634,8 @@ async function abrirAvisos(){
         // "linkSenha:<id>": alguém esqueceu a senha e o e-mail não chegou; a Coordenação Geral gera o link.
         const sid=a.acao&&a.acao.indexOf('linkSenha:')===0?a.acao.split(':')[1]:null;
         // "candidatura:<mês>:<36h|12h>:<setor>": lembrete de que as candidaturas estão fechando; abre a escala do setor.
-        const cset=a.acao&&a.acao.indexOf('candidatura:')===0?a.acao.split(':')[3]:null;
+        // "escala:<setor>": alguém se candidatou a uma vaga que sobrou (pra coordenação); abre a escala do setor.
+        const cset=a.acao&&a.acao.indexOf('candidatura:')===0?a.acao.split(':')[3]:a.acao&&a.acao.indexOf('escala:')===0?a.acao.split(':')[1]:null;
         if(cset&&SETOR_NAME[cset])
           return '<button type="button" class="aviso-item aviso-acao'+(a.lido?'':' novo')+'" data-action="avisoCandidatura" data-setor="'+esc(cset)+'"><p>'+esc(a.texto)+'</p><small>'+esc(quandoFoi(a.criadoEm))+' · <b>Ver a escala</b></small></button>';
         if(sid&&mem(sid)&&isCoordenadorGeral())

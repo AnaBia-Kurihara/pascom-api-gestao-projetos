@@ -315,8 +315,27 @@ public class EventoService {
         if (candidaturaRepository.findBySlotIdAndUsuarioId(slotId, voluntario.getId()).isEmpty()) {
             candidaturaRepository.save(CandidaturaEscala.builder()
                     .slot(slot).usuario(voluntario).criadaEm(LocalDateTime.now()).build());
+            // Escala já publicada e a vaga sobrou: a coordenação não está mais olhando os candidatos, então avisa.
+            if (funcaoPublicada(slot) && slot.getVoluntario() == null) avisarCandidaturaNaVaga(slot, voluntario);
         }
         return toDTO(eventoRepository.findById(eventoId).orElseThrow(), voluntario);
+    }
+
+    /** Avisa a coordenação do setor (ou, se não tiver, quem coordena a escala dele) de uma candidatura a vaga que sobrou. */
+    private void avisarCandidaturaNaVaga(SlotEscala slot, Usuario voluntario) {
+        Setor setor = slot.getSetor();
+        List<Usuario> todos = usuarioRepository.findAll();
+        List<Usuario> coord = todos.stream()
+                .filter(u -> u.getRole() == Role.COORDENADOR && u.getSetor() == setor).toList();
+        if (coord.isEmpty()) coord = todos.stream().filter(u -> u.coordenaEscalaDoSetor(setor)).toList();
+        Evento e = slot.getEvento();
+        String quando = descreverMissa(e) + (e.getHorario() == null ? "" : ", às "
+                + e.getHorario().format(java.time.format.DateTimeFormatter.ofPattern("HH'h'mm")).replace("h00", "h"));
+        String texto = "🙋 " + voluntario.getNome() + " quer servir em " + slot.getRotulo() + " na " + quando
+                + ", que está sem ninguém. Toque aqui pra escalar.";
+        for (Usuario c : coord) {
+            if (!c.getId().equals(voluntario.getId())) avisoService.avisar(c, texto, "escala:" + setor.name().toLowerCase());
+        }
     }
 
     @Transactional
@@ -739,9 +758,8 @@ public class EventoService {
         }
     }
 
-    /** "Quero servir"/desistir: só do dia 15 do mês anterior até 3 dias antes do fim dele (os 2 últimos dias são da coordenação). */
+    /** "Quero servir"/desistir: do dia 15 do mês anterior até o dia da missa (ver {@link CicloEscala}). */
     private void exigirCandidaturaAberta(LocalDate data) {
-        exigirMesAberto(data);
         if (CicloEscala.candidaturaAberta(data, calendarioService.hoje())) return;
         YearMonth m = CicloEscala.mesDaEscala(data);
         java.time.format.DateTimeFormatter dm = java.time.format.DateTimeFormatter.ofPattern("dd/MM");
@@ -750,8 +768,7 @@ public class EventoService {
             throw new IllegalStateException("As candidaturas da escala de " + nomeMesExtenso(m.atDay(1)) + " abrem dia "
                     + abre.format(dm) + ".");
         }
-        throw new IllegalStateException("As candidaturas da escala de " + nomeMesExtenso(m.atDay(1)) + " fecharam dia "
-                + CicloEscala.fechaCandidaturas(m).format(dm) + ": a coordenação está montando. Se precisar, fale com ela.");
+        throw new IllegalStateException("Essa celebração já passou.");
     }
 
     private static String nomeMesExtenso(LocalDate data) {
@@ -961,7 +978,7 @@ public class EventoService {
                 e.getLocal(), e.getEventoGrande(), slotsDto,
                 e.getExcluidoEm(), e.getMotivoExclusao(), e.getDetalheExclusao(),
                 m.toString(), CicloEscala.candidaturaAberta(e.getData(), hoje), CicloEscala.fechado(m, hoje),
-                CicloEscala.abreCandidaturas(m), CicloEscala.fechaCandidaturas(m)
+                CicloEscala.abreCandidaturas(m), CicloEscala.prazoCandidaturas(m)
         );
     }
 }

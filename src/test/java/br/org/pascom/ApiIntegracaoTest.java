@@ -828,7 +828,7 @@ class ApiIntegracaoTest {
         candidatar(jaCandidatou, ev, slot(ev, "Câmera extra"));
 
         YearMonth mes = YearMonth.from(LocalDate.parse(ev.path("data").asText()));
-        LocalDateTime fecha = br.org.pascom.service.CicloEscala.fechaCandidaturas(mes).atStartOfDay();
+        LocalDateTime fecha = br.org.pascom.service.CicloEscala.prazoCandidaturas(mes).atStartOfDay();
 
         lembreteCandidatura.enviar(fecha.minusHours(40)); // ainda cedo: nada
         assertThat(avisosDeCandidatura(semNada)).isEmpty();
@@ -856,6 +856,25 @@ class ApiIntegracaoTest {
         for (JsonNode u : corpo(enviar(get("/api/usuarios"), vol.token, null))) {
             assertThat(u.path("notificacoes").isNull()).as("voluntário não vê isso").isTrue();
         }
+    }
+
+    @Test
+    void candidaturaEmVagaQueSobrouDepoisDePublicadaAvisaACoordenacao() throws Exception {
+        JsonNode ev = criarEvento("Adoração", "Foto extra", "JOVENS");
+        Pessoa coord = cadastrarELogar("COORDENADOR", "JOVENS");
+        Pessoa vol = cadastrarELogar("VOLUNTARIO", "JOVENS");
+        String mes = YearMonth.from(LocalDate.parse(ev.path("data").asText())).toString();
+        assertThat(enviar(post("/api/escalas/publicar?mes=" + mes + "&setor=JOVENS"), geral, null).getResponse().getStatus()).isIn(200, 204);
+
+        candidatar(vol, ev, slot(ev, "Foto extra"));
+        boolean avisou = false;
+        for (JsonNode a : corpo(mvc.perform(autenticado(get("/api/avisos"), coord.token)).andReturn()).path("avisos")) {
+            if (a.path("acao").asText("").equals("escala:jovens") && a.path("texto").asText().contains("Foto extra")) avisou = true;
+        }
+        assertThat(avisou).as("coordenação de Jovens avisada da candidatura na vaga que sobrou").isTrue();
+        // A coordenação escala (e a vaga não fica aberta pra atrapalhar a sugestão de escala dos outros testes).
+        assertThat(enviar(post("/api/eventos/" + ev.path("id").asLong() + "/slots/" + slot(ev, "Foto extra") + "/escalar"),
+                coord.token, Map.of("usuarioId", vol.id)).getResponse().getStatus()).isEqualTo(200);
     }
 
     // ---------------------------------------------------------------- apoio

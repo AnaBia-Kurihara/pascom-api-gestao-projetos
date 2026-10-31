@@ -15,14 +15,17 @@ import java.util.Set;
  *   <li><b>Mês da escala</b>: o mês do dia, exceto o sábado cujo domingo já é dia 1º, que entra na
  *       escala do mês seguinte junto com o domingo (ex.: sábado 31/10 + domingo 01/11 → novembro).
  *       A missa de sábado à tarde já é a do domingo, e a montagem do Holyrics é do fim de semana.</li>
- *   <li><b>Candidaturas</b> ("Quero servir") do mês M: abrem no dia 15 do mês anterior e vão até 3 dias
- *       antes do fim dele; os <b>2 últimos dias do mês</b> são da coordenação, pra montar e publicar
- *       (mês de 31 dias: candidaturas 15 a 29, coordenação 30 e 31; de 30 dias: 15 a 28, coordenação
- *       29 e 30; fevereiro de 28: 15 a 26, coordenação 27 e 28). Pedido da coordenação em out/2026,
- *       porque muita gente depende da escala de outras pastorais pra se organizar (antes era 11 a 20).
- *       Vale a partir de dezembro/2026; novembro/2026 ficou com a regra antiga (aberto até começar).</li>
- *   <li><b>Fechado</b>: quando a escala do mês começa, ela fecha pra equipe (sem candidatura, desistência
- *       nem sair sozinho). Outubro/2026, quando o sistema começou, nunca fecha.</li>
+ *   <li><b>Candidaturas</b> ("Quero servir") do mês M: abrem no dia 15 do mês anterior e <b>não fecham</b>:
+ *       dá pra se candidatar a qualquer função ainda vaga até o dia da missa (pedido da coordenação em
+ *       31/10/2026, depois que uma voluntária não conseguiu se candidatar a vagas que sobraram).</li>
+ *   <li><b>Prazo da montagem</b> ({@link #prazoCandidaturas}): quem se candidata até 3 dias antes do fim do
+ *       mês anterior entra na montagem; os <b>2 últimos dias do mês</b> são da coordenação, pra montar e
+ *       publicar (mês de 31 dias: prazo até 29, coordenação 30 e 31; de 30 dias: até 28; fevereiro de 28:
+ *       até 26). Depois do prazo a candidatura continua valendo pras vagas que sobrarem, e com a escala
+ *       publicada a coordenação do setor é avisada. Novembro/2026 não tem prazo (regra antiga).</li>
+ *   <li><b>Fechado</b>: quando a escala do mês começa, ela fecha pra equipe sair sozinha ("Eu vou" das
+ *       funções gerais, sair da escala); candidatar-se às vagas que sobraram continua valendo.
+ *       Outubro/2026, quando o sistema começou, nunca fecha.</li>
  *   <li><b>Publicação automática</b>: na véspera do primeiro dia da escala, se ninguém publicou.</li>
  * </ul>
  */
@@ -65,8 +68,11 @@ public final class CicloEscala {
         return m.isBefore(PRIMEIRO_MES_COM_JANELA) ? null : m.minusMonths(1).atDay(DIA_ABRE_CANDIDATURAS);
     }
 
-    /** A partir desse dia não dá mais pra se candidatar (só a coordenação mexe). */
-    public static LocalDate fechaCandidaturas(YearMonth m) {
+    /**
+     * Fim do prazo pra entrar na montagem (a partir desse dia, 0h, é a vez da coordenação). Não fecha as
+     * candidaturas: depois dele ainda dá pra se candidatar às vagas que sobrarem.
+     */
+    public static LocalDate prazoCandidaturas(YearMonth m) {
         return m.isBefore(PRIMEIRO_MES_COM_JANELA) ? inicio(m)
                 : m.minusMonths(1).atEndOfMonth().minusDays(DIAS_DA_COORDENACAO - 1);
     }
@@ -80,12 +86,10 @@ public final class CicloEscala {
         return fechado(mesDaEscala(data), hoje);
     }
 
-    /** Dá pra tocar em "Quero servir" (ou desistir) numa função desse dia, hoje? */
+    /** Dá pra tocar em "Quero servir" (ou desistir) numa função desse dia, hoje? Do dia 15 do mês anterior até o dia da missa. */
     public static boolean candidaturaAberta(LocalDate data, LocalDate hoje) {
-        YearMonth m = mesDaEscala(data);
-        if (fechado(m, hoje)) return false;
-        LocalDate abre = abreCandidaturas(m);
-        return (abre == null || !hoje.isBefore(abre)) && hoje.isBefore(fechaCandidaturas(m));
+        LocalDate abre = abreCandidaturas(mesDaEscala(data));
+        return (abre == null || !hoje.isBefore(abre)) && !hoje.isAfter(data);
     }
 
     /** Dia em que o sistema publica sozinho a escala do mês, se ninguém publicou: a véspera do início. */

@@ -25,8 +25,8 @@ import java.time.format.TextStyle;
 import java.util.*;
 
 /**
- * Lembrete pra quem ainda não se candidatou a nada no mês: <b>36h e 12h antes de as candidaturas
- * fecharem</b> (pedido da coordenação, out/2026). Vai pro sininho e vira notificação no celular de quem
+ * Lembrete pra quem ainda não se candidatou a nada no mês: <b>36h e 12h antes do fim do prazo da
+ * montagem</b> ({@link CicloEscala#prazoCandidaturas}; depois dele só sobram as vagas que ninguém pegou) (pedido da coordenação, out/2026). Vai pro sininho e vira notificação no celular de quem
  * ativou; quem não tem nenhum aparelho com notificação recebe também por e-mail. Só voluntários de um
  * setor que tem função aberta pra candidatura naquele mês; quem já se candidatou ou já foi escalado(a)
  * em alguma função do mês não recebe. Cada lembrete sai uma vez só por pessoa ({@link AvisoService#jaAvisou}).
@@ -72,7 +72,7 @@ public class LembreteCandidaturaService {
         int total = 0;
         for (YearMonth mes : List.of(YearMonth.from(hoje), YearMonth.from(hoje).plusMonths(1))) {
             // As candidaturas valem até o fim do dia anterior ao fechamento (CicloEscala.candidaturaAberta).
-            LocalDateTime fecha = CicloEscala.fechaCandidaturas(mes).atStartOfDay();
+            LocalDateTime fecha = CicloEscala.prazoCandidaturas(mes).atStartOfDay();
             if (!agora.isBefore(fecha) || agora.isBefore(fecha.minusHours(HORAS_PRIMEIRO))) continue;
             String marco = agora.isBefore(fecha.minusHours(HORAS_ULTIMO)) ? HORAS_PRIMEIRO + "h" : HORAS_ULTIMO + "h";
             total += avisarMes(mes, marco, fecha, hoje);
@@ -116,17 +116,17 @@ public class LembreteCandidaturaService {
             if (avisoService.jaAvisou(u, acao, fecha.minusDays(5))) continue;
 
             String texto = (marco.equals(HORAS_ULTIMO + "h") ? "⏰ Últimas horas! " : "⏰ ")
-                    + "As candidaturas de " + nomeMes + " vão até " + ate + " e você ainda não se candidatou. "
+                    + "O prazo pra se candidatar à escala de " + nomeMes + " vai até " + ate + " e você ainda não se candidatou. "
                     + "Toque aqui e escolha em quais missas pode servir.";
             avisoService.avisar(u, texto, acao);
             if (inscricaoRepository.findByUsuarioIdOrderByCriadaEmAsc(u.getId()).isEmpty()) {
-                boolean saiu = emailService.enviar(u.getEmail(), "Pascom: as candidaturas de " + nomeMes + " estão fechando",
+                boolean saiu = emailService.enviar(u.getEmail(), "Pascom: o prazo da escala de " + nomeMes + " está acabando",
                         "Oi, " + u.getNome().split(" ")[0] + "! Paz e bem.\n\n"
-                                + "As candidaturas da escala de " + nomeMes + " vão até " + ate
+                                + "O prazo pra se candidatar à escala de " + nomeMes + " vai até " + ate
                                 + " e você ainda não se candidatou pra nenhuma missa.\n\n"
                                 + "Entre no app, vá em Escalas e toque em \"Quero servir\" nas missas em que você pode:\n"
                                 + emailService.linkApp() + "\n\n"
-                                + "Depois disso a coordenação monta e publica a escala.\n\n"
+                                + "Depois disso a coordenação monta e publica a escala, e só dá pra se candidatar às vagas que sobrarem.\n\n"
                                 + "Pascom Santuário Nossa Senhora de Fátima");
                 if (saiu) try { Thread.sleep(600); } catch (InterruptedException ie) { Thread.currentThread().interrupt(); }
             }
