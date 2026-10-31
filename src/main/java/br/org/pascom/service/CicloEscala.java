@@ -98,6 +98,25 @@ public final class CicloEscala {
     }
 
     /**
+     * As datas do ciclo da escala do mês, prontas pro calendário do app ("Datas da escala"): período da escala,
+     * quando abrem as candidaturas, último dia do prazo da montagem, dias da coordenação e publicação automática.
+     * Meses da regra antiga (novembro/2026) vêm sem prazo nem dias da coordenação (null).
+     */
+    public static java.util.Map<String, Object> resumo(YearMonth m) {
+        LocalDate abre = abreCandidaturas(m);
+        java.util.Map<String, Object> r = new java.util.LinkedHashMap<>();
+        r.put("mes", m.toString());
+        r.put("inicio", inicio(m).toString());
+        r.put("fim", fim(m).toString());
+        r.put("abre", abre == null ? null : abre.toString());
+        r.put("prazo", abre == null ? null : prazoCandidaturas(m).minusDays(1).toString());
+        r.put("coordenacaoInicio", abre == null ? null : prazoCandidaturas(m).toString());
+        r.put("coordenacaoFim", abre == null ? null : publicacaoAutomatica(m).toString());
+        r.put("publicacaoAutomatica", publicacaoAutomatica(m).toString());
+        return r;
+    }
+
+    /**
      * Chaves "AAAA-MM|SETOR" que contam como "publicada" pra uma função desse dia. Normalmente só o
      * mês da escala; o sábado 31/10/2026, que já estava na escala de outubro publicada antes da regra
      * do sábado existir, também vale pela publicação de outubro (senão quem já estava escalado nele

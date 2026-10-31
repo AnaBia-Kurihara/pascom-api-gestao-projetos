@@ -76,4 +76,18 @@ class CicloEscalaTest {
         assertThat(CicloEscala.chavesPublicacao(d(2027, 7, 31), Setor.DATASHOW)).containsExactly("2027-08|DATASHOW");
         assertThat(CicloEscala.mesDaEscala(d(2027, 7, 31))).isEqualTo(YearMonth.of(2027, 8));
     }
+
+    @Test
+    void resumoDoCicloProCalendario() {
+        var dez = CicloEscala.resumo(YearMonth.of(2026, 12));
+        assertThat(dez.get("abre")).isEqualTo("2026-11-15");
+        assertThat(dez.get("prazo")).isEqualTo("2026-11-28");
+        assertThat(dez.get("coordenacaoInicio")).isEqualTo("2026-11-29");
+        assertThat(dez.get("coordenacaoFim")).isEqualTo("2026-11-30");
+        assertThat(dez.get("publicacaoAutomatica")).isEqualTo("2026-11-30");
+        assertThat(dez.get("inicio")).isEqualTo("2026-12-01");
+        var nov = CicloEscala.resumo(YearMonth.of(2026, 11));
+        assertThat(nov.get("inicio")).isEqualTo("2026-10-31");
+        assertThat(nov.get("prazo")).isNull();
+    }
 }

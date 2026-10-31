@@ -185,6 +185,37 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center;justify-conten
 .sug-vazia{color:var(--ink3)}
 .cad-vol{display:flex;flex-direction:column;gap:10px;margin-top:8px}
 .mem[hidden]{display:none}
+.ciclo .cc-top{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.ciclo .cc-top h2{margin:0}
+.cc-prox{display:flex;flex-direction:column;gap:6px;margin:12px 0}
+.cc-prox-i{display:flex;gap:10px;align-items:baseline;text-align:left;background:var(--tint);border:1px solid var(--line);border-radius:10px;padding:8px 12px;color:var(--ink);font:inherit;font-size:14px;cursor:pointer}
+.cc-prox-i b{min-width:42px;color:var(--brand)}
+.cc-nav{display:flex;align-items:center;justify-content:space-between;margin:6px 0 8px}
+.cc-nav b{font-size:15px}
+.cc-nav .icon-btn{font-size:20px;line-height:1;width:36px;height:36px}
+.cc-grade{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.cc-sem{text-align:center;font-size:11px;color:var(--ink3);font-weight:600;padding-bottom:2px}
+.cc-dia{position:relative;aspect-ratio:1/1;min-height:36px;border:1px solid transparent;border-radius:9px;background:transparent;color:var(--ink);font:inherit;font-size:14px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0;gap:0}
+.cc-dia i{font-style:normal;font-size:11px;line-height:1}
+.cc-dia.cc-cand,.cc-q.cc-cand{background:var(--green-soft)}
+.cc-dia.cc-cand{color:var(--green)}
+.cc-dia.cc-prazo,.cc-q.cc-prazo{background:var(--green);color:var(--panel);font-weight:700}
+.cc-dia.cc-coord,.cc-q.cc-coord{background:var(--gold-soft)}
+.cc-dia.cc-coord{color:var(--gold-ink)}
+.cc-dia.cc-inicio{font-weight:700}
+.cc-dia.cc-missa::after{content:"";position:absolute;bottom:4px;width:5px;height:5px;border-radius:99px;background:var(--brand)}
+.cc-dia.cc-hoje{border-color:var(--brand);border-width:2px}
+.cc-dia.cc-sel{box-shadow:0 0 0 2px var(--ink) inset}
+.cc-leg{display:flex;flex-wrap:wrap;gap:6px 14px;margin:10px 0 0;font-size:12.5px;color:var(--ink2)}
+.cc-leg span{display:flex;align-items:center;gap:6px}
+.cc-q{display:inline-block;width:14px;height:14px;border-radius:4px;border:1px solid var(--line)}
+.cc-missa-q{background:radial-gradient(circle,var(--brand) 3px,transparent 4px)}
+.cc-hoje-q{border:2px solid var(--brand)}
+.cc-det{margin-top:12px;background:var(--tint);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:6px}
+.cc-det-h{font-size:14.5px}
+.cc-l{display:flex;gap:8px;margin:0;font-size:14px;color:var(--ink2);line-height:1.45}
+.cc-l b{color:var(--ink)}
+.ciclo-mostrar{margin:0 0 12px}
 .tela-push .m-body{text-align:center;align-items:center;padding:30px 22px 22px}
 .tela-push h3{font-family:var(--serif);font-weight:400;font-size:24px;margin:0}
 .tela-push p,.tela-push li{color:var(--ink2);font-size:15.5px;line-height:1.5;margin:0}
@@ -1495,7 +1526,7 @@ function viewPainelEscala(){
       '<p>'+esc(prox.title)+' · '+(euVou?'você está escalado(a)':montagem?(cand?'você se candidatou, a coordenação está escolhendo':'aberta pra candidatura: toque em Ver escala'):vag?vag+(vag>1?' vagas abertas':' vaga aberta'):'escala completa')+'</p></div>'+
       '<div class="hero-act"><button class="btn gold" data-action="nav" data-view="escalas">Ver escala</button></div></section>';
   }
-  return aniversarioPainelHtml()+pushPainelHtml()+lembretePublicacaoHtml()+hero+'<div class="cols"><div>'+minhasEscalasPanelHtml()+vagasPanelHtml()+'</div><div>'+timePainelHtml()+'</div></div>';
+  return aniversarioPainelHtml()+pushPainelHtml()+lembretePublicacaoHtml()+hero+'<div class="cols"><div>'+minhasEscalasPanelHtml()+vagasPanelHtml()+'</div><div>'+cicloHtml(false)+timePainelHtml()+'</div></div>';
 }
 function viewPainel(){
   if(!ehSetorDeConteudo()) return viewPainelEscala();
@@ -1528,6 +1559,7 @@ function viewPainel(){
       (mine.length?mine.map(c=>'<button class="row" data-action="open" data-id="'+c.id+'"><div class="rt">'+esc(c.title)+'</div><span style="font-size:13px">'+dueText(c)+'</span>'+stagePill(c)+'</button>').join(''):'<div class="empty">Nada com você agora. Que tal escolher uma pauta no banco de ideias?</div>')+
     '</div></section>'+
   '</div><div>'+
+    cicloHtml(false)+
     timePainelHtml()+
     '<section class="panel"><h2>Carga da equipe</h2>'+loads+'<p class="note">Cartões em andamento por pessoa. A barra fica vermelha a partir de 4.</p></section>'+
     '<section class="panel"><h2>Instagram</h2><p class="note">A conta do santuário está conectada e o sistema lê os posts automaticamente. Veja curtidas, alcance e metas de crescimento na aba <b>Dashboard</b>.</p></section>'+
@@ -1877,6 +1909,85 @@ function addSlotFormHtml(eventoId){
     '<button type="button" class="btn small primary" data-action="salvarSlotExistente" data-ev="'+eventoId+'">Adicionar</button>'+
   '</div>';
 }
+// ---------------------------------------------------------------- calendário das datas da escala (Painel e Escalas)
+// Mostra, num mês do calendário, quando abrem as candidaturas, o prazo, os dias da coordenação, a publicação
+// automática, o começo da escala e as missas do setor. As datas vêm do servidor (/escalas/ciclo, mesmas
+// regras do CicloEscala), o app não calcula nada. Toque num dia pra ver o que acontece nele.
+let ciclo={mes:null, sel:null, dados:{}, carregando:{}, escondido:false};
+try{ ciclo.escondido=localStorage.getItem('pascom-ciclo-escondido')==='1'; }catch(e){}
+const isoMais=(iso,n)=>{const d=parse(iso); d.setDate(d.getDate()+n); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');};
+const mesMais=(m,n)=>{const p=m.split('-').map(Number); const d=new Date(p[0],p[1]-1+n,1); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');};
+const nomeMesCurto=m=>nomeMes(m).split(' de ')[0].toLowerCase();
+async function carregarCiclo(m){
+  if(ciclo.dados[m]||ciclo.carregando[m]) return;
+  ciclo.carregando[m]=true;
+  try{ ciclo.dados[m]=await api('/escalas/ciclo?mes='+m); }catch(e){ ciclo.dados[m]={erro:true,ciclos:[]}; }
+  ciclo.carregando[m]=false; render();
+}
+/** O que acontece num dia (lista de {ic, cls, tx}), a partir dos ciclos do mês mostrado. */
+function cicloDoDia(iso,ciclos){
+  const r=[];
+  ciclos.forEach(c=>{
+    const nm=nomeMesCurto(c.mes);
+    if(c.abre&&iso===c.abre) r.push({ic:'🙋',cls:'cand',tx:'Abrem as candidaturas da escala de <b>'+nm+'</b>. Vá em <b>Escalas</b> e toque em <b>Quero servir</b> nas missas em que você pode.'});
+    else if(c.abre&&c.prazo&&iso>c.abre&&iso<c.prazo) r.push({ic:'🙋',cls:'cand',tx:'Candidaturas de <b>'+nm+'</b> abertas: dá pra se candidatar até <b>'+fmtDM(c.prazo)+'</b> pra entrar na montagem.'});
+    if(c.prazo&&iso===c.prazo) r.push({ic:'⏰',cls:'prazo',tx:'<b>Último dia do prazo</b> da escala de <b>'+nm+'</b>, até 23h59. Quem se candidatar até aqui entra na montagem.'});
+    if(c.coordenacaoInicio&&iso>=c.coordenacaoInicio&&iso<=c.coordenacaoFim) r.push({ic:'🧩',cls:'coord',tx:'A <b>coordenação monta e publica</b> a escala de <b>'+nm+'</b>. Ainda dá pra se candidatar: vale pras vagas que sobrarem.'});
+    if(iso===c.publicacaoAutomatica) r.push({ic:'📣',cls:'coord',tx:'Se ninguém publicou ainda, a escala de <b>'+nm+'</b> é <b>publicada sozinha</b> hoje.'});
+    if(iso===c.inicio) r.push({ic:'▶️',cls:'inicio',tx:'<b>Começa a escala de '+nm+'</b>. Vaga que sobrou ainda aceita candidatura até o dia da missa; pra sair da escala, fale com a coordenação.'});
+  });
+  const evs=state.events.filter(e=>e.date===iso&&e.slots.some(s=>s.setor===currentSetor||s.setor===null)).sort((a,b)=>(a.time||'').localeCompare(b.time||''));
+  evs.forEach(e=>{
+    const meu=e.slots.find(s=>s.who===state.me);
+    r.push({ic:'⛪',cls:'missa',tx:esc(e.title)+(meu?' · <b>você serve em '+esc(meu.label)+'</b>':'')});
+  });
+  return r;
+}
+function cicloHtml(ondeEscalas){
+  const h=hojeISO();
+  if(!ciclo.mes) ciclo.mes=h.slice(0,7);
+  const m=ciclo.mes, dados=ciclo.dados[m], mh=h.slice(0,7), dadosHoje=ciclo.dados[mh];
+  if(!dados) setTimeout(()=>carregarCiclo(m),0);
+  if(!dadosHoje) setTimeout(()=>carregarCiclo(mh),0);
+  if(ondeEscalas&&ciclo.escondido) return '<div class="ciclo-mostrar"><button type="button" class="link-btn" data-action="cicloMostrar">📅 Ver o calendário das datas da escala</button></div>';
+  const ciclos=dados&&dados.ciclos||[];
+  const p=m.split('-').map(Number), primeiro=new Date(p[0],p[1]-1,1), dias=new Date(p[0],p[1],0).getDate();
+  const sel=ciclo.sel&&ciclo.sel.slice(0,7)===m?ciclo.sel:(h.slice(0,7)===m?h:m+'-01');
+  let cel='';
+  for(let i=0;i<primeiro.getDay();i++) cel+='<span class="cc-vazio"></span>';
+  for(let d=1;d<=dias;d++){
+    const iso=m+'-'+String(d).padStart(2,'0'), it=dados?cicloDoDia(iso,ciclos):[];
+    const cls=['cc-dia'];
+    ['cand','prazo','coord','inicio'].forEach(k=>{ if(it.some(x=>x.cls===k)) cls.push('cc-'+k); });
+    if(it.some(x=>x.cls==='missa')) cls.push('cc-missa');
+    if(iso===h) cls.push('cc-hoje');
+    if(iso===sel) cls.push('cc-sel');
+    const ic=it.find(x=>['🙋','⏰','📣','▶️'].indexOf(x.ic)>-1&&(x.ic!=='🙋'||ciclos.some(c=>c.abre===iso)));
+    cel+='<button type="button" class="'+cls.join(' ')+'" data-action="cicloDia" data-dia="'+iso+'" aria-label="'+d+'"><span>'+d+'</span>'+(ic?'<i>'+ic.ic+'</i>':'')+'</button>';
+  }
+  const itSel=dados?cicloDoDia(sel,ciclos):[];
+  const dSel=parse(sel);
+  const detalhe='<div class="cc-det"><b class="cc-det-h">'+(sel===h?'Hoje, ':'')+cap(dSel.toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long'}))+'</b>'+
+    (itSel.length?itSel.map(x=>'<p class="cc-l cc-l-'+x.cls+'"><span>'+x.ic+'</span><span>'+x.tx+'</span></p>').join(''):'<p class="cc-l"><span>·</span><span>Nada da escala neste dia.</span></p>')+'</div>';
+  // Próximas datas importantes (a partir de hoje), pra quem quer só saber "o que vem agora".
+  const marcos=[];
+  (dadosHoje&&dadosHoje.ciclos||[]).forEach(c=>{
+    const nm=nomeMesCurto(c.mes);
+    if(c.abre) marcos.push([c.abre,'🙋 Abrem as candidaturas de '+nm]);
+    if(c.prazo) marcos.push([c.prazo,'⏰ Último dia pra se candidatar a '+nm]);
+    if(c.coordenacaoInicio) marcos.push([c.coordenacaoInicio,'🧩 Coordenação monta '+nm+(c.coordenacaoFim!==c.coordenacaoInicio?' (até '+fmtDM(c.coordenacaoFim)+')':'')]);
+    marcos.push([c.inicio,'▶️ Começa a escala de '+nm]);
+  });
+  const prox=marcos.filter(x=>x[0]>=h).sort((a,b)=>a[0].localeCompare(b[0])).filter((x,i,arr)=>arr.findIndex(y=>y[1]===x[1])===i).slice(0,3);
+  return '<section class="panel ciclo"><div class="cc-top"><h2>📅 Datas da escala</h2>'+
+      (ondeEscalas?'<button type="button" class="link-btn" data-action="cicloEsconder">Esconder</button>':'')+'</div>'+
+    (prox.length?'<div class="cc-prox">'+prox.map(x=>'<button type="button" class="cc-prox-i" data-action="cicloDia" data-dia="'+x[0]+'"><b>'+fmtDM(x[0])+'</b><span>'+esc(x[1])+'</span></button>').join('')+'</div>':'')+
+    '<div class="cc-nav"><button type="button" class="icon-btn" data-action="cicloMes" data-n="-1" aria-label="Mês anterior">‹</button><b>'+esc(nomeMes(m))+'</b><button type="button" class="icon-btn" data-action="cicloMes" data-n="1" aria-label="Próximo mês">›</button></div>'+
+    '<div class="cc-grade"><span class="cc-sem">D</span><span class="cc-sem">S</span><span class="cc-sem">T</span><span class="cc-sem">Q</span><span class="cc-sem">Q</span><span class="cc-sem">S</span><span class="cc-sem">S</span>'+cel+'</div>'+
+    (dados?'':'<p class="note">Carregando as datas…</p>')+
+    '<div class="cc-leg"><span><i class="cc-q cc-cand"></i>Candidaturas</span><span><i class="cc-q cc-prazo"></i>Último dia do prazo</span><span><i class="cc-q cc-coord"></i>Coordenação monta</span><span><i class="cc-q cc-missa-q"></i>Missa de '+esc(SETOR_NAME[currentSetor])+'</span><span><i class="cc-q cc-hoje-q"></i>Hoje</span></div>'+
+    detalhe+'<p class="note" style="margin:8px 0 0">Toque num dia pra ver o que acontece nele.</p></section>';
+}
 function escalaTabsHtml(){
   return '<div class="dash-tabs tabs-quebra">'+
     '<button type="button" class="dash-tab'+(escalaAba==='setor'?' active':'')+'" data-action="escalaAba" data-aba="setor">Escala de '+esc(SETOR_NAME[currentSetor])+'</button>'+
@@ -2035,8 +2146,8 @@ function viewEscalas(){
   const acoes=(podeEditarSetor?lembretePublicacaoHtml():'')+avisoFechado+naoFaz+chips+coord+statusMeses+como;
   const rodape=(podeEditarSetor?historicoHtml():'')+pdfBarHtml(currentSetor);
   const vazio=escalaFiltro==='minhas'?'Você ainda não está em nenhuma escala de '+esc(SETOR_NAME[currentSetor])+'.':escalaFiltro==='vagas'?'Vagas ocupadas, tente servir outro dia. Se alguém sair da escala, a vaga volta a aparecer aqui.':'Nenhuma escala aberta pra '+esc(SETOR_NAME[currentSetor])+' por enquanto.';
-  if(!filtrados.length) return escalaTabsHtml()+acoes+'<div class="empty">'+vazio+'</div>'+rodape;
-  return escalaTabsHtml()+acoes+agruparPorFimDeSemana(filtrados,e=>{
+  if(!filtrados.length) return escalaTabsHtml()+cicloHtml(true)+acoes+'<div class="empty">'+vazio+'</div>'+rodape;
+  return escalaTabsHtml()+cicloHtml(true)+acoes+agruparPorFimDeSemana(filtrados,e=>{
     const slots=e.slots.filter(doSetor);
     const open=slots.filter(s=>!s.who&&!s.oculto).length, d=parse(e.date);
     const montagem=slots.length&&slots.every(s=>s.oculto);
@@ -3943,6 +4054,10 @@ document.addEventListener('click',e=>{
     case 'openDatashow': openDatashow(id); break;
     case 'novaEscala': abrirNovaEscala(); break;
     case 'adicionarSlotForm': sincronizarSlotFormDoDOM(); escalaFormSlots.push({rotulo:'',tipo:null}); reabrirEscalaModal(); break;
+    case 'cicloDia': ciclo.sel=t.dataset.dia; ciclo.mes=t.dataset.dia.slice(0,7); render(); break;
+    case 'cicloMes': ciclo.mes=mesMais(ciclo.mes,+t.dataset.n); ciclo.sel=null; render(); break;
+    case 'cicloEsconder': ciclo.escondido=true; try{ localStorage.setItem('pascom-ciclo-escondido','1'); }catch(e){} render(); break;
+    case 'cicloMostrar': ciclo.escondido=false; try{ localStorage.removeItem('pascom-ciclo-escondido'); }catch(e){} render(); break;
     case 'escalaAba': escalaAba=t.dataset.aba; addSlotEventoId=null; render(); break;
     case 'sugerirEscala': abrirSugestao(t.dataset.mes,t.dataset.publicada==='1'); break;
     case 'aplicarSugestao': aplicarSugestao(t); break;

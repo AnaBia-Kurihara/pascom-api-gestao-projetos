@@ -56,6 +56,18 @@ public class EscalaController {
         return ResponseEntity.ok(Map.of("mes", alvo.toString(), "quantidade", domingos.size(), "domingos", domingos));
     }
 
+    /**
+     * Datas do ciclo pro calendário do app: num mês do calendário acontecem a escala daquele mês e as
+     * candidaturas/montagem do seguinte; o terceiro ciclo é só pras "próximas datas". Mesmas regras do CicloEscala.
+     */
+    @GetMapping("/ciclo")
+    public ResponseEntity<Map<String, Object>> ciclo(@RequestParam(required = false) String mes) {
+        YearMonth alvo = calendarioService.parseMes(mes);
+        return ResponseEntity.ok(Map.of("mes", alvo.toString(), "hoje", calendarioService.hoje().toString(),
+                "ciclos", List.of(br.org.pascom.service.CicloEscala.resumo(alvo), br.org.pascom.service.CicloEscala.resumo(alvo.plusMonths(1)),
+                        br.org.pascom.service.CicloEscala.resumo(alvo.plusMonths(2)))));
+    }
+
     @GetMapping("/completa")
     public ResponseEntity<EscalaCompletaDTO> completa(@RequestParam(required = false) String mes,
                                                       @RequestParam(required = false) Setor setor,
