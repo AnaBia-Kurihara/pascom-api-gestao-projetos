@@ -187,6 +187,19 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center;justify-conten
 .mem[hidden]{display:none}
 .ciclo .cc-top{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .ciclo .cc-top h2{margin:0}
+.ciclo{container-type:inline-size}
+.cc-corpo{display:grid;grid-template-columns:minmax(0,1fr);grid-template-areas:"prox" "cal" "info";column-gap:24px}
+.cc-prox{grid-area:prox}.cc-cal{grid-area:cal;min-width:0}.cc-info{grid-area:info;min-width:0}
+/* Computador: o mês num bloco compacto à esquerda; próximas datas e o dia tocado ao lado. */
+@container (min-width:620px){
+  .cc-corpo{grid-template-columns:340px minmax(0,1fr);grid-template-areas:"cal prox" "cal info";align-items:start}
+  .cc-prox{margin-top:6px}
+  .cc-info .cc-det{margin-top:0}
+}
+@media (min-width:861px){
+  .cc-cal{max-width:360px}
+  .cc-dia{aspect-ratio:auto;height:42px;min-height:0}
+}
 .cc-prox{display:flex;flex-direction:column;gap:6px;margin:12px 0}
 .cc-prox-i{display:flex;gap:10px;align-items:baseline;text-align:left;background:var(--tint);border:1px solid var(--line);border-radius:10px;padding:8px 12px;color:var(--ink);font:inherit;font-size:14px;cursor:pointer}
 .cc-prox-i b{min-width:42px;color:var(--brand)}
@@ -1981,12 +1994,13 @@ function cicloHtml(ondeEscalas){
   const prox=marcos.filter(x=>x[0]>=h).sort((a,b)=>a[0].localeCompare(b[0])).filter((x,i,arr)=>arr.findIndex(y=>y[1]===x[1])===i).slice(0,3);
   return '<section class="panel ciclo"><div class="cc-top"><h2>📅 Datas da escala</h2>'+
       (ondeEscalas?'<button type="button" class="link-btn" data-action="cicloEsconder">Esconder</button>':'')+'</div>'+
+    '<div class="cc-corpo">'+
     (prox.length?'<div class="cc-prox">'+prox.map(x=>'<button type="button" class="cc-prox-i" data-action="cicloDia" data-dia="'+x[0]+'"><b>'+fmtDM(x[0])+'</b><span>'+esc(x[1])+'</span></button>').join('')+'</div>':'')+
-    '<div class="cc-nav"><button type="button" class="icon-btn" data-action="cicloMes" data-n="-1" aria-label="Mês anterior">‹</button><b>'+esc(nomeMes(m))+'</b><button type="button" class="icon-btn" data-action="cicloMes" data-n="1" aria-label="Próximo mês">›</button></div>'+
+    '<div class="cc-cal"><div class="cc-nav"><button type="button" class="icon-btn" data-action="cicloMes" data-n="-1" aria-label="Mês anterior">‹</button><b>'+esc(nomeMes(m))+'</b><button type="button" class="icon-btn" data-action="cicloMes" data-n="1" aria-label="Próximo mês">›</button></div>'+
     '<div class="cc-grade"><span class="cc-sem">D</span><span class="cc-sem">S</span><span class="cc-sem">T</span><span class="cc-sem">Q</span><span class="cc-sem">Q</span><span class="cc-sem">S</span><span class="cc-sem">S</span>'+cel+'</div>'+
     (dados?'':'<p class="note">Carregando as datas…</p>')+
-    '<div class="cc-leg"><span><i class="cc-q cc-cand"></i>Candidaturas</span><span><i class="cc-q cc-prazo"></i>Último dia do prazo</span><span><i class="cc-q cc-coord"></i>Coordenação monta</span><span><i class="cc-q cc-missa-q"></i>Missa de '+esc(SETOR_NAME[currentSetor])+'</span><span><i class="cc-q cc-hoje-q"></i>Hoje</span></div>'+
-    detalhe+'<p class="note" style="margin:8px 0 0">Toque num dia pra ver o que acontece nele.</p></section>';
+    '<div class="cc-leg"><span><i class="cc-q cc-cand"></i>Candidaturas</span><span><i class="cc-q cc-prazo"></i>Último dia do prazo</span><span><i class="cc-q cc-coord"></i>Coordenação monta</span><span><i class="cc-q cc-missa-q"></i>Missa de '+esc(SETOR_NAME[currentSetor])+'</span><span><i class="cc-q cc-hoje-q"></i>Hoje</span></div></div>'+
+    '<div class="cc-info">'+detalhe+'<p class="note" style="margin:8px 0 0">Toque num dia pra ver o que acontece nele.</p></div></div></section>';
 }
 function escalaTabsHtml(){
   return '<div class="dash-tabs tabs-quebra">'+
