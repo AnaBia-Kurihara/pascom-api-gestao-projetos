@@ -14,7 +14,6 @@ import com.lowagie.text.Phrase;
 import com.lowagie.text.Rectangle;
 import com.lowagie.text.pdf.PdfPCell;
 import com.lowagie.text.pdf.PdfPTable;
-import com.lowagie.text.pdf.PdfTemplate;
 import com.lowagie.text.pdf.PdfWriter;
 import org.springframework.stereotype.Service;
 
@@ -103,7 +102,7 @@ public class EscalaPdfService {
             doc.addTitle((doSetor ? "Escala de " + escala.nomeSetor() : "Escala completa") + " - " + periodo);
             doc.open();
 
-            doc.add(cabecalho(writer, doSetor ? "ESCALA · " + escala.nomeSetor().toUpperCase(PT_BR) : "PASCOM · ESCALA",
+            doc.add(cabecalho(doSetor ? "ESCALA · " + escala.nomeSetor().toUpperCase(PT_BR) : "PASCOM · ESCALA",
                     periodo, doSetor));
 
             List<EscalaCompletaDTO.EventoEscala> eventos = escala.eventos();
@@ -134,8 +133,8 @@ public class EscalaPdfService {
         return out.toByteArray();
     }
 
-    /** Título centralizado, com a estrela da marca (a mesma do app) dos dois lados. */
-    private PdfPTable cabecalho(PdfWriter writer, String titulo, String mes, boolean doSetor) throws Exception {
+    /** Título centralizado, com o brasão do Santuário dos dois lados. */
+    private PdfPTable cabecalho(String titulo, String mes, boolean doSetor) throws Exception {
         PdfPTable t = new PdfPTable(new float[]{1, 8, 1});
         t.setWidthPercentage(100);
 
@@ -154,9 +153,10 @@ public class EscalaPdfService {
         meio.addElement(p2);
         meio.addElement(p3);
 
-        t.addCell(estrela(writer));
+        Image img = carregarBrasao();
+        t.addCell(brasao(img));
         t.addCell(meio);
-        t.addCell(estrela(writer));
+        t.addCell(brasao(img));
         t.setSpacingAfter(10);
 
         // Faixa dourada separando o cabeçalho da grade.
@@ -169,28 +169,23 @@ public class EscalaPdfService {
         return t;
     }
 
-    private PdfPCell estrela(PdfWriter writer) throws Exception {
-        float s = 46;
-        PdfTemplate tpl = writer.getDirectContent().createTemplate(s, s);
-        float c = s / 2;
-        tpl.setColorStroke(DOURADO);
-        tpl.setLineWidth(1.2f);
-        tpl.circle(c, c, c - 1.5f);
-        tpl.stroke();
-        // Estrela de 4 pontas do logo do app (path "M20 6L23.4 16.6 34 20 ..." escalado).
-        float k = s / 40f;
-        float[][] pts = {{20, 6}, {23.4f, 16.6f}, {34, 20}, {23.4f, 23.4f}, {20, 34}, {16.6f, 23.4f}, {6, 20}, {16.6f, 16.6f}};
-        tpl.setColorFill(DOURADO);
-        tpl.moveTo(pts[0][0] * k, s - pts[0][1] * k);
-        for (int i = 1; i < pts.length; i++) tpl.lineTo(pts[i][0] * k, s - pts[i][1] * k);
-        tpl.closePath();
-        tpl.fill();
-
-        PdfPCell cell = new PdfPCell(Image.getInstance(tpl));
+    /** O brasão do Santuário (o mesmo arquivo que a imagem JPEG da escala usa). */
+    private PdfPCell brasao(Image img) {
+        PdfPCell cell = new PdfPCell(img);
         cell.setBorder(Rectangle.NO_BORDER);
         cell.setHorizontalAlignment(Element.ALIGN_CENTER);
         cell.setVerticalAlignment(Element.ALIGN_MIDDLE);
         return cell;
+    }
+
+    /** Um objeto só pros dois lados: assim o PDF guarda a imagem uma vez. */
+    private static Image carregarBrasao() throws Exception {
+        try (java.io.InputStream in = EscalaPdfService.class.getResourceAsStream("/static/icons/brasao-escala.png")) {
+            if (in == null) throw new IllegalStateException("Brasão da escala não encontrado.");
+            Image img = Image.getInstance(in.readAllBytes());
+            img.scaleToFit(50, 68);
+            return img;
+        }
     }
 
     /**
@@ -222,7 +217,7 @@ public class EscalaPdfService {
     private PdfPTable grade(List<Linha> linhas, List<java.time.LocalDate> dias, List<EscalaCompletaDTO.EventoEscala> eventos) {
         float[] larguras = new float[2 + dias.size()];
         larguras[0] = 1.55f;
-        larguras[1] = 0.95f;
+        larguras[1] = 1.25f; // cabe "HORÁRIO" sem quebrar, mesmo num mês com muitos dias
         for (int i = 2; i < larguras.length; i++) larguras[i] = 1.1f;
         PdfPTable t = new PdfPTable(larguras);
         t.setWidthPercentage(100);

@@ -2358,6 +2358,12 @@ async function carregarEscalaCompleta(mes){
 // ---------------------------------------------------------------- escala em imagem (JPEG), no formato da planilha
 // Desenhada no próprio aparelho (canvas), com os mesmos dados e regras do PDF (EscalaPdfService):
 // coluna por dia, linha por setor + horário, primeiros nomes empilhados, Holyrics ocupando o fim de semana.
+let brasaoImg=null;
+/** O canvas desenha na hora, então a imagem precisa estar carregada antes. Se falhar, a escala sai sem o brasão. */
+function carregarBrasao(){
+  return new Promise(ok=>{ if(brasaoImg&&brasaoImg.complete) return ok();
+    const i=new Image(); i.onload=()=>{ brasaoImg=i; ok(); }; i.onerror=()=>ok(); i.src='/icons/brasao-escala.png'; });
+}
 function desenharEscalaImagem(d){
   const COR={azul:'#2B57B8',prof:'#14306B',ouro:'#C79A2E',ouroClaro:'#F8EED2',tinta:'#E8EDF7',sem:'#C9D7F2',vaga:'#FFF1A8',borda:'#B4C2DE',txt:'#14203D',suave:'#6B7590',aviso:'#B4404A',livre:'#6E500B'};
   const ORDEM=['HOLYRICS','DATASHOW','TRANSMISSOES_VIDEOS','REDES_SOCIAIS','JOVENS',null];
@@ -2413,10 +2419,9 @@ function desenharEscalaImagem(d){
   const agora=new Date();
   x.fillStyle=COR.suave; x.font='500 13px Figtree, Arial, sans-serif';
   x.fillText((d.nomeSetor?'Funções dos setores escolhidos e funções gerais':'Todos os setores da pastoral')+' · Atualizado em '+agora.toLocaleDateString('pt-BR')+' às '+agora.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}),largura/2,M+82);
-  const estrela=(cx,cy,r)=>{ x.strokeStyle=COR.ouro; x.lineWidth=1.6; x.beginPath(); x.arc(cx,cy,r,0,Math.PI*2); x.stroke();
-    const k=r*2/40, pts=[[20,6],[23.4,16.6],[34,20],[23.4,23.4],[20,34],[16.6,23.4],[6,20],[16.6,16.6]]; x.fillStyle=COR.ouro; x.beginPath();
-    pts.forEach((p,i)=>{ const px=cx-r+p[0]*k, py=cy-r+p[1]*k; i?x.lineTo(px,py):x.moveTo(px,py); }); x.closePath(); x.fill(); };
-  estrela(M+30,M+44,26); estrela(largura-M-30,M+44,26);
+  // Brasão do Santuário dos dois lados do título (carregarBrasao já deixou pronto antes de desenhar).
+  if(brasaoImg&&brasaoImg.complete&&brasaoImg.naturalWidth){ const bh=108, bw=bh*brasaoImg.naturalWidth/brasaoImg.naturalHeight;
+    x.drawImage(brasaoImg,M+4,10,bw,bh); x.drawImage(brasaoImg,largura-M-4-bw,10,bw,bh); }
   x.fillStyle=COR.ouro; x.fillRect(M,TOPO-22,largura-M*2,3);
   // grade
   const X0=M, Y0=TOPO;
@@ -2511,6 +2516,7 @@ async function exportarEscala(formato,btn){
       await entregarArquivo(await res.blob(),nomeArquivoEscala(o,'pdf'),'application/pdf');
     }else{
       try{ await document.fonts.ready; }catch(_){}
+      await carregarBrasao();
       const d=await api('/escalas/periodo?'+consultaPeriodo(o));
       const cv=desenharEscalaImagem(d);
       const blob=await new Promise((ok,erro)=>cv.toBlob(b=>b?ok(b):erro(new Error('Não foi possível gerar a imagem.')),'image/jpeg',0.92));
