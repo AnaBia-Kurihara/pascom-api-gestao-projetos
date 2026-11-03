@@ -877,6 +877,61 @@ class ApiIntegracaoTest {
                 coord.token, Map.of("usuarioId", vol.id)).getResponse().getStatus()).isEqualTo(200);
     }
 
+    // ---------------------------------------------------------------- coordenação altera e-mail e aniversário
+
+    private MvcResult alterarDados(String token, long id, Map<String, Object> dados) throws Exception {
+        return enviar(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch("/api/usuarios/" + id + "/dados-equipe"), token, dados);
+    }
+
+    @Test
+    void coordenacaoAlteraEApagaEmailEAniversarioDoVoluntario() throws Exception {
+        Pessoa coord = cadastrarELogar("COORDENADOR", "TRANSMISSOES_VIDEOS");
+        Pessoa vol = cadastrarELogar("VOLUNTARIO", "TRANSMISSOES_VIDEOS");
+        Pessoa outro = cadastrarELogar("VOLUNTARIO", "JOVENS");
+        String novo = emailNovo();
+
+        JsonNode u = corpo(alterarDados(coord.token, vol.id, Map.of("email", novo.toUpperCase(), "aniversarioDia", "7", "aniversarioMes", "3")));
+        assertThat(u.path("email").asText()).isEqualTo(novo);
+        assertThat(u.path("aniversarioDia").asInt()).isEqualTo(7);
+        // Entra com o e-mail novo e a mesma senha; o antigo não vale mais.
+        assertThat(enviar(post("/api/usuarios/login"), null, Map.of("email", novo, "senha", "senha123")).getResponse().getStatus()).isEqualTo(200);
+        assertThat(enviar(post("/api/usuarios/login"), null, Map.of("email", vol.email, "senha", "senha123")).getResponse().getStatus()).isNotEqualTo(200);
+        boolean avisada = false;
+        JsonNode login = corpo(enviar(post("/api/usuarios/login"), null, Map.of("email", novo, "senha", "senha123")));
+        for (JsonNode a : corpo(mvc.perform(autenticado(get("/api/avisos"), login.path("token").asText())).andReturn()).path("avisos")) {
+            if (a.path("texto").asText().contains("mudou o e-mail")) avisada = true;
+        }
+        assertThat(avisada).as("a pessoa é avisada da troca").isTrue();
+
+        // Não muda sem mandar os campos; e-mail de outra pessoa é recusado; formato errado também.
+        JsonNode igual = corpo(alterarDados(coord.token, vol.id, Map.of("nome", "Novo Nome")));
+        assertThat(igual.path("email").asText()).isEqualTo(novo);
+        assertThat(igual.path("aniversarioMes").asInt()).isEqualTo(3);
+        assertThat(alterarDados(coord.token, vol.id, Map.of("email", outro.email)).getResponse().getStatus()).isEqualTo(400);
+        assertThat(alterarDados(coord.token, vol.id, Map.of("email", "semarroba")).getResponse().getStatus()).isEqualTo(400);
+
+        // Vazio apaga.
+        JsonNode sem = corpo(alterarDados(coord.token, vol.id, Map.of("email", "", "aniversarioDia", "", "aniversarioMes", "")));
+        assertThat(sem.path("email").asText()).endsWith(br.org.pascom.service.UsuarioService.DOMINIO_SEM_EMAIL);
+        assertThat(sem.path("aniversarioDia").isNull()).isTrue();
+
+        // Coordenação de outro setor não mexe.
+        assertThat(alterarDados(coord.token, outro.id, Map.of("email", emailNovo())).getResponse().getStatus()).isEqualTo(400);
+    }
+
+    @Test
+    void coordenadorNaoTrocaEmailDeQuemTemPoderesAMais() throws Exception {
+        Pessoa coord = cadastrarELogar("COORDENADOR", "JOVENS");
+        Pessoa gestor = cadastrarELogar("VOLUNTARIO", "JOVENS");
+        br.org.pascom.model.Usuario g = usuarioRepository.findById(gestor.id).orElseThrow();
+        g.setGestorEscalas(true);
+        usuarioRepository.save(g);
+        MvcResult r = alterarDados(coord.token, gestor.id, Map.of("email", emailNovo()));
+        assertThat(r.getResponse().getStatus()).isEqualTo(400);
+        assertThat(corpo(r).path("erro").asText()).contains("Coordenação Geral");
+        assertThat(alterarDados(geral, gestor.id, Map.of("email", emailNovo())).getResponse().getStatus()).isEqualTo(200);
+    }
+
     // ---------------------------------------------------------------- apoio
 
     private record Pessoa(long id, String email, String token) {}

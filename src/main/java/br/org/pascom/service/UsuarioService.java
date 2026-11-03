@@ -406,11 +406,13 @@ public class UsuarioService {
     }
 
     /**
-     * A coordenação corrige nome, função e disponibilidade de um voluntário da equipe dela (ex.: quem
-     * foi cadastrado pela coordenação). Coordenadores e a Geral só são alterados pela Coordenação Geral.
+     * A coordenação corrige nome, função, disponibilidade, e-mail e aniversário de um voluntário da equipe
+     * dela (ex.: quem foi cadastrado pela coordenação). Coordenadores e a Geral só são alterados pela
+     * Coordenação Geral. Nos campos novos, null = a tela não mandou (não mexe) e vazio = apaga.
      */
     @Transactional
-    public UsuarioResponseDTO alterarDadosNaEquipe(Long id, String nome, String funcao, String disponibilidade, Usuario solicitante) {
+    public UsuarioResponseDTO alterarDadosNaEquipe(Long id, String nome, String funcao, String disponibilidade,
+                                                   String email, String aniversarioDia, String aniversarioMes, Usuario solicitante) {
         Usuario usuario = buscar(id);
         boolean geral = solicitante.temPoderesDeCoordenadorGeral();
         Set<Setor> setoresDela = new java.util.HashSet<>(usuario.getSetoresExtras());
@@ -428,7 +430,63 @@ public class UsuarioService {
         if (funcao != null) usuario.setFuncao(funcao.isBlank() ? null : funcao.trim().substring(0, Math.min(120, funcao.trim().length())));
         if (disponibilidade != null) usuario.setDisponibilidade(disponibilidade.isBlank() ? null
                 : disponibilidade.trim().substring(0, Math.min(200, disponibilidade.trim().length())));
-        return UsuarioResponseDTO.from(usuarioRepository.save(usuario));
+        if (aniversarioDia != null || aniversarioMes != null) {
+            Integer dia = numeroOuNulo(aniversarioDia), mes = numeroOuNulo(aniversarioMes);
+            Usuario.validarAniversario(dia, mes);
+            usuario.setAniversarioDia(dia);
+            usuario.setAniversarioMes(mes);
+        }
+        String emailAntigo = usuario.getEmail();
+        if (email != null) trocarEmailNaEquipe(usuario, email, geral);
+        Usuario salvo = usuarioRepository.save(usuario);
+        if (!salvo.getEmail().equals(emailAntigo)) avisarTrocaDeEmail(salvo, emailAntigo, solicitante);
+        return UsuarioResponseDTO.from(salvo);
+    }
+
+    private static Integer numeroOuNulo(String s) {
+        if (s == null || s.isBlank()) return null;
+        try {
+            return Integer.valueOf(s.trim());
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("Aniversário inválido.");
+        }
+    }
+
+    /**
+     * O e-mail é o login: quem controla o e-mail pode pedir "Esqueci a senha" e entrar na conta. Por isso
+     * só a Geral mexe no e-mail de quem tem poderes a mais, e a pessoa é sempre avisada (no e-mail antigo também).
+     */
+    private void trocarEmailNaEquipe(Usuario usuario, String email, boolean geral) {
+        boolean jaSemEmail = usuario.getEmail().endsWith(DOMINIO_SEM_EMAIL);
+        if (email.isBlank() && jaSemEmail) return;
+        String novo = email.isBlank() ? "sem-email-" + UUID.randomUUID().toString().substring(0, 12) + DOMINIO_SEM_EMAIL
+                : Usuario.normalizarEmail(email);
+        if (novo.equals(usuario.getEmail())) return;
+        if (!geral && (usuario.temPoderesDeCoordenadorGeral() || usuario.gereTodasAsEscalas())) {
+            throw new IllegalStateException("Só a Coordenação Geral pode mudar o e-mail dessa pessoa.");
+        }
+        if (!email.isBlank()) {
+            if (!novo.matches("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")) throw new IllegalArgumentException("Esse e-mail não parece certo.");
+            if (usuarioRepository.findByEmail(novo).isPresent()) throw new IllegalStateException("Esse e-mail já é de outra pessoa do sistema.");
+        }
+        usuario.setEmail(novo);
+        // Um link de nova senha pedido antes da troca não vale mais.
+        usuario.setResetSenhaToken(null);
+        usuario.setResetSenhaExpiraEm(null);
+    }
+
+    private void avisarTrocaDeEmail(Usuario usuario, String emailAntigo, Usuario solicitante) {
+        boolean apagou = usuario.getEmail().endsWith(DOMINIO_SEM_EMAIL);
+        String oQue = apagou ? "tirou o e-mail do seu cadastro" : "mudou o e-mail do seu cadastro para " + usuario.getEmail();
+        avisoService.avisar(usuario, "✉️ " + solicitante.getNome() + " " + oQue + ". Se não foi combinado, fale com a Coordenação Geral.");
+        if (!emailAntigo.endsWith(DOMINIO_SEM_EMAIL)) {
+            emailService.enviar(emailAntigo, "Pascom: o e-mail do seu cadastro mudou",
+                    "Oi, " + usuario.getNome().split(" ")[0] + "! Paz e bem.\n\n"
+                            + solicitante.getNome() + " " + oQue + " no app da Pascom.\n\n"
+                            + (apagou ? "Sem e-mail, você não consegue entrar no app até a coordenação colocar um de novo.\n\n"
+                                      : "A partir de agora você entra no app com o e-mail novo. Sua senha continua a mesma.\n\n")
+                            + "Se não foi combinado, fale com a Coordenação Geral.\n\nPascom Santuário Nossa Senhora de Fátima");
+        }
     }
 
     private static String nomeSetor(Setor s) {

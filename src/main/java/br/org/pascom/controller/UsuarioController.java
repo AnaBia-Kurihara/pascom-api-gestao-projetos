@@ -124,7 +124,8 @@ public class UsuarioController {
     @PatchMapping("/{id}/dados-equipe")
     public ResponseEntity<UsuarioResponseDTO> alterarDadosNaEquipe(@PathVariable Long id, @RequestBody java.util.Map<String, String> corpo,
                                                                    @AuthenticationPrincipal Usuario solicitante) {
-        return ResponseEntity.ok(usuarioService.alterarDadosNaEquipe(id, corpo.get("nome"), corpo.get("funcao"), corpo.get("disponibilidade"), solicitante));
+        return ResponseEntity.ok(usuarioService.alterarDadosNaEquipe(id, corpo.get("nome"), corpo.get("funcao"), corpo.get("disponibilidade"),
+                corpo.get("email"), corpo.get("aniversarioDia"), corpo.get("aniversarioMes"), solicitante));
     }
 
     /** Coordenação inclui (POST) ou tira (DELETE) a pessoa da equipe de um setor, como setor extra. */
