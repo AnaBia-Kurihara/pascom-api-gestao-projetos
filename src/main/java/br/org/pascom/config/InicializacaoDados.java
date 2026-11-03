@@ -40,12 +40,15 @@ public class InicializacaoDados {
     private final br.org.pascom.service.AniversarioService aniversarioService;
     private final String adminEmails;
     private final br.org.pascom.service.TrocaDeChaveService trocaDeChave;
+    private final br.org.pascom.service.LembretePendenciasService lembretePendencias;
 
     public InicializacaoDados(UsuarioRepository usuarioRepository, SlotEscalaRepository slotEscalaRepository,
                               EventoService eventoService, br.org.pascom.service.AniversarioService aniversarioService,
                               @Value("${app.admin-emails:}") String adminEmails,
-                              br.org.pascom.service.TrocaDeChaveService trocaDeChave) {
+                              br.org.pascom.service.TrocaDeChaveService trocaDeChave,
+                              br.org.pascom.service.LembretePendenciasService lembretePendencias) {
         this.trocaDeChave = trocaDeChave;
+        this.lembretePendencias = lembretePendencias;
         this.aniversarioService = aniversarioService;
         this.usuarioRepository = usuarioRepository;
         this.slotEscalaRepository = slotEscalaRepository;
@@ -80,6 +83,8 @@ public class InicializacaoDados {
             int n = eventoService.publicarMesQueChegou();
             if (n > 0) log.info("Escala do mês atual publicada automaticamente em {} setor(es).", n);
         });
+        // Por último: manda e-mails com pausa entre eles, então não pode atrasar os ajustes acima.
+        executarComSeguranca("avisar quem tem pendências", lembretePendencias::enviarNaSubida);
     }
 
     private void normalizarEmails() {

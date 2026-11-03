@@ -55,6 +55,7 @@ class ApiIntegracaoTest {
     @Autowired private br.org.pascom.repository.UsuarioRepository usuarioRepository;
     @Autowired private br.org.pascom.service.CalendarioService calendario;
     @Autowired private br.org.pascom.service.LembreteCandidaturaService lembreteCandidatura;
+    @Autowired private br.org.pascom.service.LembretePendenciasService lembretePendencias;
 
     /** Só pode existir um Coordenador Geral no sistema: é criado uma vez e usado em todos os testes. */
     private String geral;
@@ -844,6 +845,26 @@ class ApiIntegracaoTest {
         assertThat(avisosDeCandidatura(semNada)).hasSize(2);
         assertThat(avisosDeCandidatura(jaCandidatou)).isEmpty();
         assertThat(avisosDeCandidatura(coord)).isEmpty();
+    }
+
+    @Test
+    void avisoDePendenciasSaiUmaVezSoEAcabaNaData() throws Exception {
+        Pessoa semNada = cadastrarELogar("VOLUNTARIO", "JOVENS");
+        lembretePendencias.enviar(LocalDate.of(2026, 11, 6)); // passou do último dia: nada
+        assertThat(avisosDePendencias(semNada)).isEmpty();
+
+        lembretePendencias.enviar(LocalDate.of(2026, 11, 3));
+        lembretePendencias.enviar(LocalDate.of(2026, 11, 4)); // de novo: não repete
+        assertThat(avisosDePendencias(semNada)).hasSize(1);
+        assertThat(lembretePendencias.enviarNaSubida()).as("fora de produção não manda nada").isZero();
+    }
+
+    private java.util.List<String> avisosDePendencias(Pessoa p) throws Exception {
+        java.util.List<String> textos = new java.util.ArrayList<>();
+        for (JsonNode a : corpo(mvc.perform(autenticado(get("/api/avisos"), p.token)).andReturn()).path("avisos")) {
+            if ("pendencias:2026-11".equals(a.path("acao").asText())) textos.add(a.path("texto").asText());
+        }
+        return textos;
     }
 
     @Test
