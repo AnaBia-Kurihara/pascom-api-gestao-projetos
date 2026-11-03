@@ -185,31 +185,45 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center;justify-conten
 .sug-vazia{color:var(--ink3)}
 .cad-vol{display:flex;flex-direction:column;gap:10px;margin-top:8px}
 .mem[hidden]{display:none}
-.ciclo .cc-top{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.ciclo .cc-top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:14px}
 .ciclo .cc-top h2{margin:0}
-.ciclo{container-type:inline-size}
-.cc-corpo{display:grid;grid-template-columns:minmax(0,1fr);grid-template-areas:"prox" "cal" "info";column-gap:24px}
-.cc-prox{grid-area:prox}.cc-cal{grid-area:cal;min-width:0}.cc-info{grid-area:info;min-width:0}
-/* Computador: o mês num bloco compacto à esquerda; próximas datas e o dia tocado ao lado. */
-@container (min-width:620px){
-  .cc-corpo{grid-template-columns:340px minmax(0,1fr);grid-template-areas:"cal prox" "cal info";align-items:start}
-  .cc-prox{margin-top:6px}
-  .cc-info .cc-det{margin-top:0}
-}
-@media (min-width:861px){
-  .cc-cal{max-width:360px}
-  .cc-dia{aspect-ratio:auto;height:42px;min-height:0}
-}
-.cc-prox{display:flex;flex-direction:column;gap:6px;margin:12px 0}
-.cc-prox-i{display:flex;gap:10px;align-items:baseline;text-align:left;background:var(--tint);border:1px solid var(--line);border-radius:10px;padding:8px 12px;color:var(--ink);font:inherit;font-size:14px;cursor:pointer}
-.cc-prox-i b{min-width:42px;color:var(--brand)}
-.cc-nav{display:flex;align-items:center;justify-content:space-between;margin:6px 0 8px}
-.cc-nav b{font-size:15px}
-.cc-nav .icon-btn{font-size:20px;line-height:1;width:36px;height:36px}
-.cc-grade{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
-.cc-sem{text-align:center;font-size:11px;color:var(--ink3);font-weight:600;padding-bottom:2px}
-.cc-dia{position:relative;aspect-ratio:1/1;min-height:36px;border:1px solid transparent;border-radius:9px;background:transparent;color:var(--ink);font:inherit;font-size:14px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0;gap:0}
+.ciclo{container-type:inline-size;margin-bottom:22px}
+/* "Agora": em que pé está o ciclo e o próximo passo */
+.cc-agora{display:flex;gap:14px;align-items:flex-start;background:var(--deep);color:var(--deep-ink);border-radius:16px;padding:18px 18px}
+.cc-agora-ic{font-size:30px;line-height:1}
+.cc-agora-t{display:block;font-size:17px;line-height:1.35;margin-bottom:6px}
+.cc-agora p b{color:#fff}
+.cc-agora p{margin:0;font-size:15px;line-height:1.6;opacity:.92}
+.cc-agora .btn{margin-top:12px}
+.cc-sub{margin:20px 0 10px;font-size:14px;color:var(--ink2)}
+/* Linha do tempo das etapas */
+.cc-passos{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:0}
+.cc-passo{position:relative;display:flex;gap:14px;padding:0 0 18px}
+.cc-passo:not(:last-child)::before{content:"";position:absolute;left:17px;top:38px;bottom:2px;width:2px;background:var(--line)}
+.cc-passo.cc-p-feito:not(:last-child)::before{background:var(--green)}
+.cc-bola{flex:none;width:36px;height:36px;border-radius:99px;display:flex;align-items:center;justify-content:center;font-size:17px;background:var(--tint);border:2px solid var(--line)}
+.cc-p-feito .cc-bola{background:var(--green-soft);border-color:var(--green);color:var(--green);font-weight:700}
+.cc-p-agora .cc-bola{background:var(--brand);border-color:var(--brand);box-shadow:0 0 0 5px color-mix(in srgb,var(--brand) 25%,transparent);animation:ccPulsa 2s ease-in-out infinite}
+.cc-passo div{display:flex;flex-direction:column;gap:2px;padding-top:2px}
+.cc-passo b{font-size:15px;line-height:1.35}
+.cc-passo b em{font-style:normal;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;background:var(--brand);color:var(--brand-ink);border-radius:99px;padding:2px 8px;margin-left:6px;vertical-align:2px}
+.cc-passo small{font-size:14px;color:var(--brand);font-weight:600}
+.cc-passo span{font-size:13.5px;color:var(--ink3);line-height:1.45}
+.cc-p-feito b,.cc-p-feito small{color:var(--ink3)}
+.cc-abrir{margin-top:4px;width:100%}
+.cc-fechar{display:block;margin:14px auto 0}
+/* Calendário */
+.cc-corpo{display:grid;grid-template-columns:minmax(0,1fr);gap:18px;margin-top:22px;padding-top:20px;border-top:1px solid var(--line)}
+.cc-cal{min-width:0}.cc-info{min-width:0}
+.cc-nav{display:flex;align-items:center;justify-content:space-between;margin:0 0 10px}
+.cc-nav b{font-size:16px}
+.cc-nav .icon-btn{font-size:22px;line-height:1;width:40px;height:40px}
+.cc-grade{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+.cc-sem{text-align:center;font-size:12px;color:var(--ink3);font-weight:700;padding-bottom:4px}
+.cc-dia{position:relative;aspect-ratio:1/1;min-height:38px;border:1px solid transparent;border-radius:10px;background:transparent;color:var(--ink);font:inherit;font-size:15px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0;gap:1px;transition:transform .15s ease,box-shadow .15s ease}
+.cc-dia:hover{transform:scale(1.06)}
 .cc-dia i{font-style:normal;font-size:11px;line-height:1}
+.cc-dia.cc-passou{opacity:.45}
 .cc-dia.cc-cand,.cc-q.cc-cand{background:var(--green-soft)}
 .cc-dia.cc-cand{color:var(--green)}
 .cc-dia.cc-prazo,.cc-q.cc-prazo{background:var(--green);color:var(--panel);font-weight:700}
@@ -217,17 +231,35 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center;justify-conten
 .cc-dia.cc-coord{color:var(--gold-ink)}
 .cc-dia.cc-inicio{font-weight:700}
 .cc-dia.cc-missa::after{content:"";position:absolute;bottom:4px;width:5px;height:5px;border-radius:99px;background:var(--brand)}
-.cc-dia.cc-hoje{border-color:var(--brand);border-width:2px}
-.cc-dia.cc-sel{box-shadow:0 0 0 2px var(--ink) inset}
-.cc-leg{display:flex;flex-wrap:wrap;gap:6px 14px;margin:10px 0 0;font-size:12.5px;color:var(--ink2)}
-.cc-leg span{display:flex;align-items:center;gap:6px}
-.cc-q{display:inline-block;width:14px;height:14px;border-radius:4px;border:1px solid var(--line)}
+.cc-dia.cc-hoje{border-color:var(--brand);border-width:2px;font-weight:700}
+.cc-dia.cc-sel{box-shadow:0 0 0 3px var(--ink);transform:scale(1.06);z-index:1}
+.cc-leg{display:flex;flex-wrap:wrap;gap:8px 16px;margin:14px 0 0;font-size:13px;color:var(--ink2)}
+.cc-leg span{display:flex;align-items:center;gap:7px}
+.cc-q{display:inline-block;width:16px;height:16px;border-radius:5px;border:1px solid var(--line)}
 .cc-missa-q{background:radial-gradient(circle,var(--brand) 3px,transparent 4px)}
-.cc-hoje-q{border:2px solid var(--brand)}
-.cc-det{margin-top:12px;background:var(--tint);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:6px}
-.cc-det-h{font-size:14.5px}
-.cc-l{display:flex;gap:8px;margin:0;font-size:14px;color:var(--ink2);line-height:1.45}
+.cc-dica{margin:0 0 10px;font-size:13.5px;color:var(--ink3)}
+.cc-det{background:var(--tint);border-radius:14px;padding:16px 18px;display:flex;flex-direction:column;gap:12px}
+.cc-det.cc-anim{animation:ccEntra .3s ease}
+.cc-det-h{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap;padding-bottom:10px;border-bottom:1px solid var(--line)}
+.cc-det-h b{font-size:16px}
+.cc-det-h small{font-size:13px;color:var(--brand);font-weight:600}
+.cc-l{display:flex;gap:12px;align-items:flex-start;font-size:15px;color:var(--ink2);line-height:1.6}
+.cc-l-ic{flex:none;width:24px;text-align:center;font-size:17px;line-height:1.5}
 .cc-l b{color:var(--ink)}
+@keyframes ccEntra{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes ccPulsa{0%,100%{box-shadow:0 0 0 4px color-mix(in srgb,var(--brand) 25%,transparent)}50%{box-shadow:0 0 0 9px color-mix(in srgb,var(--brand) 8%,transparent)}}
+@media (prefers-reduced-motion:reduce){.cc-det.cc-anim,.cc-p-agora .cc-bola{animation:none}.cc-dia{transition:none}}
+/* Computador: etapas lado a lado; calendário compacto à esquerda e o dia tocado à direita. */
+@container (min-width:620px){
+  .cc-passos{flex-direction:row;gap:12px}
+  .cc-passo{flex:1;flex-direction:column;gap:10px;padding:0}
+  .cc-passo:not(:last-child)::before{left:44px;right:-6px;top:17px;bottom:auto;width:auto;height:2px}
+  .cc-corpo{grid-template-columns:340px minmax(0,1fr);gap:28px;align-items:start}
+}
+@media (min-width:861px){
+  .cc-cal{max-width:360px}
+  .cc-dia{aspect-ratio:auto;height:44px;min-height:0}
+}
 .ciclo-mostrar{margin:0 0 12px}
 .tela-push .m-body{text-align:center;align-items:center;padding:30px 22px 22px}
 .tela-push h3{font-family:var(--serif);font-weight:400;font-size:24px;margin:0}
@@ -1926,7 +1958,7 @@ function addSlotFormHtml(eventoId){
 // Mostra, num mês do calendário, quando abrem as candidaturas, o prazo, os dias da coordenação, a publicação
 // automática, o começo da escala e as missas do setor. As datas vêm do servidor (/escalas/ciclo, mesmas
 // regras do CicloEscala), o app não calcula nada. Toque num dia pra ver o que acontece nele.
-let ciclo={mes:null, sel:null, dados:{}, carregando:{}, escondido:false};
+let ciclo={mes:null, sel:null, dados:{}, carregando:{}, escondido:false, calAberto:false, animar:false};
 try{ ciclo.escondido=localStorage.getItem('pascom-ciclo-escondido')==='1'; }catch(e){}
 const isoMais=(iso,n)=>{const d=parse(iso); d.setDate(d.getDate()+n); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');};
 const mesMais=(m,n)=>{const p=m.split('-').map(Number); const d=new Date(p[0],p[1]-1+n,1); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');};
@@ -1956,16 +1988,73 @@ function cicloDoDia(iso,ciclos){
   });
   return r;
 }
+/** Quantos dias de hoje até a data (0 = hoje). */
+const diasAte=iso=>Math.round((parse(iso)-parse(hojeISO()))/86400000);
+const faltaTexto=n=>n<=0?'é hoje':n===1?'é amanhã':'faltam '+n+' dias';
+/** Em que pé está o ciclo: a escala que está acontecendo, a próxima e a etapa atual dela. */
+function cicloAgora(ciclos){
+  const h=hojeISO();
+  const atual=ciclos.find(c=>c.inicio<=h&&h<=c.fim)||null;
+  const prox=ciclos.find(c=>c.inicio>h)||null;
+  if(!prox) return {atual:atual,prox:null,etapa:-1};
+  // etapas: 0 aguardando abrir · 1 candidaturas · 2 coordenação monta · 3 publicada, esperando começar
+  let etapa;
+  if(prox.abre&&h<prox.abre) etapa=0;
+  else if(prox.prazo&&h<=prox.prazo) etapa=1;
+  else if(prox.coordenacaoInicio&&h<prox.publicacaoAutomatica) etapa=2;
+  else etapa=3;
+  return {atual:atual,prox:prox,etapa:etapa};
+}
+function cicloAgoraHtml(ciclos,ondeEscalas){
+  const a=cicloAgora(ciclos);
+  if(!a.prox) return '';
+  const p=a.prox, nm=nomeMesCurto(p.mes), nAtual=a.atual?nomeMesCurto(a.atual.mes):null;
+  let ic, titulo, texto, botao='';
+  if(a.etapa===0){
+    ic='⛪'; titulo=nAtual?'A escala de '+nAtual+' está acontecendo':'Aguardando a próxima escala';
+    texto='As candidaturas de <b>'+nm+'</b> abrem dia <b>'+fmtDM(p.abre)+'</b> ('+faltaTexto(diasAte(p.abre))+').';
+  }else if(a.etapa===1){
+    ic='🙋'; titulo='Candidaturas de '+nm+' abertas!';
+    texto='Toque em <b>Quero servir</b> nas missas em que você pode até <b>'+fmtDM(p.prazo)+'</b> ('+faltaTexto(diasAte(p.prazo))+'). Depois a coordenação monta a escala.';
+    if(!ondeEscalas) botao='<button class="btn primary small" data-action="nav" data-view="escalas">Ver as missas</button>';
+  }else if(a.etapa===2){
+    ic='🧩'; titulo='A coordenação está montando '+nm;
+    texto='A escala sai até <b>'+fmtDM(p.publicacaoAutomatica)+'</b>. Ainda dá pra se candidatar: vale pras vagas que sobrarem.';
+  }else{
+    ic='📣'; titulo='A escala de '+nm+' sai agora';
+    texto='Ela começa dia <b>'+fmtDM(p.inicio)+'</b> ('+faltaTexto(diasAte(p.inicio))+'). Confira em <b>Escalas</b> se você foi escalado(a).';
+  }
+  // Linha do tempo das etapas da próxima escala.
+  const passos=[];
+  if(p.abre) passos.push({ic:'🙋',t:'Candidaturas',d:fmtDM(p.abre)+' a '+fmtDM(p.prazo),x:'Toque em Quero servir'});
+  if(p.coordenacaoInicio) passos.push({ic:'🧩',t:'Coordenação monta',d:p.coordenacaoInicio===p.coordenacaoFim?fmtDM(p.coordenacaoInicio):fmtDM(p.coordenacaoInicio)+' e '+fmtDM(p.coordenacaoFim),x:'Escolhe quem serve'});
+  passos.push({ic:'📣',t:'Escala publicada',d:'até '+fmtDM(p.publicacaoAutomatica),x:'Aparece pra todo mundo'});
+  passos.push({ic:'⛪',t:'Escala de '+nm,d:'a partir de '+fmtDM(p.inicio),x:'Vagas que sobrarem ainda aceitam candidatura'});
+  const atualIdx=p.abre?(a.etapa===0?-1:a.etapa-1):(a.etapa>=3?0:-1);
+  const linha='<ol class="cc-passos">'+passos.map((s,i)=>{
+    const st=i<atualIdx?'feito':i===atualIdx?'agora':'depois';
+    return '<li class="cc-passo cc-p-'+st+'"><span class="cc-bola">'+(st==='feito'?'✓':s.ic)+'</span><div><b>'+esc(s.t)+(st==='agora'?' <em>agora</em>':'')+'</b><small>'+esc(s.d)+'</small><span>'+esc(s.x)+'</span></div></li>';
+  }).join('')+'</ol>';
+  return '<div class="cc-agora"><span class="cc-agora-ic">'+ic+'</span><div><strong class="cc-agora-t">'+esc(titulo)+'</strong><p>'+texto+'</p>'+botao+'</div></div>'+
+    '<p class="cc-sub">Como funciona a escala de <b>'+esc(nm)+'</b>:</p>'+linha;
+}
 function cicloHtml(ondeEscalas){
   const h=hojeISO();
   if(!ciclo.mes) ciclo.mes=h.slice(0,7);
   const m=ciclo.mes, dados=ciclo.dados[m], mh=h.slice(0,7), dadosHoje=ciclo.dados[mh];
   if(!dados) setTimeout(()=>carregarCiclo(m),0);
   if(!dadosHoje) setTimeout(()=>carregarCiclo(mh),0);
-  if(ondeEscalas&&ciclo.escondido) return '<div class="ciclo-mostrar"><button type="button" class="link-btn" data-action="cicloMostrar">📅 Ver o calendário das datas da escala</button></div>';
+  if(ondeEscalas&&ciclo.escondido) return '<div class="ciclo-mostrar"><button type="button" class="link-btn" data-action="cicloMostrar">📅 Ver as datas da escala</button></div>';
+  const topo='<div class="cc-top"><h2>📅 Datas da escala</h2>'+(ondeEscalas?'<button type="button" class="link-btn" data-action="cicloEsconder">Esconder</button>':'')+'</div>';
+  if(!dadosHoje) return '<section class="panel ciclo">'+topo+'<p class="note">Carregando as datas…</p></section>';
+  const agora=cicloAgoraHtml(dadosHoje.ciclos||[],ondeEscalas);
+  // No Painel o calendário fica recolhido (abre no botão); na aba Escalas aparece direto.
+  const mostrarCal=ondeEscalas||ciclo.calAberto;
+  if(!mostrarCal) return '<section class="panel ciclo">'+topo+agora+
+    '<button type="button" class="btn cc-abrir" data-action="cicloCal">📆 Ver no calendário</button></section>';
   const ciclos=dados&&dados.ciclos||[];
   const p=m.split('-').map(Number), primeiro=new Date(p[0],p[1]-1,1), dias=new Date(p[0],p[1],0).getDate();
-  const sel=ciclo.sel&&ciclo.sel.slice(0,7)===m?ciclo.sel:(h.slice(0,7)===m?h:m+'-01');
+  const sel=ciclo.sel&&ciclo.sel.slice(0,7)===m?ciclo.sel:(mh===m?h:m+'-01');
   let cel='';
   for(let i=0;i<primeiro.getDay();i++) cel+='<span class="cc-vazio"></span>';
   for(let d=1;d<=dias;d++){
@@ -1973,34 +2062,23 @@ function cicloHtml(ondeEscalas){
     const cls=['cc-dia'];
     ['cand','prazo','coord','inicio'].forEach(k=>{ if(it.some(x=>x.cls===k)) cls.push('cc-'+k); });
     if(it.some(x=>x.cls==='missa')) cls.push('cc-missa');
+    if(iso<h) cls.push('cc-passou');
     if(iso===h) cls.push('cc-hoje');
     if(iso===sel) cls.push('cc-sel');
     const ic=it.find(x=>['🙋','⏰','📣','▶️'].indexOf(x.ic)>-1&&(x.ic!=='🙋'||ciclos.some(c=>c.abre===iso)));
     cel+='<button type="button" class="'+cls.join(' ')+'" data-action="cicloDia" data-dia="'+iso+'" aria-label="'+d+'"><span>'+d+'</span>'+(ic?'<i>'+ic.ic+'</i>':'')+'</button>';
   }
-  const itSel=dados?cicloDoDia(sel,ciclos):[];
-  const dSel=parse(sel);
-  const detalhe='<div class="cc-det"><b class="cc-det-h">'+(sel===h?'Hoje, ':'')+cap(dSel.toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long'}))+'</b>'+
-    (itSel.length?itSel.map(x=>'<p class="cc-l cc-l-'+x.cls+'"><span>'+x.ic+'</span><span>'+x.tx+'</span></p>').join(''):'<p class="cc-l"><span>·</span><span>Nada da escala neste dia.</span></p>')+'</div>';
-  // Próximas datas importantes (a partir de hoje), pra quem quer só saber "o que vem agora".
-  const marcos=[];
-  (dadosHoje&&dadosHoje.ciclos||[]).forEach(c=>{
-    const nm=nomeMesCurto(c.mes);
-    if(c.abre) marcos.push([c.abre,'🙋 Abrem as candidaturas de '+nm]);
-    if(c.prazo) marcos.push([c.prazo,'⏰ Último dia pra se candidatar a '+nm]);
-    if(c.coordenacaoInicio) marcos.push([c.coordenacaoInicio,'🧩 Coordenação monta '+nm+(c.coordenacaoFim!==c.coordenacaoInicio?' (até '+fmtDM(c.coordenacaoFim)+')':'')]);
-    marcos.push([c.inicio,'▶️ Começa a escala de '+nm]);
-  });
-  const prox=marcos.filter(x=>x[0]>=h).sort((a,b)=>a[0].localeCompare(b[0])).filter((x,i,arr)=>arr.findIndex(y=>y[1]===x[1])===i).slice(0,3);
-  return '<section class="panel ciclo"><div class="cc-top"><h2>📅 Datas da escala</h2>'+
-      (ondeEscalas?'<button type="button" class="link-btn" data-action="cicloEsconder">Esconder</button>':'')+'</div>'+
-    '<div class="cc-corpo">'+
-    (prox.length?'<div class="cc-prox">'+prox.map(x=>'<button type="button" class="cc-prox-i" data-action="cicloDia" data-dia="'+x[0]+'"><b>'+fmtDM(x[0])+'</b><span>'+esc(x[1])+'</span></button>').join('')+'</div>':'')+
-    '<div class="cc-cal"><div class="cc-nav"><button type="button" class="icon-btn" data-action="cicloMes" data-n="-1" aria-label="Mês anterior">‹</button><b>'+esc(nomeMes(m))+'</b><button type="button" class="icon-btn" data-action="cicloMes" data-n="1" aria-label="Próximo mês">›</button></div>'+
-    '<div class="cc-grade"><span class="cc-sem">D</span><span class="cc-sem">S</span><span class="cc-sem">T</span><span class="cc-sem">Q</span><span class="cc-sem">Q</span><span class="cc-sem">S</span><span class="cc-sem">S</span>'+cel+'</div>'+
-    (dados?'':'<p class="note">Carregando as datas…</p>')+
-    '<div class="cc-leg"><span><i class="cc-q cc-cand"></i>Candidaturas</span><span><i class="cc-q cc-prazo"></i>Último dia do prazo</span><span><i class="cc-q cc-coord"></i>Coordenação monta</span><span><i class="cc-q cc-missa-q"></i>Missa de '+esc(SETOR_NAME[currentSetor])+'</span><span><i class="cc-q cc-hoje-q"></i>Hoje</span></div></div>'+
-    '<div class="cc-info">'+detalhe+'<p class="note" style="margin:8px 0 0">Toque num dia pra ver o que acontece nele.</p></div></div></section>';
+  const itSel=dados?cicloDoDia(sel,ciclos):[], dSel=parse(sel), nSel=diasAte(sel);
+  const quando=nSel===0?'Hoje':nSel===1?'Amanhã':nSel===-1?'Ontem':nSel>1?'Daqui a '+nSel+' dias':'Há '+(-nSel)+' dias';
+  const detalhe='<div class="cc-det'+(ciclo.animar?' cc-anim':'')+'"><div class="cc-det-h"><b>'+cap(dSel.toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long'}))+'</b><small>'+quando+'</small></div>'+
+    (itSel.length?itSel.map(x=>'<div class="cc-l cc-l-'+x.cls+'"><span class="cc-l-ic">'+x.ic+'</span><span>'+x.tx+'</span></div>').join(''):'<div class="cc-l"><span class="cc-l-ic">·</span><span>Nada da escala neste dia.</span></div>')+'</div>';
+  ciclo.animar=false;
+  const leg='<div class="cc-leg"><span><i class="cc-q cc-cand"></i>Candidaturas</span><span><i class="cc-q cc-prazo"></i>Último dia</span><span><i class="cc-q cc-coord"></i>Coordenação</span><span><i class="cc-q cc-missa-q"></i>Missa de '+esc(SETOR_NAME[currentSetor])+'</span></div>';
+  const cal='<div class="cc-cal"><div class="cc-nav"><button type="button" class="icon-btn" data-action="cicloMes" data-n="-1" aria-label="Mês anterior">‹</button><b>'+esc(nomeMes(m))+'</b><button type="button" class="icon-btn" data-action="cicloMes" data-n="1" aria-label="Próximo mês">›</button></div>'+
+    '<div class="cc-grade"><span class="cc-sem">D</span><span class="cc-sem">S</span><span class="cc-sem">T</span><span class="cc-sem">Q</span><span class="cc-sem">Q</span><span class="cc-sem">S</span><span class="cc-sem">S</span>'+cel+'</div>'+leg+'</div>';
+  return '<section class="panel ciclo">'+topo+agora+
+    '<div class="cc-corpo">'+cal+'<div class="cc-info"><p class="cc-dica">👆 Toque num dia pra ver o que acontece nele</p>'+detalhe+'</div></div>'+
+    (!ondeEscalas?'<button type="button" class="link-btn cc-fechar" data-action="cicloCal">Esconder o calendário</button>':'')+'</section>';
 }
 function escalaTabsHtml(){
   return '<div class="dash-tabs tabs-quebra">'+
@@ -4068,7 +4146,8 @@ document.addEventListener('click',e=>{
     case 'openDatashow': openDatashow(id); break;
     case 'novaEscala': abrirNovaEscala(); break;
     case 'adicionarSlotForm': sincronizarSlotFormDoDOM(); escalaFormSlots.push({rotulo:'',tipo:null}); reabrirEscalaModal(); break;
-    case 'cicloDia': ciclo.sel=t.dataset.dia; ciclo.mes=t.dataset.dia.slice(0,7); render(); break;
+    case 'cicloDia': ciclo.sel=t.dataset.dia; ciclo.mes=t.dataset.dia.slice(0,7); ciclo.animar=true; render(); break;
+    case 'cicloCal': ciclo.calAberto=!ciclo.calAberto; render(); break;
     case 'cicloMes': ciclo.mes=mesMais(ciclo.mes,+t.dataset.n); ciclo.sel=null; render(); break;
     case 'cicloEsconder': ciclo.escondido=true; try{ localStorage.setItem('pascom-ciclo-escondido','1'); }catch(e){} render(); break;
     case 'cicloMostrar': ciclo.escondido=false; try{ localStorage.removeItem('pascom-ciclo-escondido'); }catch(e){} render(); break;

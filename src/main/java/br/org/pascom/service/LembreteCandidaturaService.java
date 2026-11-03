@@ -113,7 +113,7 @@ public class LembreteCandidaturaService {
             if (setor == null) continue;
             // "candidatura:<mês>:<36h|12h>:<setor>": o app abre a escala desse setor quando a pessoa toca no aviso.
             String acao = "candidatura:" + mes + ":" + marco + ":" + setor.name().toLowerCase();
-            if (avisoService.jaAvisou(u, acao, fecha.minusDays(5))) continue;
+            if (avisoService.jaAvisou(u, acao, fecha.minusYears(1))) continue; // a ação já traz o mês e o marco
 
             String texto = (marco.equals(HORAS_ULTIMO + "h") ? "⏰ Últimas horas! " : "⏰ ")
                     + "O prazo pra se candidatar à escala de " + nomeMes + " vai até " + ate + " e você ainda não se candidatou. "
